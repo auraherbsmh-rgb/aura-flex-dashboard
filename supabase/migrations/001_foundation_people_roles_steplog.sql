@@ -1,4 +1,5 @@
--- Applied Oct 15, 2026. People + roles, private pay, step log, row-level security.
+-- Applied Oct 15, 2026 as two live migrations (foundation_people_roles_steplog + move_helpers_to_private_schema),
+-- kept here as one file with the final state. People + roles, private pay, step log, row-level security.
 create type public.person_role as enum ('founder_1','founder_2','copywriter','editor','agency','strategist');
 
 create table public.people (
