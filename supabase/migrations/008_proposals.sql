@@ -1,0 +1,7 @@
+-- Applied Oct 15, 2026 (live migration "proposals"). Screen 3: Propose + Decide.
+-- proposals(proposed_by, avatar_id, awareness Problem|Solution|Product|Most-Aware, angle_id XOR new_angle_name, why,
+--           format_id?, status waiting|approved|on_hold|rejected, answer (required for on_hold/rejected),
+--           decided_by, decided_at, answer_seen_at, new_angle_item_id, created_at)
+-- RLS: founders read all, others their own; insert only in your own name (copywriters, founders); only founders decide.
+-- Step log via private.log_change trigger.
+-- Live test (rolled back): own proposal allowed · proposing as someone else refused · copywriter deciding refused · 1 log row.
