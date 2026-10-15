@@ -13,15 +13,14 @@ export type Viewer = {
 /** The logged-in person, read once per request. Logged out → /login; login without an active people row → /no-access. */
 export const getViewer = cache(async (): Promise<Viewer> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: auth } = await supabase.auth.getClaims();
+  const userId = auth?.claims?.sub;
+  if (!userId) redirect("/login");
 
   const { data: person } = await supabase
     .from("people")
     .select("id, display_name, role, email, active")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", userId)
     .maybeSingle();
 
   if (!person || !person.active || !isLoginRole(person.role)) redirect("/no-access");
@@ -30,7 +29,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     personId: person.id,
     name: person.display_name,
     role: person.role,
-    email: person.email ?? user.email ?? "",
+    email: person.email ?? "",
   };
 });
 
