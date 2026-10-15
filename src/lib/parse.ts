@@ -1,7 +1,12 @@
 /** Reads a typed number the way people write it: "$4.18", "17,813", " 0.749 ", "4 scripts / week". Empty → null. */
 export function parseNumber(raw: FormDataEntryValue | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
-  const s = String(raw).trim();
+  // Arabic-Indic (٠-٩) and Eastern Arabic (۰-۹) digits become 0-9; a decimal comma "4,5" becomes "4.5".
+  const s = String(raw)
+    .trim()
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/^(\d+),(\d{1,2})$/, "$1.$2");
   if (s === "" || s === "—" || s === "-") return null;
   const m = s.replace(/[$,\s]/g, "").match(/^-?\d+(\.\d+)?/);
   if (!m) return NaN;

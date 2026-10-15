@@ -9,6 +9,9 @@ test("numbers typed the way people write them", () => {
   assert.equal(parseNumber("4 scripts / week"), 4);
   assert.equal(parseNumber(""), null);
   assert.ok(Number.isNaN(parseNumber("abc") as number));
+  assert.equal(parseNumber("١٠"), 10);
+  assert.equal(parseNumber("4,5"), 4.5);
+  assert.equal(parseNumber("17,813"), 17813);
 });
 
 test("rates typed as % or as a share", () => {

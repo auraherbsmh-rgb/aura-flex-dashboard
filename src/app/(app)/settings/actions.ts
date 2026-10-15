@@ -232,7 +232,9 @@ export async function saveRules(_prev: ActionState, form: FormData): Promise<Act
   const rows = [];
   for (const r of rules) {
     const value = parseNumber(form.get(`rule_${r.key}`));
-    if (Number.isNaN(value) || (value !== null && value <= 0)) return fail(`"${r.label}" needs a number above 0, or empty.`);
+    if (Number.isNaN(value) || (value !== null && value <= 0)) {
+      return fail(`"${r.label}" needs a number above 0, or empty (you typed "${text(form.get(`rule_${r.key}`))}").`);
+    }
     rows.push({ ...r, value, updated_by: v.personId, updated_at: now });
   }
   const { error } = await supabase.from("alert_rules").upsert(rows, { onConflict: "key" });
