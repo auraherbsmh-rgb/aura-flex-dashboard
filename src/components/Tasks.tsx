@@ -169,24 +169,25 @@ export function CreateTaskButton({
             <textarea className="ta" name="founder_note" maxLength={1000} rows={2} placeholder="new face, a doctor's voice" />
           </label>
 
-          <div className="field" role="radiogroup" aria-label="Copywriter">
-            <span className="lbl">Copywriter · load this week</span>
-            <input type="hidden" name="copywriter_id" value={f.writer} />
+          <div className="field" role="radiogroup" aria-labelledby="lbl-writer">
+            <span className="lbl" id="lbl-writer">Copywriter · load this week</span>
             {noWriters && <div className="info">No active copywriter yet. Add one in Settings → People first.</div>}
             {ctx.copywriters.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="radio"
-                aria-checked={f.writer === c.id}
-                className={`pick ${f.writer === c.id ? "pick-on" : ""}`}
-                onClick={() => set("writer")(c.id)}
-              >
+              <label key={c.id} className={`pick ${f.writer === c.id ? "pick-on" : ""}`}>
+                <input
+                  type="radio"
+                  name="copywriter_id"
+                  value={c.id}
+                  required
+                  checked={f.writer === c.id}
+                  onChange={() => set("writer")(c.id)}
+                  className="pick-radio"
+                />
                 <span>{c.id === star && ctx.copywriters.length > 1 ? "★ " : ""}{c.name}</span>
                 <span className="sub">
                   {c.target ? `${c.approvedThisWeek} of ${c.target} scripts` : `${c.approvedThisWeek} scripts approved`} · {c.openTasks} open task{c.openTasks === 1 ? "" : "s"}
                 </span>
-              </button>
+              </label>
             ))}
           </div>
 

@@ -248,7 +248,9 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .ch-used { font: 600 11px var(--mono); padding: 5px 9px; border-radius: 999px; background: #fff; color: #4a2603; }
 .ch-un { font: 500 11px var(--mono); padding: 4px 8px; border-radius: 999px; border: 1px dashed #c9a27e; color: #6e3504; }
 .pick { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; border: 1px solid #e1e1dc; background: #fff; font: 400 14px var(--font); color: var(--ink); width: 100%; text-align: left; cursor: pointer; min-height: 48px; }
-.pick:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pick-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.pick { position: relative; }
+.pick:has(.pick-radio:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
 .pick-on { border: 2px solid #111; box-shadow: 0 8px 18px rgba(20, 20, 15, 0.1); }
 .task { display: flex; flex-direction: column; gap: 6px; }
 .task-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

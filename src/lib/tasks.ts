@@ -2,34 +2,46 @@ import { createClient } from "@/lib/supabase/server";
 import { weekStartIso, type AngleInfo, type CopywriterLoad, type CreateTaskContext, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
+/** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) throw new Error("Could not read tasks. Reload the page.");
+    out.push(...(data ?? []));
+    if (!data || data.length < 1000) return out;
+  }
+}
 
 /** What the Create task pop-up needs: angle core messages, past tasks (for CHANGE), copywriters with their load. */
 export async function getCreateTaskContext(): Promise<CreateTaskContext> {
   const supabase = await createClient();
   const since = weekStartIso();
-  const [angles, tasks, people, pay, approvals] = await Promise.all([
+  const [angles, taskRows, people, pay, approvals] = await Promise.all([
     supabase.from("list_items").select("id, code, label, core_message").eq("list", "angle").eq("status", "approved").order("sort"),
-    supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status, copywriter_id").neq("status", "cancelled"),
+    allRows((a, b) =>
+      supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status, copywriter_id").neq("status", "cancelled").order("id").range(a, b),
+    ),
     supabase.from("people").select("id, display_name").eq("role", "copywriter").eq("active", true).order("display_name"),
     supabase.from("people_pay").select("person_id, weekly_target"),
     // Scripts approved this week: a task's status changed to "approved" since Monday (from the step log).
-    supabase.from("step_log").select("entity_id, detail").eq("entity_type", "tasks").gte("at", since),
+    allRows((a, b) => supabase.from("step_log").select("id, entity_id, detail").eq("entity_type", "tasks").gte("at", since).order("id").range(a, b)),
   ]);
 
-  const taskRows = tasks.data ?? [];
-  const approvedBy = new Map<string, number>();
+  // Each task counts once, even if approved, sent back and approved again in the same week.
+  const approvedBy = new Map<string, Set<string>>();
   const taskOwner = new Map(taskRows.map((t) => [t.id, t.copywriter_id as string]));
-  for (const row of approvals.data ?? []) {
+  for (const row of approvals) {
     const to = (row.detail as { changed?: { status?: { to?: string } } })?.changed?.status?.to;
     const owner = row.entity_id ? taskOwner.get(row.entity_id) : undefined;
-    if (to === "approved" && owner) approvedBy.set(owner, (approvedBy.get(owner) ?? 0) + 1);
+    if (to === "approved" && owner) approvedBy.set(owner, (approvedBy.get(owner) ?? new Set()).add(row.entity_id as string));
   }
   const targetBy = new Map((pay.data ?? []).map((p) => [p.person_id as string, p.weekly_target as number | null]));
   const copywriters: CopywriterLoad[] = (people.data ?? []).map((p) => ({
     id: p.id,
     name: p.display_name,
     target: targetBy.get(p.id) ?? null,
-    approvedThisWeek: approvedBy.get(p.id) ?? 0,
+    approvedThisWeek: approvedBy.get(p.id)?.size ?? 0,
     openTasks: taskRows.filter((t) => t.copywriter_id === p.id && ["writing", "review", "changes"].includes(t.status)).length,
   }));
 

@@ -55,17 +55,18 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   const supabase = await createClient();
 
   // CHANGE box facts, recomputed here from the database (not trusted from the browser).
-  let facts = { used: [] as { label: string; count: number }[], total: 0, untried: [] as string[] };
-  if (angle !== NEW) {
-    const [tasks, formats] = await Promise.all([
-      supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status").eq("angle_id", angle).neq("status", "cancelled"),
-      supabase.from("list_items").select("id, label, code").eq("list", "format").eq("status", "approved").order("sort"),
-    ]);
-    const lite: TaskLite[] = (tasks.data ?? []).map((t) => ({
-      id: t.id, avatarId: t.avatar_id, awareness: t.awareness, angleId: t.angle_id, formatId: t.format_id, status: t.status,
-    }));
-    facts = changeFacts(lite, { avatarId, awareness, angleId: angle }, (formats.data ?? []).filter((f) => f.code !== "IMG"));
-  }
+  // A new angle has no tasks yet: every video format is untried.
+  const [tasks, formats] = await Promise.all([
+    angle === NEW
+      ? Promise.resolve({ data: [] as { id: string; avatar_id: string; awareness: string; angle_id: string; format_id: string; status: string }[] })
+      : supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status")
+          .eq("angle_id", angle).eq("avatar_id", avatarId).eq("awareness", awareness).neq("status", "cancelled").limit(1000),
+    supabase.from("list_items").select("id, label, code").eq("list", "format").eq("status", "approved").order("sort"),
+  ]);
+  const lite: TaskLite[] = (tasks.data ?? []).map((t) => ({
+    id: t.id, avatarId: t.avatar_id, awareness: t.awareness, angleId: t.angle_id, formatId: t.format_id, status: t.status,
+  }));
+  const facts = changeFacts(lite, { avatarId, awareness, angleId: angle }, (formats.data ?? []).filter((f) => f.code !== "IMG"));
 
   const { error } = await supabase.rpc("create_task", {
     p_copywriter: copywriterId,
