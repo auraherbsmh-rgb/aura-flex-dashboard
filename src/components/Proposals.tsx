@@ -112,10 +112,15 @@ function DecideModal({ p, open, onClose, onDone, who = "Founder 1 · DECIDE item
     setPending(true);
     setError("");
     startTransition(async () => {
-      const res = await decide(empty, fd);
-      setPending(false);
-      if (res.ok) { onDone(res.ok); onClose(); }
-      else setError(res.error ?? "Not saved.");
+      try {
+        const res = await decide(empty, fd);
+        if (res.ok) { onDone(res.ok); onClose(); }
+        else setError(res.error ?? "Not saved.");
+      } catch {
+        setError("No connection: nothing was saved. Try again.");
+      } finally {
+        setPending(false);
+      }
     });
   };
 

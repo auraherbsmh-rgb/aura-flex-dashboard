@@ -1,0 +1,3 @@
+-- Applied Oct 15, 2026 (screen 3 checker run 3 fix).
+-- decide_proposal: the proposal's own angle item (created at an earlier "On hold") follows the later decision;
+-- only a true duplicate is left alone. Live test (rolled back): hold → list on_hold · reject → list rejected.
