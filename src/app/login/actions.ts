@@ -28,6 +28,8 @@ export async function sendLoginLink(_prev: LoginState, formData: FormData): Prom
   if (error && error.status === 429) {
     return { status: "error", message: "Too many links asked for. Wait a few minutes and try again." };
   }
-  // Any other error (including an email not on the team) gets the same neutral answer.
+  // Any other error (including an email not on the team) gets the same neutral answer on screen,
+  // but is written to the server log so a real sending failure is visible to us.
+  if (error) console.error("login link not sent", { status: error.status, code: error.code, message: error.message });
   return { status: "sent" };
 }

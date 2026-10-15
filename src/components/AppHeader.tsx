@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TABS, TABS_BY_ROLE, ROLE_SUBTITLE, initials, type TabKey } from "@/lib/access";
+import { TABS, TABS_BY_ROLE, ROLE_SUBTITLE, SHOW_TAB_BAR, brandSubtitle, initials, type TabKey } from "@/lib/access";
 import type { Viewer } from "@/lib/viewer";
 import { signOut } from "@/app/actions";
 
@@ -14,10 +14,11 @@ export function AppHeader({ viewer, active }: { viewer: Viewer; active: TabKey }
         <div className="logo" aria-hidden="true">AF</div>
         <div>
           <div className="brand-name">Aura Flex</div>
-          <div className="brand-sub">Team dashboard</div>
+          <div className="brand-sub">{brandSubtitle(active)}</div>
         </div>
       </Link>
 
+      {SHOW_TAB_BAR[viewer.role] && (
       <nav className="navbar recess" aria-label="Tabs">
         {tabs.map((t) => (
           <Link
@@ -30,6 +31,7 @@ export function AppHeader({ viewer, active }: { viewer: Viewer; active: TabKey }
           </Link>
         ))}
       </nav>
+      )}
 
       <div className="who">
         <div className="avatar raise" aria-hidden="true">{initials(viewer.name)}</div>

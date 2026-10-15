@@ -35,8 +35,21 @@ export const ROLE_SUBTITLE: Record<Role, string> = {
   founder_1: "Copywriting review",
   founder_2: "Editing · launch · testimonials",
   copywriter: "Copywriter",
-  editor: "Editor",
+  editor: "Video editor",
 };
+
+/** Copywriters have a single tab, so the artboard shows no tab bar for them (Copywriting.dc.html). Editors keep a one-pill bar (Editing.dc.html). */
+export const SHOW_TAB_BAR: Record<Role, boolean> = {
+  founder_1: true,
+  founder_2: true,
+  copywriter: false,
+  editor: true,
+};
+
+/** Small line under "Aura Flex": the Copywriting artboard says "Copywriting", every other one "Team dashboard". */
+export function brandSubtitle(tab: TabKey): string {
+  return tab === "copywriting" ? "Copywriting" : "Team dashboard";
+}
 
 export function isLoginRole(role: string): role is Role {
   return role === "founder_1" || role === "founder_2" || role === "copywriter" || role === "editor";

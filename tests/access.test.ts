@@ -33,3 +33,13 @@ test("initials match the artboards", () => {
   assert.equal(initials("Founder 2"), "F2");
   assert.equal(initials("Amel Ben Ali"), "AB");
 });
+
+import { SHOW_TAB_BAR, ROLE_SUBTITLE, brandSubtitle } from "../src/lib/access";
+
+test("header per role matches the artboards", () => {
+  assert.equal(SHOW_TAB_BAR.copywriter, false);
+  assert.equal(SHOW_TAB_BAR.editor, true);
+  assert.equal(ROLE_SUBTITLE.editor, "Video editor");
+  assert.equal(brandSubtitle("copywriting"), "Copywriting");
+  assert.equal(brandSubtitle("home"), "Team dashboard");
+});
