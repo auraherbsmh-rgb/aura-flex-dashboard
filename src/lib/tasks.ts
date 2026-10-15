@@ -3,11 +3,11 @@ import { weekStartIso, type AngleInfo, type CopywriterLoad, type CreateTaskConte
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
-async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+async function allRows<T>(what: string, page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await page(from, from + 999);
-    if (error) throw new Error("Could not read tasks. Reload the page.");
+    if (error) throw new Error(`Could not read ${what}. Reload the page.`);
     out.push(...(data ?? []));
     if (!data || data.length < 1000) return out;
   }
@@ -19,13 +19,13 @@ export async function getCreateTaskContext(): Promise<CreateTaskContext> {
   const since = weekStartIso();
   const [angles, taskRows, people, pay, approvals] = await Promise.all([
     supabase.from("list_items").select("id, code, label, core_message").eq("list", "angle").eq("status", "approved").order("sort"),
-    allRows((a, b) =>
+    allRows("tasks", (a, b) =>
       supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status, copywriter_id").neq("status", "cancelled").order("id").range(a, b),
     ),
     supabase.from("people").select("id, display_name").eq("role", "copywriter").eq("active", true).order("display_name"),
     supabase.from("people_pay").select("person_id, weekly_target"),
     // Scripts approved this week: a task's status changed to "approved" since Monday (from the step log).
-    allRows((a, b) => supabase.from("step_log").select("id, entity_id, detail").eq("entity_type", "tasks").gte("at", since).order("id").range(a, b)),
+    allRows("the step log", (a, b) => supabase.from("step_log").select("id, entity_id, detail").eq("entity_type", "tasks").gte("at", since).order("id").range(a, b)),
   ]);
 
   // Each task counts once, even if approved, sent back and approved again in the same week.

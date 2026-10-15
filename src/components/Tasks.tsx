@@ -60,8 +60,11 @@ export function CreateTaskButton({
   };
 
   const angle = ctx.angles.find((a) => a.id === f.angle);
-  const cellReady = f.avatar && f.awareness && f.angle && f.angle !== NEW;
-  const facts = cellReady ? changeFacts(ctx.tasks, { avatarId: f.avatar, awareness: f.awareness, angleId: f.angle }, pickers.formats) : null;
+  const cellReady = f.avatar && f.awareness && f.angle;
+  // A new angle has no tasks yet: every video format shows as untried (same facts the server saves).
+  const facts = cellReady
+    ? changeFacts(f.angle === NEW ? [] : ctx.tasks, { avatarId: f.avatar, awareness: f.awareness, angleId: f.angle }, pickers.formats)
+    : null;
   const star = suggestCopywriter(ctx.copywriters);
   const noWriters = ctx.copywriters.length === 0;
 
@@ -149,7 +152,7 @@ export function CreateTaskButton({
           <div className="chg">
             <b>CHANGE · facts only</b>
             {!facts ? (
-              <span>{f.angle === NEW ? "New angle: nothing tried here yet." : "Pick avatar, awareness and angle to see what was tried in this cell."}</span>
+              <span>Pick avatar, awareness and angle to see what was tried in this cell.</span>
             ) : (
               <>
                 <span className="chg-row">
