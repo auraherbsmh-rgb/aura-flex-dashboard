@@ -24,6 +24,10 @@ export type Proposal = {
   format: string | null;
   answer: string | null;
   decidedBy: string | null;
+  avatarId: string;
+  angleId: string | null;   // the existing angle, or the new angle's list item once decided
+  formatId: string | null;
+  hasTask: boolean;         // an approved proposal already turned into a task
 };
 
 /** Short ages as on the Home artboards: "6h", "1 DAY"; late lines always in hours ("52h"). */

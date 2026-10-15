@@ -1,0 +1,87 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/viewer";
+import { text, toNameCode } from "@/lib/parse";
+import { AWARENESS } from "@/lib/proposals-shared";
+import { changeFacts, tunisDate, type TaskLite } from "@/lib/tasks-shared";
+
+export type TaskState = { ok?: string; error?: string; at?: number };
+const done = (ok: string): TaskState => ({ ok, at: Date.now() });
+const fail = (error: string): TaskState => ({ error, at: Date.now() });
+
+const NEW = "__new__";
+
+/** Today in Tunisia (UTC+1 all year) as YYYY-MM-DD. */
+const tunisToday = () => tunisDate(0);
+
+/**
+ * Founder creates a task for a copywriter (Create task pop-up, handoff §7).
+ * KEEP = the angle's core message, CHANGE = facts of what was tried in this cell and angle — both saved with the task
+ * as they were at creation. A new angle is created approved (a founder creating it is the decision), in the same
+ * database transaction as the task (public.create_task).
+ */
+export async function createTask(_prev: TaskState, form: FormData): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders create tasks.");
+
+  const avatarId = text(form.get("avatar_id"));
+  const awareness = text(form.get("awareness"));
+  const angle = text(form.get("angle_id"));
+  const newName = text(form.get("new_angle_name"));
+  const track = text(form.get("track")) || "knee";
+  const formatId = text(form.get("format_id"));
+  const due = text(form.get("due_on"));
+  const reference = text(form.get("reference"));
+  const note = text(form.get("founder_note"));
+  const copywriterId = text(form.get("copywriter_id"));
+  const proposalId = text(form.get("proposal_id")) || null;
+
+  if (!avatarId) return fail("Pick the avatar.");
+  if (!(AWARENESS as readonly string[]).includes(awareness)) return fail("Pick the awareness level.");
+  if (!angle) return fail("Pick an angle, or “+ New angle…”.");
+  if (angle === NEW && newName.length < 2) return fail("Give the new angle a name.");
+  if (newName.length > 80) return fail("Keep the angle name under 80 characters.");
+  const newCode = angle === NEW ? toNameCode(newName) : null;
+  if (angle === NEW && !newCode) return fail("Write the angle name with Latin letters: it goes into ad names.");
+  if (!formatId) return fail("Pick the format.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return fail("Pick the due date.");
+  if (due < tunisToday()) return fail("The due date is in the past.");
+  if (reference.length > 500) return fail("Keep the reference under 500 characters.");
+  if (note.length > 1000) return fail("Keep the note under 1,000 characters.");
+  if (!copywriterId) return fail("Pick the copywriter.");
+
+  const supabase = await createClient();
+
+  // CHANGE box facts, recomputed here from the database (not trusted from the browser).
+  let facts = { used: [] as { label: string; count: number }[], total: 0, untried: [] as string[] };
+  if (angle !== NEW) {
+    const [tasks, formats] = await Promise.all([
+      supabase.from("tasks").select("id, avatar_id, awareness, angle_id, format_id, status").eq("angle_id", angle).neq("status", "cancelled"),
+      supabase.from("list_items").select("id, label, code").eq("list", "format").eq("status", "approved").order("sort"),
+    ]);
+    const lite: TaskLite[] = (tasks.data ?? []).map((t) => ({
+      id: t.id, avatarId: t.avatar_id, awareness: t.awareness, angleId: t.angle_id, formatId: t.format_id, status: t.status,
+    }));
+    facts = changeFacts(lite, { avatarId, awareness, angleId: angle }, (formats.data ?? []).filter((f) => f.code !== "IMG"));
+  }
+
+  const { error } = await supabase.rpc("create_task", {
+    p_copywriter: copywriterId,
+    p_avatar: avatarId,
+    p_awareness: awareness,
+    p_angle: angle === NEW ? null : angle,
+    p_new_angle_code: newCode,
+    p_track: track,
+    p_format: formatId,
+    p_due: due,
+    p_reference: reference,
+    p_note: note,
+    p_change: facts,
+    p_proposal: proposalId,
+  });
+  if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : `Not created: ${error.message}`);
+  revalidatePath("/", "layout");
+  return done("Task created. It is in the copywriter’s list now.");
+}

@@ -1,0 +1,10 @@
+-- Applied Oct 15, 2026 (screen 4: Create task). Summary of the live migrations "tasks" and "create_task_function".
+-- public.tasks: id, created_by, copywriter_id, avatar_id, awareness, angle_id, format_id, due_on, reference (≤500),
+--   keep_text (angle core message at creation), change_facts jsonb (facts at creation), founder_note (≤1000),
+--   origin manual|alert|proposal|successor, proposal_id, status writing|review|changes|approved|details_done|cancelled, created_at.
+-- RLS: read = founders all, a copywriter her own; insert = founders, created_by = self, status writing; update = founders.
+-- Triggers: private.check_task_refs (approved avatar/angle, video format ≠ IMG, active copywriter) + private.log_change (step_log).
+-- Unique index tasks_one_per_proposal: one live task per proposal.
+-- public.create_task(...) security invoker: founders only; due date not in the past (Tunis);
+--   optional new angle created approved (or an existing same-code angle re-approved), task inserted, one transaction.
+-- Live test (rolled back): existing angle ok · new angle → approved/hips · past date, IMG format, bad code refused · 2 step_log rows.

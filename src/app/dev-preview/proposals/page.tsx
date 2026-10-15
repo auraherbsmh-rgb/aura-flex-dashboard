@@ -9,7 +9,7 @@ export default function Preview() {
   if (process.env.ENABLE_PREVIEW !== "1") notFound();
   const now = Date.parse("2026-10-15T15:00:00Z");
   const h = (hours: number) => new Date(now - hours * 36e5).toISOString();
-  const base = { decidedAt: null, proposedById: "c2", proposedBy: "Copywriter 2", format: null, answer: null, decidedBy: null };
+  const base = { decidedAt: null, proposedById: "c2", proposedBy: "Copywriter 2", format: null, answer: null, decidedBy: null, avatarId: "a1", angleId: "g1", formatId: null, hasTask: false };
   const proposals: Proposal[] = [
     { ...base, id: "p1", status: "waiting", createdAt: h(52), avatarCode: "CGD", awareness: "Problem-Aware", angle: "Can’t carry my grandson", isNewAngle: true, why: "Daughters tell me their mother cries because she can’t pick up the baby." },
     { ...base, id: "p2", status: "waiting", createdAt: h(26), avatarCode: "FSS", awareness: "Most-Aware", angle: "Knee-Broad", isNewAngle: false, why: "Women with a surgery date are the most ready to act.", format: "Doctor video (AUTH)" },

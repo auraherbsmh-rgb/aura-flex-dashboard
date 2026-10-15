@@ -5,6 +5,8 @@ import { Modal } from "./Modal";
 import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
 import type { NeedGroup } from "@/lib/needs";
+import type { CreateTaskContext } from "@/lib/tasks-shared";
+import { CreateTaskButton } from "./Tasks";
 
 const empty: ProposeState = {};
 const NEW = "__new__";
@@ -197,7 +199,7 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
 }
 
 /** Proposals list: a copywriter sees her own with the founder's answers; founders see all. */
-export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[]; showAuthor: boolean }) {
+export function ProposalList({ proposals, showAuthor, taskCtx }: { proposals: Proposal[]; showAuthor: boolean; taskCtx?: { ctx: CreateTaskContext; pickers: Pickers } }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState("");
   if (!proposals.length) return <div className="info">No proposals yet.</div>;
@@ -213,9 +215,21 @@ export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[];
             <b style={{ fontSize: 15 }}>{p.isNewAngle ? `New angle: ${p.angle}` : `Test: ${p.angle}`}</b>
             <span className="tag t-grey">{p.avatarCode} × {shortAwareness(p.awareness)}</span>
             {showAuthor && <span className="unit">by {p.proposedBy}</span>}
+            {p.status === "approved" && p.hasTask && <span className="tag t-blue"><i aria-hidden="true" />TASK CREATED</span>}
           </div>
           <div className="sub">{p.why}</div>
           {p.answer && <div className="info"><b style={{ color: "var(--ink)" }}>{p.decidedBy ?? "Founder"}:</b> {p.answer}</div>}
+          {taskCtx && p.status === "approved" && !p.hasTask && p.angleId && (
+            <div>
+              <CreateTaskButton
+                ctx={taskCtx.ctx}
+                pickers={taskCtx.pickers}
+                className="btn b-primary"
+                label="Create task"
+                prefill={{ proposalId: p.id, avatarId: p.avatarId, awareness: p.awareness, angleId: p.angleId, formatId: p.formatId, label: `${p.angle} · ${p.avatarCode} × ${shortAwareness(p.awareness)}` }}
+              />
+            </div>
+          )}
           {showAuthor && p.status === "on_hold" && (
             <div>
               <button type="button" className="btn b-ghost" onClick={() => setOpenId(p.id)}>Decide again</button>
