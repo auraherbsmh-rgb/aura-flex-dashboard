@@ -24,6 +24,7 @@ export function AppHeader({ viewer, active }: { viewer: Viewer; active: TabKey }
           <Link
             key={t.key}
             href={t.href}
+            prefetch={true}
             className={t.key === active ? "nav nav-on" : "nav"}
             aria-current={t.key === active ? "page" : undefined}
           >
