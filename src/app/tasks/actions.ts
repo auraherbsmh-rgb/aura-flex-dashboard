@@ -103,7 +103,7 @@ export async function submitScript(taskId: string, url: string): Promise<TaskSta
   const { data, error } = await supabase.rpc("submit_script", { p_task: taskId, p_url: link });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done(v.role === "copywriter" ? `Sent for review (round ${data}). Founder 1 gets it on Home.` : `Sent for review (round ${data}). It is now a REVIEW item on Home.`);
+  return done(v.role === "founder_1" ? `Sent for review (round ${data}). It is now a REVIEW item on your Home.` : `Sent for review (round ${data}). Founder 1 gets it on Home.`);
 }
 
 /** Founder decides on the round in review. Needs changes: Loom optional, one line required when there is no Loom. */
