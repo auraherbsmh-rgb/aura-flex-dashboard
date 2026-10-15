@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { startTransition, useActionState, useState, useTransition, type FormEvent } from "react";
 import {
   saveMoney,
   savePeople,
@@ -20,6 +20,18 @@ import { parseNumber, parseRate } from "@/lib/parse";
 import type { Campaign, Flag, Level, ListItem, MoneyRow, Person, Rule } from "@/lib/settings/data";
 
 const empty: ActionState = {};
+
+/**
+ * Submit without React's automatic form reset. With `action={...}` React 19 clears an edit form back to its
+ * first values after saving, so the founder saw the old number again although it was saved. Edit forms use this.
+ */
+function keepValues(action: (fd: FormData) => void) {
+  return (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => action(fd));
+  };
+}
 
 function Msg({ state }: { state: ActionState }) {
   if (state.error) return <span className="formmsg err" role="alert">{state.error}</span>;
@@ -73,7 +85,7 @@ export function MoneyForm({ money }: { money: MoneyRow | null }) {
   const own = (b: 1 | 2 | 3) => (complete ? `$${ownLineForBottles(b, inputs as MoneyInputs).toFixed(2)}` : "—");
 
   return (
-    <form action={action} onChange={(e) => {
+    <form onSubmit={keepValues(action)} onChange={(e) => {
       const t = e.target as unknown as HTMLInputElement;
       if (t.name) setDraft((d) => ({ ...d, [t.name]: t.value }));
     }} style={{ display: "contents" }}>
@@ -188,7 +200,7 @@ function payUnitText(p: Person) {
 export function PeopleForm({ people, inactive }: { people: Person[]; inactive: Person[] }) {
   const [state, action, pending] = useActionState(savePeople, empty);
   return (
-    <form action={action} style={{ display: "contents" }}>
+    <form onSubmit={keepValues(action)} style={{ display: "contents" }}>
       {people.map((p) => <PersonFields key={p.id} p={p} />)}
       {inactive.length > 0 && (
         <details>
@@ -320,7 +332,7 @@ const GROUPS: { key: Rule["grp"]; label: string }[] = [
 export function RulesForm({ rules, flags }: { rules: Rule[]; flags: Flag[] }) {
   const [state, action, pending] = useActionState(saveRules, empty);
   return (
-    <form action={action} style={{ display: "contents" }}>
+    <form onSubmit={keepValues(action)} style={{ display: "contents" }}>
       <div className="fg rules-grid">
         {GROUPS.map((g) => (
           <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -523,7 +535,7 @@ export function LevelsForm({ levels }: { levels: Level[] }) {
   const [state, action, pending] = useActionState(saveLevels, empty);
   const [count, setCount] = useState(Math.max(3, levels.length));
   return (
-    <form action={action} style={{ display: "contents" }}>
+    <form onSubmit={keepValues(action)} style={{ display: "contents" }}>
       <div className="fg fg-3">
         {Array.from({ length: count }, (_, i) => {
           const l = levels[i];
