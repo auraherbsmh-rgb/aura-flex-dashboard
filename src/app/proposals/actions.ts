@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/viewer";
-import { text, toNameCode } from "@/lib/parse";
+import { text } from "@/lib/parse";
 import { AWARENESS } from "@/lib/proposals-shared";
 
 export type ProposeState = { ok?: string; error?: string; at?: number };
@@ -28,6 +28,7 @@ export async function propose(_prev: ProposeState, form: FormData): Promise<Prop
   if (!(AWARENESS as readonly string[]).includes(awareness)) return fail("Pick the awareness level.");
   if (!angle) return fail("Pick an angle, or “+ New angle…”.");
   if (angle === NEW && newName.length < 2) return fail("Give the new angle a name.");
+  if (newName.length > 80) return fail("Keep the angle name under 80 characters.");
   if (why.length < 3) return fail("Say why in one line.");
   if (why.length > 500) return fail("Keep the why to one or two lines.");
 
@@ -47,67 +48,28 @@ export async function propose(_prev: ProposeState, form: FormData): Promise<Prop
 }
 
 /**
- * Founder decides: Approve / On hold / Reject. The answer line is required for On hold and Reject.
- * For a new angle, the decision also puts the angle in Settings · Lists (approved, on hold or rejected),
- * written with dashes so it works in ad names. Approved angles are usable in names right away.
+ * Founder decides: Approve / On hold / Reject (answer required for the last two). Done in one database
+ * transaction (public.decide_proposal): it refuses a proposal another founder already decided, and for a new
+ * angle it puts the angle in Settings · Lists with its track, written with dashes, in the same step.
+ * Either founder may decide (founders cover each other); Founder 2 gets it on Home after the unanswered rule.
  */
 export async function decide(_prev: ProposeState, form: FormData): Promise<ProposeState> {
   const v = await getViewer();
   if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders decide.");
-
-  const id = text(form.get("id"));
   const choice = text(form.get("decision"));
   const answer = text(form.get("answer"));
   if (!["approved", "on_hold", "rejected"].includes(choice)) return fail("Choose Approve, On hold or Reject.");
   if (choice !== "approved" && !answer) return fail("Write her an answer: it's required for On hold and Reject.");
 
   const supabase = await createClient();
-  const { data: p } = await supabase.from("proposals").select("id, status, new_angle_name").eq("id", id).maybeSingle();
-  if (!p) return fail("Proposal not found.");
-  if (p.status !== "waiting" && p.status !== "on_hold") return fail("Already decided.");
-
-  let newAngleItemId: string | null = null;
-  if (p.new_angle_name) {
-    const code = toNameCode(p.new_angle_name);
-    if (!code) return fail("The angle name needs letters or numbers.");
-    const listStatus = choice === "approved" ? "approved" : choice;
-    const { data: existing } = await supabase
-      .from("list_items")
-      .select("id, status")
-      .eq("list", "angle")
-      .or(`code.ilike.${code},label.ilike.${code}`)
-      .maybeSingle();
-    if (existing) {
-      if (existing.status === "approved" && choice !== "approved") {
-        return fail(`${code} is already an approved angle. Approve, or answer and reject.`);
-      }
-      const { error } = await supabase.from("list_items").update({ status: listStatus, archived_from: null }).eq("id", existing.id);
-      if (error) return fail(`Not saved: ${error.message}`);
-      newAngleItemId = existing.id;
-    } else {
-      const { data: last } = await supabase.from("list_items").select("sort").eq("list", "angle").order("sort", { ascending: false }).limit(1).maybeSingle();
-      const { data: created, error } = await supabase
-        .from("list_items")
-        .insert({ list: "angle", code, label: code, track: "knee", status: listStatus, sort: (last?.sort ?? 0) + 1, created_by: v.personId })
-        .select("id")
-        .single();
-      if (error) return fail(`Not saved: ${error.message}`);
-      newAngleItemId = created.id;
-    }
-  }
-
-  const { error } = await supabase
-    .from("proposals")
-    .update({
-      status: choice,
-      answer: answer || null,
-      decided_by: v.personId,
-      decided_at: new Date().toISOString(),
-      new_angle_item_id: newAngleItemId,
-    })
-    .eq("id", id);
-  if (error) return fail(`Not saved: ${error.message}`);
+  const { error } = await supabase.rpc("decide_proposal", {
+    p_id: text(form.get("id")),
+    p_choice: choice,
+    p_answer: answer,
+    p_track: text(form.get("track")) || "knee",
+  });
+  if (error) return fail(error.message);
   revalidatePath("/", "layout");
   const word = choice === "approved" ? "Approved" : choice === "on_hold" ? "Put on hold" : "Rejected";
-  return done(`${word}. The answer is in her inbox.`);
+  return done(`${word}. She sees the answer in her proposals list.`);
 }

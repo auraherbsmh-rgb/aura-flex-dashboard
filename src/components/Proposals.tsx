@@ -22,7 +22,11 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
   const [angle, setAngle] = useState("");
   // Open until a save succeeds after it was opened (the message then shows next to the button).
   const open = openedAt !== null && !(state.ok && (state.at ?? 0) > openedAt);
-  const setOpen = (v: boolean) => setOpenedAt(v ? Date.now() : null);
+  const setOpen = (v: boolean) => {
+    setOpenedAt(v ? Date.now() : null);
+    if (v) setAngle("");
+  };
+  const shownError = state.error && (state.at ?? 0) > (openedAt ?? 0) ? state : {};
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,7 +39,7 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
       <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>
       {state.ok && !open && <span className="formmsg ok" role="status" style={{ marginLeft: 12 }}>{state.ok}</span>}
       <Modal open={open} onClose={() => setOpen(false)} who={`Copywriter · “+ Propose” on the map or in a cell`} title="Propose a test">
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <form key={openedAt ?? 0} onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="row2">
             <label className="field">
               <span className="lbl">Avatar</span>
@@ -80,7 +84,7 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
           </label>
           <div className="info">Goes to {sendTo} as a DECIDE item. The answer comes back to your inbox.</div>
           <div className="acts">
-            <Msg s={state.error ? state : {}} />
+            <Msg s={shownError} />
             <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
             <button type="submit" className="btn b-primary" disabled={pending}>{pending ? "Sending…" : `Send to ${sendTo}`}</button>
           </div>
@@ -94,12 +98,14 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
 function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p: Proposal; open: boolean; onClose: () => void; who?: string }) {
   const [state, action, pending] = useActionState(decide, empty);
   const [answer, setAnswer] = useState(p.answer ?? "");
+  const [track, setTrack] = useState("knee");
 
   const send = (decision: "approved" | "on_hold" | "rejected") => {
     const fd = new FormData();
     fd.set("id", p.id);
     fd.set("decision", decision);
     fd.set("answer", answer);
+    fd.set("track", track);
     startTransition(() => action(fd));
   };
   const [openedAt] = useState(() => Date.now());
@@ -114,6 +120,16 @@ function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p
         <div className="field"><span className="lbl">Angle</span><div className="inp inp-ro">{p.angle}</div></div>
       </div>
       <div className="info"><b style={{ color: "var(--ink)" }}>Why (her words):</b> {p.why}</div>
+      {p.isNewAngle && (
+        <label className="field">
+          <span className="lbl">Track for the new angle</span>
+          <select className="inp" value={track} onChange={(e) => setTrack(e.target.value)}>
+            <option value="knee">Knee</option>
+            <option value="hips">Hips</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+      )}
       {p.format && <div className="info"><b style={{ color: "var(--ink)" }}>Format idea:</b> {p.format}</div>}
       <div className="info">Cell results appear here once Meta is connected (phase 3).</div>
       <label className="field">
@@ -154,7 +170,7 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
                   <div className="need-sub">{it.sub}</div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
-                <button type="button" className="btn b-primary" onClick={() => setOpenId(it.key)}>Approve / Reject</button>
+                <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setOpenId(it.key)}>Approve / Reject</button>
                 <DecideModal p={it.proposal} open={openId === it.key} onClose={() => setOpenId(null)} who={it.type === "COVERING" ? "Founder 2 · covering Founder 1’s DECIDE item" : "Founder 1 · DECIDE item"} />
               </div>
             ))}
@@ -167,6 +183,7 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
 
 /** Proposals list: a copywriter sees her own with the founder's answers; founders see all. */
 export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[]; showAuthor: boolean }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   if (!proposals.length) return <div className="info">No proposals yet.</div>;
   const tone = { waiting: "t-violet", approved: "t-green", on_hold: "t-amber", rejected: "t-red" } as const;
   const word = { waiting: "WAITING", approved: "APPROVED", on_hold: "ON HOLD", rejected: "REJECTED" } as const;
@@ -182,6 +199,12 @@ export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[];
           </div>
           <div className="sub">{p.why}</div>
           {p.answer && <div className="info"><b style={{ color: "var(--ink)" }}>{p.decidedBy ?? "Founder"}:</b> {p.answer}</div>}
+          {showAuthor && p.status === "on_hold" && (
+            <div>
+              <button type="button" className="btn b-ghost" onClick={() => setOpenId(p.id)}>Decide again</button>
+              <DecideModal p={p} open={openId === p.id} onClose={() => setOpenId(null)} who="Founder · proposal on hold" />
+            </div>
+          )}
         </div>
       ))}
     </div>

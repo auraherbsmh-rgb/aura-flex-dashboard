@@ -1,0 +1,5 @@
+-- Applied Oct 15, 2026 (screen 3 checker run 1 fixes).
+-- public.decide_proposal(id, choice, answer, track): one transaction; locks the proposal, refuses one already decided,
+--   puts a new angle in list_items (code with dashes, same rule as the app, with its track), records the decision.
+-- private.check_proposal_refs(): before insert, avatar/angle/format must be approved items of the right list (no statics).
+-- Live test (rolled back): first decide ok · second refused · angle Cant-Carry-My-Grandson approved on hips · wrong-list refused.

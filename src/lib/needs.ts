@@ -29,7 +29,7 @@ export async function getRule(key: string, fallback: number): Promise<number> {
 export function buildNeeds(viewer: Viewer, proposals: Proposal[], unansweredHours: number, now = Date.now()): NeedGroup[] {
   const items: NeedItem[] = [];
   for (const p of proposals.filter((x) => x.status === "waiting")) {
-    const age = ageLabel(p.createdAt, now);
+    const age = ageLabel(p.createdAt, now, unansweredHours);
     const late = age.hours >= unansweredHours;
     const cell = `${p.avatarCode} × ${shortAwareness(p.awareness)}`;
     const title = p.isNewAngle ? `New angle: ${p.angle}` : `Test: ${p.angle}`;
