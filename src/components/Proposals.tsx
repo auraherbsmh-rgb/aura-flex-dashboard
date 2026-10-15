@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { Modal } from "./Modal";
 import { propose, decide, type ProposeState } from "@/app/proposals/actions";
@@ -187,8 +188,14 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
                   <div className="need-sub">{it.sub}</div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
-                <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setOpenId(it.key)}>Approve / Reject</button>
-                <DecideModal p={it.proposal} open={openId === it.key} onClose={() => setOpenId(null)} onDone={setDoneMsg} who={it.type === "COVERING" ? "Founder 2 · covering Founder 1’s DECIDE item" : "Founder 1 · DECIDE item"} />
+                {it.href ? (
+                  <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
+                ) : it.proposal ? (
+                  <>
+                    <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setOpenId(it.key)}>Approve / Reject</button>
+                    <DecideModal p={it.proposal} open={openId === it.key} onClose={() => setOpenId(null)} onDone={setDoneMsg} who={it.type === "COVERING" ? "Founder 2 · covering Founder 1’s DECIDE item" : "Founder 1 · DECIDE item"} />
+                  </>
+                ) : null}
               </div>
             ))}
           </div>

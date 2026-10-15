@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { weekStartIso, type AngleInfo, type CopywriterLoad, type CreateTaskContext, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -52,31 +52,77 @@ export async function getCreateTaskContext(): Promise<CreateTaskContext> {
   return { angles: angleInfo, tasks: lite, copywriters };
 }
 
-/** Tasks the viewer may see (founders all, a copywriter her own), open ones first, then by due date. */
+/** Tasks the viewer may see (founders all, a copywriter her own) with their review rounds; open ones first, then by due date. */
 export async function getTasks(): Promise<TaskRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("tasks")
-    .select(
-      "id, status, due_on, created_at, keep_text, founder_note, reference, copywriter_id, " +
-        "writer:people!tasks_copywriter_id_fkey(display_name), avatar:list_items!tasks_avatar_id_fkey(code), " +
-        "angle:list_items!tasks_angle_id_fkey(label), format:list_items!tasks_format_id_fkey(label), awareness",
-    )
-    .neq("status", "cancelled")
-    .order("due_on")
-    .limit(300);
   type Row = {
     id: string; status: string; due_on: string; created_at: string; keep_text: string | null; founder_note: string | null;
-    reference: string | null; copywriter_id: string; awareness: string;
+    reference: string | null; copywriter_id: string; awareness: string; angle_id: string; script_url: string | null; change_facts: ChangeFacts | Record<string, never>;
     writer: { display_name: string } | null; avatar: { code: string } | null; angle: { label: string } | null; format: { label: string } | null;
   };
-  const open = ["writing", "changes", "review"];
-  return ((data ?? []) as unknown as Row[])
+  type RoundRow = {
+    task_id: string; round: number; script_url: string; submitted_at: string; decision: Round["decision"]; loom_url: string | null; note: string | null;
+    decided_at: string | null; sender: { display_name: string } | null; decider: { display_name: string } | null;
+  };
+  const [rows, rounds] = await Promise.all([
+    allRows("tasks", (a, b) =>
+      supabase
+        .from("tasks")
+        .select(
+          "id, status, due_on, created_at, keep_text, founder_note, reference, copywriter_id, awareness, angle_id, script_url, change_facts, " +
+            "writer:people!tasks_copywriter_id_fkey(display_name), avatar:list_items!tasks_avatar_id_fkey(code), " +
+            "angle:list_items!tasks_angle_id_fkey(label), format:list_items!tasks_format_id_fkey(label)",
+        )
+        .neq("status", "cancelled")
+        .order("id")
+        .range(a, b) as unknown as PromiseLike<{ data: Row[] | null; error: unknown }>,
+    ),
+    allRows("script rounds", (a, b) =>
+      supabase
+        .from("script_rounds")
+        .select(
+          "task_id, round, script_url, submitted_at, decision, loom_url, note, decided_at, " +
+            "sender:people!script_rounds_submitted_by_fkey(display_name), decider:people!script_rounds_decided_by_fkey(display_name)",
+        )
+        .order("id")
+        .range(a, b) as unknown as PromiseLike<{ data: RoundRow[] | null; error: unknown }>,
+    ),
+  ]);
+  const byTask = new Map<string, Round[]>();
+  for (const r of rounds) {
+    const list = byTask.get(r.task_id) ?? [];
+    list.push({
+      round: r.round, scriptUrl: r.script_url, submittedAt: r.submitted_at, submittedBy: r.sender?.display_name ?? "—",
+      decision: r.decision, loom: r.loom_url, note: r.note, decidedBy: r.decider?.display_name ?? null, decidedAt: r.decided_at,
+    });
+    byTask.set(r.task_id, list);
+  }
+  return rows
     .map((r) => ({
       id: r.id, status: r.status, dueOn: r.due_on, createdAt: r.created_at,
       copywriter: r.writer?.display_name ?? "—", copywriterId: r.copywriter_id,
-      avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angle: r.angle?.label ?? "—", format: r.format?.label ?? "—",
-      keep: r.keep_text, note: r.founder_note, reference: r.reference,
+      avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angleId: r.angle_id, angle: r.angle?.label ?? "—", format: r.format?.label ?? "—",
+      keep: r.keep_text, note: r.founder_note, reference: r.reference, scriptUrl: r.script_url,
+      changeFacts: "untried" in (r.change_facts ?? {}) ? (r.change_facts as ChangeFacts) : null,
+      rounds: (byTask.get(r.id) ?? []).sort((x, y) => x.round - y.round),
     }))
-    .sort((a, b) => Number(open.includes(b.status)) - Number(open.includes(a.status)) || a.dueOn.localeCompare(b.dueOn));
+    .sort((a, b) => Number(OPEN_STATUSES.includes(b.status)) - Number(OPEN_STATUSES.includes(a.status)) || a.dueOn.localeCompare(b.dueOn));
+}
+
+/** "Already tried in this angle" (other tasks in the same angle, no names) and the business line, for the task view. */
+export async function getTaskExtras(task: TaskRow): Promise<{ history: AngleHistoryRow[]; line: number | null }> {
+  const supabase = await createClient();
+  const [hist, money] = await Promise.all([
+    supabase.rpc("angle_history", { p_angle: task.angleId, p_exclude: task.id }),
+    supabase.from("money_settings").select("business_line_usd").order("month", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  type H = { avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
+  const history = ((hist.data ?? []) as H[]).map((h) => ({
+    cell: `${h.avatar_code} × ${h.awareness.replace("-Aware", "")}`,
+    format: h.format_label,
+    status: h.status,
+    month: new Date(h.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "Africa/Tunis" }),
+  }));
+  const line = money.data?.business_line_usd;
+  return { history, line: line === null || line === undefined ? null : Number(line) };
 }

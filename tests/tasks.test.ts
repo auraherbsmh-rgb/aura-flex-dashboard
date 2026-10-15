@@ -40,3 +40,31 @@ test("Tunisia dates (UTC+1)", () => {
   assert.equal(weekStartIso(new Date("2026-10-18T23:30:00Z")), "2026-10-18T23:00:00.000Z");
   assert.equal(weekStartIso(new Date("2026-10-15T10:00:00Z")), "2026-10-11T23:00:00.000Z");
 });
+
+import { inboxLine, stepNow, type TaskRow } from "../src/lib/tasks-shared";
+
+const t0: TaskRow = {
+  id: "t", status: "writing", dueOn: "2026-10-20", createdAt: "", copywriter: "C1", copywriterId: "c1", avatarCode: "FSB", awareness: "Problem-Aware",
+  angleId: "g", angle: "Knee-Broad", format: "UGC", keep: null, note: null, reference: null, scriptUrl: null, changeFacts: null, rounds: [],
+};
+const NOW = Date.parse("2026-10-15T10:00:00Z");
+
+test("inbox lines: changes first, late, due soon, new, review", () => {
+  const r = { round: 1, scriptUrl: "https://x.y", submittedAt: "", submittedBy: "C1", decision: "changes" as const, loom: null, note: "Faster hook", decidedBy: "F1", decidedAt: "" };
+  assert.equal(inboxLine({ ...t0, status: "changes", rounds: [r] }, false, NOW).tag, "NEEDS CHANGES");
+  assert.match(inboxLine({ ...t0, status: "changes", rounds: [r] }, false, NOW).sub, /Faster hook/);
+  assert.equal(inboxLine({ ...t0, dueOn: "2026-10-14" }, false, NOW).tag, "LATE");
+  assert.equal(inboxLine({ ...t0, dueOn: "2026-10-16" }, false, NOW).tag, "DUE TOMORROW");
+  assert.equal(inboxLine(t0, false, NOW).tag, "NEW TASK");
+  assert.equal(inboxLine({ ...t0, status: "review", rounds: [{ ...r, decision: null }] }, false, NOW).tag, "IN REVIEW");
+  assert.equal(inboxLine({ ...t0, status: "review", rounds: [{ ...r, decision: null }] }, true, NOW).tag, "REVIEW");
+  // A review never shows as late for the copywriter: the script is sent.
+  assert.equal(inboxLine({ ...t0, status: "review", dueOn: "2026-10-01", rounds: [{ ...r, decision: null }] }, false, NOW).tag, "IN REVIEW");
+});
+
+test("progress step", () => {
+  assert.equal(stepNow("writing"), 0);
+  assert.equal(stepNow("changes"), 0);
+  assert.equal(stepNow("review"), 1);
+  assert.equal(stepNow("approved"), 2);
+});

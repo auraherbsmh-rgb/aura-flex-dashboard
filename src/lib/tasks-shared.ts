@@ -62,6 +62,18 @@ export const TASK_STATUS: Record<string, { word: string; tone: string }> = {
   details_done: { word: "DETAILS DONE", tone: "t-green" },
 };
 
+export type Round = {
+  round: number;
+  scriptUrl: string;
+  submittedAt: string;
+  submittedBy: string;
+  decision: "approved" | "changes" | null;
+  loom: string | null;
+  note: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+};
+
 export type TaskRow = {
   id: string;
   status: string;
@@ -71,9 +83,69 @@ export type TaskRow = {
   copywriterId: string;
   avatarCode: string;
   awareness: string;
+  angleId: string;
   angle: string;
   format: string;
   keep: string | null;
   note: string | null;
   reference: string | null;
+  scriptUrl: string | null;
+  changeFacts: ChangeFacts | null;
+  rounds: Round[]; // oldest first
 };
+
+export const OPEN_STATUSES = ["writing", "changes", "review"];
+
+/** Progress steps of the task view (handoff §7). Index of the step the task is on now. */
+export const STEPS = ["WRITE", "REVIEW", "APPROVED", "SHOOT", "EDIT", "LIVE", "RESULT"] as const;
+export function stepNow(status: string): number {
+  if (status === "review") return 1;
+  if (status === "approved") return 2;
+  if (status === "details_done") return 3;
+  return 0; // writing, changes
+}
+
+export type InboxLine = { tag: string; tone: string; title: string; sub: string; rank: number };
+
+/** One inbox line per task: what it needs now, most urgent first (rank). */
+export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now()): InboxLine {
+  const today = tunisDate(0, now);
+  const tomorrow = tunisDate(1, now);
+  const cell = `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.angle}`;
+  const who = forFounder ? ` · ${t.copywriter}` : "";
+  const last = t.rounds[t.rounds.length - 1];
+  const due = `due ${fmtDay(t.dueOn)}`;
+  const writing = t.status === "writing" || t.status === "changes";
+  if (t.status === "changes") {
+    const what = last?.note ?? (last?.loom ? "watch the founder Loom" : "see the founder note");
+    return { tag: "NEEDS CHANGES", tone: "t-red", title: cell, sub: `Round ${last?.round ?? 1}: ${what}${who}`, rank: 0 };
+  }
+  if (writing && t.dueOn < today) return { tag: "LATE", tone: "t-red", title: cell, sub: `${t.format} · was ${due}${who}`, rank: 1 };
+  if (writing && t.dueOn === today) return { tag: "DUE TODAY", tone: "t-amber", title: cell, sub: `${t.format}${who}`, rank: 2 };
+  if (writing && t.dueOn === tomorrow) return { tag: "DUE TOMORROW", tone: "t-amber", title: cell, sub: `${t.format}${who}`, rank: 2 };
+  if (t.status === "writing" && !t.rounds.length) return { tag: "NEW TASK", tone: "t-blue", title: cell, sub: `${t.format} · ${due}${who}`, rank: 3 };
+  if (t.status === "writing") return { tag: "WRITING", tone: "t-grey", title: cell, sub: `${t.format} · ${due}${who}`, rank: 3 };
+  if (t.status === "review") {
+    return { tag: forFounder ? "REVIEW" : "IN REVIEW", tone: "t-blue", title: cell, sub: `Round ${last?.round ?? 1} · ${forFounder ? "waiting on you" : "waiting on Founder 1"}${who}`, rank: forFounder ? 0 : 4 };
+  }
+  if (t.status === "approved") return { tag: "APPROVED", tone: "t-green", title: cell, sub: `Next: fill script details${who}`, rank: 5 };
+  return { tag: "DETAILS DONE", tone: "t-grey", title: cell, sub: `${t.format}${who}`, rank: 6 };
+}
+
+export function fmtDay(iso: string) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+/** Date and time in Tunisia, e.g. "Thu 15 Oct, 14:05". */
+export function fmtWhen(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Tunis" });
+}
+
+/** Only http(s) links become clickable (a typed reference may be plain text). */
+export const isLink = (v: string | null | undefined): v is string => !!v && /^https?:\/\/\S+$/i.test(v.trim());
+
+export type AngleHistoryRow = { cell: string; format: string; status: string; month: string };
+
+/** Request time, read once per render on the server and passed down (keeps client and server in step). */
+export const requestTime = () => Date.now();

@@ -1,0 +1,331 @@
+"use client";
+
+import Link from "next/link";
+import { startTransition, useState } from "react";
+import { Modal } from "./Modal";
+import { reviewScript, submitScript } from "@/app/tasks/actions";
+import { shortAwareness } from "@/lib/proposals-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type TaskRow } from "@/lib/tasks-shared";
+
+const STATUS_TAG: Record<string, { word: string; tone: string }> = {
+  writing: { word: "WRITING", tone: "t-grey" },
+  changes: { word: "CHANGES", tone: "t-red" },
+  review: { word: "REVIEW", tone: "t-blue" },
+  approved: { word: "APPROVED", tone: "t-green" },
+  details_done: { word: "DETAILS DONE", tone: "t-green" },
+};
+
+/** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
+export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number }) {
+  const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now) })).sort((a, b) => a.l.rank - b.l.rank || a.t.dueOn.localeCompare(b.t.dueOn));
+  if (!lines.length) return <div className="info">{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</div>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {lines.map(({ t, l }) => (
+        <Link
+          key={t.id}
+          href={`/copywriting?${query}${query ? "&" : ""}task=${t.id}#task-view`}
+          scroll={false}
+          className={`inrow ${t.id === selectedId ? "inrow-on" : ""}`}
+          aria-current={t.id === selectedId ? "true" : undefined}
+        >
+          <span><span className={`tag ${l.tone}`}><i aria-hidden="true" />{l.tag}</span></span>
+          <span style={{ minWidth: 0 }}>
+            <span className="inrow-title">{l.title}</span>
+            <span className="inrow-sub">{l.sub}</span>
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/** Task view (Copywriting board, right): the brief, the progress, the script link and the founder's review buttons. */
+export function TaskView({
+  task,
+  history,
+  line,
+  isFounder,
+  isOwner,
+}: {
+  task: TaskRow;
+  history: AngleHistoryRow[];
+  line: number | null;
+  isFounder: boolean;
+  isOwner: boolean;
+}) {
+  const [url, setUrl] = useState(task.scriptUrl ?? "");
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  const [pending, setPending] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
+
+  const last = task.rounds[task.rounds.length - 1];
+  const now = stepNow(task.status);
+  const canSend = (isOwner || isFounder) && (task.status === "writing" || task.status === "changes");
+  const canReview = isFounder && task.status === "review" && !!last && !last.decision;
+  const today = tunisDate(0);
+  const late = (task.status === "writing" || task.status === "changes") && task.dueOn < today;
+  const soon = (task.status === "writing" || task.status === "changes") && task.dueOn <= tunisDate(1);
+  const facts = task.changeFacts;
+
+  const run = (fn: () => Promise<{ ok?: string; error?: string }>) => {
+    setPending(true);
+    setMsg({});
+    startTransition(async () => {
+      try {
+        setMsg(await fn());
+      } catch {
+        setMsg({ error: "No connection: nothing was saved. Try again." });
+      } finally {
+        setPending(false);
+      }
+    });
+  };
+
+  return (
+    <section className="card tv" id="task-view" aria-labelledby="tv-title">
+      <div>
+        <div className="lbl">Task · script{isFounder ? ` · ${task.copywriter}` : ""}</div>
+        <h2 id="tv-title" className="tv-title">{task.angle}</h2>
+        <div className="tv-tags">
+          <span className="tag t-grey"><i aria-hidden="true" />{task.avatarCode} × {task.awareness.toUpperCase()}</span>
+          <span className={`tag ${late ? "t-red" : soon ? "t-amber" : "t-grey"}`}><i aria-hidden="true" />{late ? "LATE · WAS DUE" : "DUE"} {fmtDay(task.dueOn).toUpperCase()}</span>
+          <span className={`tag ${STATUS_TAG[task.status]?.tone ?? "t-grey"}`}><i aria-hidden="true" />{STATUS_TAG[task.status]?.word ?? task.status}</span>
+          <span className="chip recess">{task.format}</span>
+          {line !== null && <span className="chip recess">Business line <b className="mono">${line.toFixed(2)}</b></span>}
+        </div>
+      </div>
+
+      {msg.ok && <div className="notice notice-green" role="status">{msg.ok}</div>}
+
+      {task.status === "changes" && last && (
+        <div className="tv-changes" role="note">
+          <div className="lbl" style={{ color: "var(--red-ink)" }}>Needs changes · round {last.round} → round {last.round + 1}</div>
+          {last.note && <div style={{ fontSize: 15, marginTop: 6 }}>{last.note}</div>}
+          <div className="unit" style={{ marginTop: 6 }}>
+            {last.decidedBy ?? "Founder"} · {last.decidedAt ? fmtWhen(last.decidedAt) : ""}
+            {last.loom && <> · <a href={last.loom} target="_blank" rel="noopener noreferrer">Watch the Loom ↗</a></>}
+          </div>
+        </div>
+      )}
+
+      <div className="tv-grid">
+        <div className="tv-keep">
+          <div className="lbl" style={{ color: "#135f33" }}>Keep · core message</div>
+          <div className="tv-keep-text">{task.keep ?? "No core message yet for this angle. It is written when a concept in it wins."}</div>
+        </div>
+        <div className="tv-chg">
+          <div className="lbl" style={{ color: "#844006" }}>Change</div>
+          <div className="tv-chg-grid">
+            <span className="tv-chg-k">Format</span>
+            <span className="chg-row">
+              {facts ? (
+                <>
+                  {facts.used.length ? facts.used.map((u) => <span key={u.label} className="ch-used">{u.label} {u.count}</span>) : <span className="tv-chg-k">nothing yet here</span>}
+                  {facts.untried.length > 0 && <span className="tv-chg-k">untried</span>}
+                  {facts.untried.map((u) => <span key={u} className="ch-un">{u}</span>)}
+                </>
+              ) : (
+                <span className="tv-chg-k">no facts saved</span>
+              )}
+            </span>
+            {task.note && (
+              <>
+                <span className="tv-chg-k">Founder</span>
+                <span style={{ fontSize: 14, color: "#4a2603" }}>“{task.note}”</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="h3">Already tried in this angle</h3>
+        <div className="tray tv-tried">
+          {history.length === 0 && <div className="tv-tried-empty">Nothing else in this angle yet.</div>}
+          {history.map((h, i) => (
+            <div className="tv-tried-row" key={i}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{h.cell}</div>
+                <div className="unit">{h.format} · {h.month}</div>
+              </div>
+              <span className={`tag ${STATUS_TAG[h.status]?.tone ?? "t-grey"}`} style={{ justifyContent: "center" }}><i aria-hidden="true" />{STATUS_TAG[h.status]?.word ?? h.status}</span>
+              <span className="part p-wait">OPENING —</span>
+              <span className="part p-wait">HOLD —</span>
+              <span className="part p-wait">CLICKS —</span>
+            </div>
+          ))}
+        </div>
+        <div className="unit" style={{ marginTop: 6 }}>Opening, Hold and Clicks fill in once Meta is connected (phase 3).</div>
+      </div>
+
+      <div>
+        <h3 className="h3">Materials</h3>
+        <div className="tv-mat">
+          <div className="raise tv-mat-item">
+            <span className="lbl">Reference ad</span>
+            {isLink(task.reference)
+              ? <a href={task.reference} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 600 }}>Open ↗</a>
+              : <span style={{ fontSize: 14, fontWeight: 600 }}>{task.reference ?? "None"}</span>}
+          </div>
+          <div className="raise tv-mat-item">
+            <span className="lbl">Founder note</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{task.note ?? "None"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="h3">{isOwner ? "My work" : "Progress"}</h3>
+        <ol className="recess steps" aria-label="Progress">
+          {STEPS.map((s, i) => (
+            <li key={s} className={`step ${i < now ? "st-done" : i === now ? "st-now" : ""}`} aria-current={i === now ? "step" : undefined}>{s}</li>
+          ))}
+        </ol>
+        {canReview && (
+          <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="button" className="btn b-green" disabled={pending} onClick={() => run(() => reviewScript(task.id, last.round, "approved", "", ""))}>
+              {pending ? "Saving…" : "Approve"}
+            </button>
+            <button type="button" className="btn b-red" disabled={pending} onClick={() => setChangesOpen(true)}>Needs changes</button>
+            <span className="unit">Founder only · round {last.round}</span>
+          </div>
+        )}
+      </div>
+
+      {task.status === "review" && last && (
+        <div className="info">
+          <b style={{ color: "var(--ink)" }}>Sent for review · round {last.round}</b> · {fmtWhen(last.submittedAt)} ·{" "}
+          <a href={last.scriptUrl} target="_blank" rel="noopener noreferrer">Open the script ↗</a>
+          {!isFounder && " · waiting on Founder 1"}
+        </div>
+      )}
+
+      {canSend && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); run(() => submitScript(task.id, url)); }}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        >
+          <div>
+            <h3 className="h3">Script for review</h3>
+            <label className="field">
+              <span className="lbl">Script link ●</span>
+              <input className="inp" type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/…" maxLength={1000} />
+            </label>
+          </div>
+          <div className="info">
+            <b style={{ color: "var(--ink)" }}>After Founder 1 approves:</b> your inbox gets “Fill script details”: face, shoot, main argument, and for each variation its hook type and hook line. The shoot and the ad names wait until it’s done.
+          </div>
+          <div className="acts">
+            {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}
+            <button type="submit" className="btn b-primary" style={{ height: 50 }} disabled={pending}>
+              {pending ? "Sending…" : task.status === "changes" ? "Send the new version" : "Submit script for review"}
+            </button>
+          </div>
+        </form>
+      )}
+      {!canSend && msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}
+
+      {task.rounds.length > 0 && (
+        <div>
+          <h3 className="h3">History</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {[...task.rounds].reverse().map((r) => (
+              <div className="row" key={r.round} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <b style={{ fontSize: 14 }}>Round {r.round}</b>
+                  <span className="unit">sent {fmtWhen(r.submittedAt)} by {r.submittedBy}</span>
+                  <a href={r.scriptUrl} target="_blank" rel="noopener noreferrer" className="unit">Script ↗</a>
+                  {r.decision && (
+                    <span className={`tag ${r.decision === "approved" ? "t-green" : "t-red"}`}><i aria-hidden="true" />{r.decision === "approved" ? "APPROVED" : "NEEDS CHANGES"}</span>
+                  )}
+                </div>
+                {(r.note || r.loom) && (
+                  <div className="sub">
+                    {r.note}
+                    {r.loom && <> {r.note ? "· " : ""}<a href={r.loom} target="_blank" rel="noopener noreferrer">Loom ↗</a></>}
+                    {r.decidedBy && <span className="unit"> · {r.decidedBy}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {canReview && (
+        <NeedsChanges
+          open={changesOpen}
+          onClose={() => setChangesOpen(false)}
+          title={`Needs changes · ${task.angle} · ${task.avatarCode} × ${shortAwareness(task.awareness)}`}
+          round={last.round}
+          onSend={async (loom, note) => {
+            const res = await reviewScript(task.id, last.round, "changes", loom, note);
+            if (res.ok) setMsg(res);
+            return res;
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+/** Needs changes pop-up (Pop-ups artboard). The Loom is optional; the one line is required when there is no Loom. */
+function NeedsChanges({
+  open,
+  onClose,
+  title,
+  round,
+  onSend,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  round: number;
+  onSend: (loom: string, note: string) => Promise<{ ok?: string; error?: string }>;
+}) {
+  const [loom, setLoom] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const empty = !loom.trim() && !note.trim();
+
+  const close = () => { setError(""); onClose(); };
+  const send = () => {
+    setPending(true);
+    setError("");
+    startTransition(async () => {
+      try {
+        const res = await onSend(loom, note);
+        if (res.ok) { setLoom(""); setNote(""); onClose(); }
+        else setError(res.error ?? "Not saved.");
+      } catch {
+        setError("No connection: nothing was saved. Try again.");
+      } finally {
+        setPending(false);
+      }
+    });
+  };
+
+  return (
+    <Modal open={open} onClose={close} who="Founder · behind every “Needs changes”" title={title}>
+      <span className="tag t-red" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />SCRIPT · ROUND {round} → ROUND {round + 1}</span>
+      <label className="field">
+        <span className="lbl">Loom link · optional</span>
+        <input className="inp" type="url" value={loom} onChange={(e) => setLoom(e.target.value)} placeholder="https://www.loom.com/share/…" maxLength={1000} />
+      </label>
+      <label className="field">
+        <span className="lbl">One line · what to fix{loom.trim() ? " · optional with a Loom" : ""}</span>
+        <textarea className="ta" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="The hook is too slow: start with the stairs." />
+      </label>
+      <div className="info">Goes back to the copywriter with your note{loom.trim() ? " and the Loom" : ""}. It shows at the top of her inbox.</div>
+      <div className="acts">
+        {error && <span className="formmsg err" role="alert">{error}</span>}
+        <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
+        <button type="button" className="btn b-primary" disabled={pending || empty} title={empty ? "Write one line or add a Loom" : undefined} onClick={send}>
+          {pending ? "Sending…" : "Send back"}
+        </button>
+      </div>
+    </Modal>
+  );
+}

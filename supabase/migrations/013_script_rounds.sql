@@ -1,0 +1,9 @@
+-- Applied Oct 15, 2026 (screen 5: task view, submit, review). Summary of live migration "script_rounds_submit_review".
+-- tasks.script_url (latest link). public.script_rounds: one row per submission (round), with the founder's decision
+--   (approved | changes), optional Loom, one-line note, decided_by/at. RLS read: founders, or the task's copywriter. No direct writes.
+-- public.submit_script(task, url) security definer: own task or founder; writing|changes → review; https link required.
+-- public.review_script(task, round, decision, loom, note) security definer: founders; only the latest undecided round;
+--   Needs changes requires a note or a Loom (Loom optional, decision Oct 15). review → approved | changes.
+-- public.angle_history(angle, exclude): other tasks in the angle (cell, format, status, date only) for "Already tried".
+-- Live test (rolled back): bad link, double submit, copywriter approving, direct insert, empty "needs changes",
+--   stale round all refused; round 1 → changes → round 2 → approved; step_log rows written.

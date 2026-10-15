@@ -1,13 +1,18 @@
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ProposalList } from "@/components/Proposals";
-import { CreateTaskButton, TaskList } from "@/components/Tasks";
+import { CreateTaskButton } from "@/components/Tasks";
+import { Inbox, TaskView } from "@/components/TaskView";
+import { buildNeeds } from "@/lib/needs";
+import { NeedsMe } from "@/components/Proposals";
 import type { Pickers, Proposal } from "@/lib/proposals-shared";
 import type { CreateTaskContext, TaskRow } from "@/lib/tasks-shared";
 
 /** Local-only preview of screen 4 (ENABLE_PREVIEW=1; never on Vercel). */
-export default function Preview() {
+export default async function Preview({ searchParams }: { searchParams: Promise<{ task?: string; view?: string }> }) {
   if (process.env.ENABLE_PREVIEW !== "1") notFound();
+  const sp = await searchParams;
+  const view = sp.view ?? "founder";
   const pickers: Pickers = {
     avatars: [{ id: "a1", code: "FSB", label: "FSB · female sufferer, broad" }, { id: "a2", code: "FSS", label: "FSS · female sufferer, surgery" }],
     angles: [{ id: "g1", code: "Knee-Broad", label: "Knee-Broad" }, { id: "g2", code: "Knee-Surgery-Fear", label: "Knee-Surgery-Fear" }],
@@ -27,10 +32,16 @@ export default function Preview() {
       { id: "c2", name: "Copywriter 2", target: 4, approvedThisWeek: 4, openTasks: 2 },
     ],
   };
+  const base = { createdAt: "", angleId: "g2", scriptUrl: null, changeFacts: { used: [{ label: "UGC", count: 2 }], total: 2, untried: ["Doctor video (AUTH)", "VSL", "AI / 3D"] }, rounds: [] };
+  const r1 = { round: 1, scriptUrl: "https://docs.google.com/document/d/abc", submittedAt: "2026-10-15T08:00:00Z", submittedBy: "Copywriter 2", decision: null, loom: null, note: null, decidedBy: null, decidedAt: null };
   const tasks: TaskRow[] = [
-    { id: "t2", status: "writing", dueOn: "2026-10-13", createdAt: "", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: "The surgery isn't the only road; your knee can still be helped.", note: "new face, a doctor's voice", reference: null },
-    { id: "t3", status: "writing", dueOn: "2026-10-22", createdAt: "", copywriter: "Copywriter 1", copywriterId: "c1", avatarCode: "FSB", awareness: "Most-Aware", angle: "Knee-Broad", format: "VSL", keep: null, note: null, reference: "Amel V1" },
+    { ...base, id: "t2", status: "writing", dueOn: "2026-10-13", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: "The surgery isn't the only road; your knee can still be helped.", note: "new face, a doctor's voice", reference: null },
+    { ...base, id: "t3", status: "writing", dueOn: "2026-10-22", copywriter: "Copywriter 1", copywriterId: "c1", avatarCode: "FSB", awareness: "Most-Aware", angle: "Knee-Broad", format: "VSL", keep: null, note: null, reference: "Amel V1" },
+    { ...base, id: "t4", status: "changes", dueOn: "2026-10-20", copywriter: "Copywriter 1", copywriterId: "c1", avatarCode: "MSP", awareness: "Solution-Aware", angle: "Knee-Standing-Profession", format: "Doctor video (AUTH)", keep: null, note: null, reference: "https://www.facebook.com/ads/library/?id=1", scriptUrl: r1.scriptUrl, rounds: [{ ...r1, submittedBy: "Copywriter 1", decision: "changes", note: "The hook is too slow: start with the stairs.", loom: "https://www.loom.com/share/x", decidedBy: "Founder 1", decidedAt: "2026-10-15T10:00:00Z" }] },
+    { ...base, id: "t5", status: "review", dueOn: "2026-10-18", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "CGS", awareness: "Problem-Aware", angle: "Father-Suffer", format: "UGC", keep: "A son who couldn't bear watching his father suffer found what actually helped.", note: null, reference: null, scriptUrl: r1.scriptUrl, rounds: [r1] },
   ];
+  const sel = tasks.find((t) => t.id === sp.task) ?? tasks[3];
+  const needs = buildNeeds({ personId: "f1", name: "Founder 1", role: "founder_1", email: "" }, [], 48, Date.parse("2026-10-15T15:00:00Z"), tasks, 48);
   const p: Proposal = { id: "p1", status: "approved", createdAt: "2026-10-14T10:00:00Z", decidedAt: null, proposedById: "c2", proposedBy: "Copywriter 2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", isNewAngle: false, why: "Women with a surgery date are the most ready to act.", format: "Doctor video (AUTH)", answer: "Go ahead.", decidedBy: "Founder 1", avatarId: "a2", angleId: "g2", formatId: "f2", hasTask: false };
   const v1 = { personId: "f1", name: "Founder 1", role: "founder_1" as const, email: "" };
   return (
@@ -38,7 +49,18 @@ export default function Preview() {
       <div className="slab">
         <div className="band"><AppHeader viewer={v1} active="copywriting" /><h1 className="h1" style={{ marginTop: 28 }}>Copywriting</h1></div>
         <div className="body">
-          <section className="card sec"><div className="sh"><h2>Tasks</h2></div><div><CreateTaskButton ctx={ctx} pickers={pickers} /></div><TaskList tasks={tasks} showWriter /></section>
+          <NeedsMe groups={needs} total={needs.reduce((n, g) => n + g.items.length, 0)} />
+          <div className="board">
+            <aside className="board-side">
+              <section className="tray" style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 6px 6px" }}><h2 style={{ margin: 0, fontSize: 18 }}>Inbox</h2><CreateTaskButton ctx={ctx} pickers={pickers} /></div>
+                <Inbox tasks={tasks} selectedId={sel.id} forFounder query="" now={Date.parse("2026-10-15T15:00:00Z")} />
+              </section>
+            </aside>
+            <div className="board-main">
+              <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"} />
+            </div>
+          </div>
           <section className="card sec"><div className="sh"><h2>Proposals</h2></div><ProposalList proposals={[p, { ...p, id: "p2", hasTask: true }]} showAuthor taskCtx={{ ctx, pickers }} /></section>
           <section className="card sec"><div className="sh"><h2>No copywriter yet</h2></div><div><CreateTaskButton ctx={{ ...ctx, copywriters: [] }} pickers={pickers} label="+ Create task (empty team)" /></div></section>
         </div>

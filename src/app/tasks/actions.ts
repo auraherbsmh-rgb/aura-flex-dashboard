@@ -86,3 +86,35 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");
 }
+
+const LINK = /^https?:\/\/\S+\.\S+$/i;
+
+/** Copywriter (her own task) or a founder sends the script link for review. writing / changes → review. */
+export async function submitScript(taskId: string, url: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (!["founder_1", "founder_2", "copywriter"].includes(v.role)) return fail("Only copywriters and founders send scripts.");
+  const link = url.trim();
+  if (!LINK.test(link)) return fail("Paste the full script link (starting with https://).");
+  if (link.length > 1000) return fail("That link is too long.");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("submit_script", { p_task: taskId, p_url: link });
+  if (error) return fail(error.message);
+  revalidatePath("/", "layout");
+  return done(`Sent for review (round ${data}). Founder 1 gets it on Home.`);
+}
+
+/** Founder decides on the round in review. Needs changes: Loom optional, one line required when there is no Loom. */
+export async function reviewScript(taskId: string, round: number, decision: "approved" | "changes", loom: string, note: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders review scripts.");
+  const l = loom.trim();
+  const n = note.trim();
+  if (l && !LINK.test(l)) return fail("The Loom link must start with https://.");
+  if (decision === "changes" && !l && !n) return fail("Write one line on what to fix (or add a Loom).");
+  if (n.length > 1000) return fail("Keep the note under 1,000 characters.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("review_script", { p_task: taskId, p_round: round, p_decision: decision, p_loom: l, p_note: n });
+  if (error) return fail(error.message);
+  revalidatePath("/", "layout");
+  return done(decision === "approved" ? "Approved. Her inbox now says: fill script details." : "Sent back with your note. She sees it at the top of her inbox.");
+}
