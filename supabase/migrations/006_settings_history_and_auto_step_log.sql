@@ -1,0 +1,7 @@
+-- Applied Oct 15, 2026 (Settings checker run 1 fixes).
+-- 1. private.log_change(): trigger on money_settings, alert_rules, app_flags, list_items, campaign_scope,
+--    copywriter_levels, people, people_pay → one step_log row per insert/update/delete, with the changed values.
+--    A save can no longer succeed without its log row. Updates that change nothing are not logged.
+-- 2. money_settings_history: every overwrite of a month keeps the previous version (trigger keep_money_version).
+-- 3. list_items.archived_from: "×" remembers the item's status so "Bring back" restores it exactly.
+-- Full SQL as applied: live migration "settings_history_and_auto_step_log".

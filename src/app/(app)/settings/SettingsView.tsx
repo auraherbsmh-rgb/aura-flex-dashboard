@@ -1,4 +1,4 @@
-import { MoneyForm, PersonRow, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm } from "./forms";
+import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm } from "./forms";
 import type { getSettings } from "@/lib/settings/data";
 
 export type SettingsData = Awaited<ReturnType<typeof getSettings>>;
@@ -45,7 +45,13 @@ export function summarize(s: SettingsData, today: string) {
     { item: "Hook rate, hold, retention 25 / 50 / 75 / 100%", src: "META API", detail: "video plays and watched-% actions", tone: "amber", status: "TO CONNECT" },
     { item: "Leads, confirmed, shipped, delivered", src: "SHIPPER API", detail: "funnel for Business", tone: "amber", status: "TO CONNECT" },
     { item: "Stock left and cash at Shipper", src: "SHIPPER API", detail: "fields to check with Shipper", tone: "amber", status: "TO CONNECT" },
-    { item: "Money numbers", src: "MANUAL", detail: "monthly ritual, section above", tone: moneyDue ? "red" : "green", status: moneyDue ? "RITUAL DUE" : "UP TO DATE" },
+    {
+      item: "Money numbers",
+      src: "MANUAL",
+      detail: s.money?.status === "provisional" ? "monthly ritual · close still provisional (orders open)" : "monthly ritual, section above",
+      tone: moneyDue ? "red" : s.money?.status === "provisional" ? "amber" : "green",
+      status: moneyDue ? "RITUAL DUE" : s.money?.status === "provisional" ? "PROVISIONAL" : "UP TO DATE",
+    },
     { item: "Copywriter pay", src: "MANUAL", detail: "People and pay", tone: copyPayToFill ? "amber" : "green", status: copyPayToFill ? "TO FILL" : "FILLED" },
     { item: "3D generation rate · AI / 3D editor", src: "MANUAL", detail: "set at the first 3D launch", tone: rate3dToFill ? "amber" : "green", status: rate3dToFill ? "TO FILL" : "FILLED" },
     { item: "Copywriter levels and bonus rules", src: "MANUAL", detail: "section below · scorecard block 8 stays hidden until set", tone: levelsToFill ? "amber" : "green", status: levelsToFill ? "TO FILL" : "FILLED" },
@@ -67,20 +73,11 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
 
       <section className="card sec" aria-labelledby="h-people">
         <div className="sh"><h2 id="h-people">People and pay</h2><span className="lbl">Feeds the Creative engine costs</span></div>
-        <div className="prow" style={{ background: "transparent", border: 0, paddingTop: 0, paddingBottom: 0 }} aria-hidden="true">
-          <span className="lbl">Person</span><span className="lbl">Login email</span><span className="lbl">Pay</span><span className="lbl">Target / 3D rate</span><span className="lbl">Login</span>
+        <div className="prow prow-head" aria-hidden="true">
+          <span className="lbl">Person</span><span className="lbl">Pay</span><span className="lbl">Target / rate 2</span><span className="lbl">Login</span>
         </div>
-        {active.map((p) => <PersonRow key={p.id} p={p} />)}
-        <div className="unit">An editor ticked “full AI / 3D” gets a second box: the 3D generation rate (manual, set at the first 3D launch). Adding someone here is what lets them log in.</div>
+        <PeopleForm people={active} inactive={inactive} />
         <div><AddPersonForm /></div>
-        {inactive.length > 0 && (
-          <details>
-            <summary className="unit" style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center" }}>Switched off · {inactive.length}</summary>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-              {inactive.map((p) => <PersonRow key={p.id} p={p} />)}
-            </div>
-          </details>
-        )}
       </section>
 
       <section className="card sec" aria-labelledby="h-alerts">
@@ -90,7 +87,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
 
       <section className="card sec" aria-labelledby="h-data">
         <div className="sh"><h2 id="h-data">Data and inputs</h2><span className="lbl">Where every number comes from</span></div>
-        <div className="drow" style={{ background: "transparent", border: 0, paddingTop: 0, paddingBottom: 0 }} aria-hidden="true">
+        <div className="drow drow-head" aria-hidden="true">
           <span className="lbl">Item</span><span className="lbl">Source</span><span className="lbl">Detail</span><span className="lbl">Status</span>
         </div>
         {dataRows.map((r) => (

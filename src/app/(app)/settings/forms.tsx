@@ -3,12 +3,13 @@
 import { useActionState, useState, useTransition } from "react";
 import {
   saveMoney,
-  savePerson,
+  savePeople,
   addPerson,
   setPersonActive,
   saveRules,
   addListItem,
-  setListItemStatus,
+  archiveListItem,
+  restoreListItem,
   addCampaign,
   setCampaignActive,
   saveLevels,
@@ -183,59 +184,77 @@ function payUnitText(p: Person) {
   return unit === "per_video" ? "TND / video" : unit === "per_script" ? "TND / script" : "TND / month";
 }
 
-export function PersonRow({ p }: { p: Person }) {
-  const [state, action, pending] = useActionState(savePerson, empty);
+/** All people in one form with one "Save people" button (Settings artboard). Switch off acts right away. */
+export function PeopleForm({ people, inactive }: { people: Person[]; inactive: Person[] }) {
+  const [state, action, pending] = useActionState(savePeople, empty);
+  return (
+    <form action={action} style={{ display: "contents" }}>
+      {people.map((p) => <PersonFields key={p.id} p={p} />)}
+      {inactive.length > 0 && (
+        <details>
+          <summary className="unit" style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center" }}>Switched off · {inactive.length}</summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+            {inactive.map((p) => <PersonFields key={p.id} p={p} />)}
+          </div>
+        </details>
+      )}
+      <div className="unit">Adding someone here is what lets them log in. An editor ticked “full AI / 3D” gets a second box: the 3D generation rate (set at the first 3D launch).</div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <Msg state={state} />
+        <button className="btn b-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save people"}</button>
+      </div>
+    </form>
+  );
+}
+
+function PersonFields({ p }: { p: Person }) {
   const [busy, start] = useTransition();
   const [msg, setMsg] = useState<ActionState>(empty);
+  const [ai, setAi] = useState(p.does_ai_3d);
   const founderRow = p.role.startsWith("founder");
   const loginRole = !["agency", "strategist"].includes(p.role);
-  const second =
-    p.role === "copywriter"
-      ? { value: p.weekly_target === null ? "" : String(p.weekly_target), label: "Weekly target" }
-      : p.role === "editor"
-        ? { value: p.rate_3d_tnd === null ? "" : String(Number(p.rate_3d_tnd)), label: "3D rate" }
-        : { value: "—", label: "—" };
+  const f = (name: string) => `${name}__${p.id}`;
+  const secondValue =
+    p.role === "copywriter" ? (p.weekly_target === null ? "" : String(p.weekly_target)) : p.rate_3d_tnd === null ? "" : String(Number(p.rate_3d_tnd));
 
   return (
-    <form action={action} className="prow">
-      <input type="hidden" name="id" value={p.id} />
-      <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <input className="fi" name="display_name" defaultValue={p.display_name} aria-label="Name" style={{ fontFamily: "var(--font)", fontWeight: 600 }} />
+    <div className="prow">
+      <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+        <input type="hidden" name="person_id" value={p.id} />
+        <input className="fi" name={f("display_name")} defaultValue={p.display_name} aria-label="Name" style={{ fontFamily: "var(--font)", fontWeight: 600 }} />
+        {loginRole && (
+          <input
+            className={p.email ? "fi" : "fi fi-empty"}
+            name={f("email")}
+            type="email"
+            defaultValue={p.email ?? ""}
+            readOnly={p.has_login}
+            aria-label={`${p.display_name} login email`}
+            placeholder="login email"
+            title={p.has_login ? "Already logged in: the email is fixed" : undefined}
+            style={{ fontFamily: "var(--font)", fontWeight: 400, fontSize: 14 }}
+          />
+        )}
         <span className="unit">
           {ROLE_LABEL[p.role]}
           {p.role === "editor" && (
-            <label style={{ marginLeft: 8, cursor: "pointer" }}>
-              <input type="checkbox" name="does_ai_3d" defaultChecked={p.does_ai_3d} /> full AI / 3D
+            <label style={{ marginLeft: 8, cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center", minHeight: 32 }}>
+              <input type="checkbox" name={f("does_ai_3d")} checked={ai} onChange={(e) => setAi(e.target.checked)} /> full AI / 3D
             </label>
           )}
         </span>
       </span>
-      {loginRole ? (
-        <input
-          className={p.email ? "fi" : "fi fi-empty"}
-          name="email"
-          type="email"
-          defaultValue={p.email ?? ""}
-          readOnly={p.has_login}
-          aria-label="Login email"
-          placeholder="login email"
-          title={p.has_login ? "Already logged in: the email is fixed" : undefined}
-          style={{ fontFamily: "var(--font)", fontWeight: 400 }}
-        />
-      ) : (
-        <span className="unit">no login</span>
-      )}
       {founderRow ? (
         <span className="unit">—</span>
       ) : (
         <span className="f">
-          <input className={p.pay_amount_tnd === null ? "fi fi-empty" : "fi"} name="pay_amount_tnd" defaultValue={p.pay_amount_tnd === null ? "" : Number(p.pay_amount_tnd).toLocaleString("en-US")} placeholder="to fill" aria-label="Pay in TND" inputMode="decimal" />
+          <input className={p.pay_amount_tnd === null ? "fi fi-empty" : "fi"} name={f("pay_amount_tnd")} defaultValue={p.pay_amount_tnd === null ? "" : Number(p.pay_amount_tnd).toLocaleString("en-US")} placeholder="to fill" aria-label={`${p.display_name} pay in TND`} inputMode="decimal" />
           <span className="unit">{payUnitText(p)}</span>
         </span>
       )}
-      {p.role === "copywriter" || (p.role === "editor" && p.does_ai_3d) ? (
+      {p.role === "copywriter" || (p.role === "editor" && ai) ? (
         <span className="f">
-          <input className={second.value ? "fi" : "fi fi-empty"} name="second" defaultValue={second.value} placeholder="to fill" aria-label={second.label} inputMode="decimal" />
+          <input className={secondValue ? "fi" : "fi fi-empty"} name={f("second")} defaultValue={secondValue} placeholder="to fill" aria-label={p.role === "copywriter" ? "Weekly target" : "3D rate"} inputMode="decimal" />
           <span className="unit">{p.role === "copywriter" ? "scripts / week" : "TND / 3D generation"}</span>
         </span>
       ) : (
@@ -243,25 +262,15 @@ export function PersonRow({ p }: { p: Person }) {
       )}
       <span style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
         <span className="unit">{loginStatus(p)}</span>
-        <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="btn b-ghost" type="submit" disabled={pending} style={{ height: 36, padding: "0 14px" }}>
-            {pending ? "Saving…" : "Save"}
+        {!founderRow && (
+          <button type="button" className="btn b-quiet" style={{ height: 36, paddingLeft: 0 }} disabled={busy}
+            onClick={() => start(async () => setMsg(await setPersonActive(p.id, !p.active)))}>
+            {p.active ? "Switch off" : "Switch on"}
           </button>
-          {!founderRow && (
-            <button
-              type="button"
-              className="btn b-quiet"
-              style={{ height: 36 }}
-              disabled={busy}
-              onClick={() => start(async () => setMsg(await setPersonActive(p.id, !p.active)))}
-            >
-              {p.active ? "Switch off" : "Switch on"}
-            </button>
-          )}
-        </span>
-        <Msg state={state.at && (!msg.at || state.at > msg.at) ? state : msg} />
+        )}
+        <Msg state={msg} />
       </span>
-    </form>
+    </div>
   );
 }
 
@@ -312,7 +321,7 @@ export function RulesForm({ rules, flags }: { rules: Rule[]; flags: Flag[] }) {
   const [state, action, pending] = useActionState(saveRules, empty);
   return (
     <form action={action} style={{ display: "contents" }}>
-      <div className="fg fg-3" style={{ gap: 20 }}>
+      <div className="fg rules-grid">
         {GROUPS.map((g) => (
           <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div className="lbl" style={{ padding: "0 2px 8px" }}>{g.label}</div>
@@ -374,9 +383,24 @@ function Chip({ item }: { item: ListItem }) {
         type="button"
         aria-label={`Remove ${item.label}`}
         disabled={busy}
-        onClick={() => start(async () => setMsg(await setListItemStatus(item.id, "archived")))}
+        onClick={() => start(async () => setMsg(await archiveListItem(item.id)))}
       >
         ×
+      </button>
+      {msg.error && <span className="formmsg err">{msg.error}</span>}
+    </span>
+  );
+}
+
+function RemovedChip({ item }: { item: ListItem }) {
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<ActionState>(empty);
+  return (
+    <span className="li" style={{ color: "var(--ink-3)" }}>
+      {item.label}
+      <button type="button" aria-label={`Bring back ${item.label}`} title="Bring back" disabled={busy} style={{ width: "auto", borderRadius: 999, padding: "0 10px" }}
+        onClick={() => start(async () => setMsg(await restoreListItem(item.id)))}>
+        Bring back
       </button>
       {msg.error && <span className="formmsg err">{msg.error}</span>}
     </span>
@@ -415,6 +439,7 @@ export function ListsBlock({ items }: { items: ListItem[] }) {
         const live = items.filter((i) => i.list === l && (i.status === "approved" || i.status === "reserved"));
         const onHold = items.filter((i) => i.list === l && i.status === "on_hold");
         const rejected = items.filter((i) => i.list === l && i.status === "rejected");
+        const removed = items.filter((i) => i.list === l && i.status === "archived");
         const meta = LIST_META[l];
         return (
           <div key={l} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -430,6 +455,14 @@ export function ListsBlock({ items }: { items: ListItem[] }) {
               {live.map((i) => <Chip key={i.id} item={i} />)}
               <AddItem list={l} />
             </div>
+            {removed.length > 0 && (
+              <details>
+                <summary className="unit" style={{ cursor: "pointer", minHeight: 32, display: "flex", alignItems: "center" }}>Removed · {removed.length}</summary>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                  {removed.map((i) => <RemovedChip key={i.id} item={i} />)}
+                </div>
+              </details>
+            )}
           </div>
         );
       })}

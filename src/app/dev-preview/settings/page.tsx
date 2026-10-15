@@ -31,11 +31,12 @@ export default function Preview() {
     lists: [
       ...["FSB · female sufferer, broad", "FSS · female sufferer, surgery", "MSB · male sufferer, broad", "MSP · male sufferer, professional", "CGD · caregiver daughter", "CGS · caregiver son"]
         .map((label, i) => ({ id: `a${i}`, list: "avatar" as const, code: label.slice(0, 3), label, status: "approved" as const, track: null, sort: i })),
-      ...["Knee-Broad", "Knee-Prayer", "Knee-Weight", "Knee-Standing-Profession", "Ingredients", "Social-Proof", "Benefits", "Maintenance", "Dream-Outcome", "Hips-Walking", "Hips-Sleep", "Hips-Broad"]
+      ...["Knee-Broad", "Knee-Prayer", "Knee-Weight", "Knee-Standing-Profession", "Ingredients", "Social-Proof", "Benefits", "Maintenance", "Dream-Outcome", "Hips-Walking", "Hips-Sleep", "Hips-Broad", "Father-Suffer"]
         .map((c, i) => ({ id: `g${i}`, list: "angle" as const, code: c, label: c, status: "approved" as const, track: "knee" as const, sort: i })),
       ...["Knee-Surgery-Fear", "Offer-Urgency"].map((c, i) => ({ id: `r${i}`, list: "angle" as const, code: c, label: c, status: "reserved" as const, track: "knee" as const, sort: 20 + i })),
       ...["Educational", "Storytelling", "Myth Busting", "Authority", "Comparison", "Day in the Life", "Other"].map((label, i) => ({ id: `h${i}`, list: "hook_type" as const, code: null, label, status: "approved" as const, track: null, sort: i })),
       ...["Mechanism · triple therapy", "Ingredients", "Doctor authority", "Customer proof · testimonial", "Comparison · painkillers or surgery", "Cost of waiting", "Other"].map((label, i) => ({ id: `m${i}`, list: "main_argument" as const, code: null, label, status: "approved" as const, track: null, sort: i })),
+      { id: "z1", list: "hook_type", code: null, label: "Question", status: "archived", track: null, sort: 99 },
       ...[["UGC", "UGC"], ["AUTH", "Doctor video (AUTH)"], ["VSL", "VSL"], ["AI", "AI / 3D"], ["IMG", "Static (IMG)"]].map(([code, label], i) => ({ id: `f${i}`, list: "format" as const, code, label, status: "approved" as const, track: null, sort: i })),
     ],
     campaigns: [
@@ -48,6 +49,8 @@ export default function Preview() {
       { id: "p1", display_name: "Founder 1", role: "founder_1", email: "founder1@example.com", does_ai_3d: false, active: true, has_login: true, pay_amount_tnd: null, pay_unit: null, rate_3d_tnd: null, weekly_target: null },
       { id: "p4", display_name: "Shooting agency", role: "agency", email: null, does_ai_3d: false, active: true, has_login: false, pay_amount_tnd: 4000, pay_unit: "per_month", rate_3d_tnd: null, weekly_target: null },
       { id: "p5", display_name: "Creative strategist", role: "strategist", email: null, does_ai_3d: false, active: true, has_login: false, pay_amount_tnd: 1500, pay_unit: "per_month", rate_3d_tnd: null, weekly_target: null },
+      { id: "p7", display_name: "Amel", role: "copywriter", email: "amel@example.com", does_ai_3d: false, active: true, has_login: false, pay_amount_tnd: null, pay_unit: null, rate_3d_tnd: null, weekly_target: 4 },
+      { id: "p8", display_name: "Editor A", role: "editor", email: "editora@example.com", does_ai_3d: true, active: true, has_login: true, pay_amount_tnd: 100, pay_unit: "per_video", rate_3d_tnd: null, weekly_target: null },
       { id: "p6", display_name: "Copywriter 1 (test, removed)", role: "copywriter", email: "cw1.check@invalid.test", does_ai_3d: false, active: false, has_login: true, pay_amount_tnd: null, pay_unit: null, rate_3d_tnd: null, weekly_target: null },
     ],
     levels: [],

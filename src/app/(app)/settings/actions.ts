@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer, type Viewer } from "@/lib/viewer";
-import { logStep } from "@/lib/steplog";
 import { parseNumber, parseRate, text, toNameCode } from "@/lib/parse";
+
+// Every change below is written to the step log by a database trigger (private.log_change),
+// so a save can never succeed without its log row.
 
 export type ActionState = { ok?: string; error?: string; at?: number };
 
@@ -17,8 +19,31 @@ async function founder(): Promise<Viewer | null> {
   return v.role === "founder_1" || v.role === "founder_2" ? v : null;
 }
 
+const isBad = (n: number | null) => n !== null && (Number.isNaN(n) || n < 0);
+
 // ─────────────────────────────── Money ───────────────────────────────
 
+const LABELS: Record<string, string> = {
+  business_line_usd: "business line",
+  roas_line: "ROAS line",
+  aov_band_low_usd: "AOV band low",
+  aov_band_high_usd: "AOV band high",
+  exchange_rate: "exchange rate",
+  fixed_costs_tnd: "fixed costs",
+  bottle_cost_tnd: "bottle cost",
+  delivery_cost_tnd: "delivery cost",
+  fixed_per_order_tnd: "fixed cost per order",
+  bridge_factor: "delivered per Meta purchase",
+  door_rate_1b: "door rate 1 bottle",
+  door_rate_2b: "door rate 2 bottles",
+  door_rate_3b: "door rate 3 bottles",
+  door_rate_avg: "door rate average",
+};
+
+/**
+ * Saves one closed month's numbers. Saving a month that already exists replaces it, and the database keeps
+ * the previous version (money_settings_history) plus a step-log row listing every value that changed.
+ */
 export async function saveMoney(_prev: ActionState, form: FormData): Promise<ActionState> {
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
@@ -47,6 +72,9 @@ export async function saveMoney(_prev: ActionState, form: FormData): Promise<Act
   const missing = Object.entries(fields).filter(([, n]) => n === null || Number.isNaN(n) || (n as number) <= 0);
   if (missing.length) return fail(`Check these numbers: ${missing.map(([k]) => LABELS[k] ?? k).join(", ")}.`);
   if ((fields.aov_band_low_usd as number) >= (fields.aov_band_high_usd as number)) return fail("AOV band: the low end must be under the high end.");
+  for (const k of ["door_rate_1b", "door_rate_2b", "door_rate_3b", "door_rate_avg", "bridge_factor"] as const) {
+    if ((fields[k] as number) > 1) return fail(`${LABELS[k]} must be a share of 100%.`);
+  }
 
   const kill = Array.from({ length: 10 }, (_, i) => parseNumber(form.get(`kill_${i}`)));
   if (kill.some((k) => k === null || Number.isNaN(k) || (k as number) <= 0)) return fail("Fill every kill-table box (0 to 9 sales).");
@@ -67,81 +95,88 @@ export async function saveMoney(_prev: ActionState, form: FormData): Promise<Act
   };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.from("money_settings").upsert(row, { onConflict: "month" }).select("id").single();
+  const { data: existing } = await supabase.from("money_settings").select("id").eq("month", row.month).maybeSingle();
+  const { error } = await supabase.from("money_settings").upsert(row, { onConflict: "month" });
   if (error) return fail(`Not saved: ${error.message}`);
-  await logStep(v.personId, "money_settings", data.id, "save", { month: row.month, status, business_line_usd: row.business_line_usd });
   revalidatePath("/settings");
-  return done(`Money numbers saved for ${month} (${status}).`);
+  return done(
+    existing
+      ? `${month} updated (${status}). The previous version is kept in the history.`
+      : `Money numbers saved for ${month} (${status}).`,
+  );
 }
-
-const LABELS: Record<string, string> = {
-  business_line_usd: "business line",
-  roas_line: "ROAS line",
-  aov_band_low_usd: "AOV band low",
-  aov_band_high_usd: "AOV band high",
-  exchange_rate: "exchange rate",
-  fixed_costs_tnd: "fixed costs",
-  bottle_cost_tnd: "bottle cost",
-  delivery_cost_tnd: "delivery cost",
-  fixed_per_order_tnd: "fixed cost per order",
-  bridge_factor: "delivered per Meta purchase",
-  door_rate_1b: "door rate 1 bottle",
-  door_rate_2b: "door rate 2 bottles",
-  door_rate_3b: "door rate 3 bottles",
-  door_rate_avg: "door rate average",
-};
 
 // ─────────────────────────────── People and pay ───────────────────────────────
 
 const LOGIN_ROLES = ["founder_1", "founder_2", "copywriter", "editor"];
 const ALL_ROLES = [...LOGIN_ROLES, "agency", "strategist"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const payUnitFor = (role: string) => (role === "editor" ? "per_video" : "per_month");
 
-function payUnitFor(role: string) {
-  return role === "editor" ? "per_video" : role === "copywriter" ? "per_month" : "per_month";
-}
-
-export async function savePerson(_prev: ActionState, form: FormData): Promise<ActionState> {
+/** One "Save people" button for every row (Settings artboard). Fields are named `<field>__<person id>`. */
+export async function savePeople(_prev: ActionState, form: FormData): Promise<ActionState> {
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
-  const id = text(form.get("id"));
+  const ids = form.getAll("person_id").map(String);
+  if (!ids.length) return fail("Nothing to save.");
+
   const supabase = await createClient();
-  const { data: person } = await supabase.from("people").select("id, role, email, auth_user_id, display_name").eq("id", id).maybeSingle();
-  if (!person) return fail("Person not found.");
+  const [{ data: people }, { data: pays }] = await Promise.all([
+    supabase.from("people").select("id, role, auth_user_id, display_name, does_ai_3d").in("id", ids),
+    supabase.from("people_pay").select("person_id, pay_amount_tnd, rate_3d_tnd, weekly_target").in("person_id", ids),
+  ]);
+  const payBy = new Map((pays ?? []).map((p) => [p.person_id, p]));
 
-  const name = text(form.get("display_name"));
-  if (!name) return fail("A name is needed.");
-  const updates: Record<string, unknown> = { display_name: name };
+  // Validate everything first, so a mistake in one row saves nothing.
+  type Plan = { id: string; person: Record<string, unknown>; pay: Record<string, unknown> | null; name: string };
+  const plans: Plan[] = [];
+  for (const p of people ?? []) {
+    const get = (f: string) => form.get(`${f}__${p.id}`);
+    const name = text(get("display_name"));
+    if (!name) return fail("Every person needs a name.");
+    const person: Record<string, unknown> = { display_name: name };
+    if (LOGIN_ROLES.includes(p.role) && !p.auth_user_id) {
+      const email = text(get("email")).toLowerCase();
+      if (!EMAIL.test(email)) return fail(`${name}: enter a valid login email.`);
+      person.email = email;
+    }
+    let ai = p.does_ai_3d;
+    if (p.role === "editor") {
+      ai = get("does_ai_3d") === "on";
+      person.does_ai_3d = ai;
+    }
 
-  if (LOGIN_ROLES.includes(person.role) && !person.auth_user_id) {
-    const email = text(form.get("email")).toLowerCase();
-    if (!EMAIL.test(email)) return fail("Enter a valid email for this login.");
-    updates.email = email;
+    let pay: Record<string, unknown> | null = null;
+    if (!p.role.startsWith("founder")) {
+      const amount = parseNumber(get("pay_amount_tnd"));
+      if (isBad(amount)) return fail(`${name}: pay must be a number of TND, 0 or more.`);
+      const prev = payBy.get(p.id);
+      pay = { person_id: p.id, pay_amount_tnd: amount, pay_unit: payUnitFor(p.role), updated_at: new Date().toISOString() };
+      if (p.role === "copywriter") {
+        const target = parseNumber(get("second"));
+        if (isBad(target)) return fail(`${name}: the weekly target must be a number.`);
+        pay.weekly_target = target;
+      }
+      if (p.role === "editor") {
+        // The 3D rate box only shows for an AI / 3D editor; unticking keeps the saved rate.
+        const rate = get("second") === null ? (prev?.rate_3d_tnd ?? null) : parseNumber(get("second"));
+        if (isBad(rate)) return fail(`${name}: the 3D rate must be a number of TND, 0 or more.`);
+        pay.rate_3d_tnd = rate;
+      }
+    }
+    plans.push({ id: p.id, person, pay, name });
   }
-  if (person.role === "editor") updates.does_ai_3d = form.get("does_ai_3d") === "on";
 
-  const pay = parseNumber(form.get("pay_amount_tnd"));
-  const second = parseNumber(form.get("second"));
-  if (Number.isNaN(pay) || Number.isNaN(second)) return fail("Pay boxes take numbers only (TND).");
-
-  const { error } = await supabase.from("people").update(updates).eq("id", id);
-  if (error) return fail(error.message.includes("lower") ? "That email is already used by someone else." : `Not saved: ${error.message}`);
-
-  if (!person.role.startsWith("founder")) {
-    const payRow = {
-      person_id: id,
-      pay_amount_tnd: pay,
-      pay_unit: payUnitFor(person.role),
-      weekly_target: person.role === "copywriter" ? second : null,
-      rate_3d_tnd: person.role === "editor" ? second : null,
-      updated_at: new Date().toISOString(),
-    };
-    const { error: payErr } = await supabase.from("people_pay").upsert(payRow, { onConflict: "person_id" });
-    if (payErr) return fail(`Pay not saved: ${payErr.message}`);
+  for (const plan of plans) {
+    const { error } = await supabase.from("people").update(plan.person).eq("id", plan.id);
+    if (error) return fail(error.message.includes("lower") ? `${plan.name}: that email is already used by someone else.` : `${plan.name} not saved: ${error.message}`);
+    if (plan.pay) {
+      const { error: payErr } = await supabase.from("people_pay").upsert(plan.pay, { onConflict: "person_id" });
+      if (payErr) return fail(`${plan.name}: pay not saved (${payErr.message}).`);
+    }
   }
-  await logStep(v.personId, "person", id, "save", { name });
   revalidatePath("/settings");
-  return done(`${name} saved.`);
+  return done("People saved.");
 }
 
 export async function addPerson(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -150,9 +185,11 @@ export async function addPerson(_prev: ActionState, form: FormData): Promise<Act
   const name = text(form.get("display_name"));
   const role = text(form.get("role"));
   const email = text(form.get("email")).toLowerCase();
+  const pay = parseNumber(form.get("pay_amount_tnd"));
   if (!name) return fail("A name is needed.");
   if (!ALL_ROLES.includes(role)) return fail("Pick a role.");
   if (LOGIN_ROLES.includes(role) && !EMAIL.test(email)) return fail("This role logs in: enter their email.");
+  if (isBad(pay)) return fail("Pay must be a number of TND, 0 or more.");
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -162,11 +199,10 @@ export async function addPerson(_prev: ActionState, form: FormData): Promise<Act
     .single();
   if (error) return fail(error.message.includes("lower") ? "That email is already used by someone else." : `Not added: ${error.message}`);
 
-  const pay = parseNumber(form.get("pay_amount_tnd"));
-  if (pay !== null && !Number.isNaN(pay) && !role.startsWith("founder")) {
-    await supabase.from("people_pay").insert({ person_id: data.id, pay_amount_tnd: pay, pay_unit: payUnitFor(role) });
+  if (pay !== null && !role.startsWith("founder")) {
+    const { error: payErr } = await supabase.from("people_pay").insert({ person_id: data.id, pay_amount_tnd: pay, pay_unit: payUnitFor(role) });
+    if (payErr) return fail(`${name} added, but the pay was not saved (${payErr.message}). Fill it in the row.`);
   }
-  await logStep(v.personId, "person", data.id, "add", { name, role });
   revalidatePath("/settings");
   return done(LOGIN_ROLES.includes(role) ? `${name} added. They can now ask for a login link.` : `${name} added.`);
 }
@@ -178,34 +214,36 @@ export async function setPersonActive(id: string, active: boolean): Promise<Acti
   const supabase = await createClient();
   const { error } = await supabase.from("people").update({ active }).eq("id", id);
   if (error) return fail(`Not saved: ${error.message}`);
-  await logStep(v.personId, "person", id, active ? "reactivate" : "deactivate");
   revalidatePath("/settings");
   return done(active ? "Switched back on." : "Switched off: no login, history kept.");
 }
 
 // ─────────────────────────────── Alerts and late rules ───────────────────────────────
 
+/** All rules and both email switches in one statement each, so a save is all or nothing per table. */
 export async function saveRules(_prev: ActionState, form: FormData): Promise<ActionState> {
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
   const supabase = await createClient();
-  const { data: rules } = await supabase.from("alert_rules").select("key, label");
-  for (const r of rules ?? []) {
+  const { data: rules, error: readErr } = await supabase.from("alert_rules").select("key, grp, label, unit, sort");
+  if (readErr || !rules) return fail("Could not read the rules. Nothing was saved.");
+
+  const now = new Date().toISOString();
+  const rows = [];
+  for (const r of rules) {
     const value = parseNumber(form.get(`rule_${r.key}`));
     if (Number.isNaN(value) || (value !== null && value <= 0)) return fail(`"${r.label}" needs a number above 0, or empty.`);
-    const { error } = await supabase
-      .from("alert_rules")
-      .update({ value, updated_by: v.personId, updated_at: new Date().toISOString() })
-      .eq("key", r.key);
-    if (error) return fail(`Not saved: ${error.message}`);
+    rows.push({ ...r, value, updated_by: v.personId, updated_at: now });
   }
-  for (const key of ["email_instant", "email_digest"]) {
-    await supabase
-      .from("app_flags")
-      .update({ enabled: form.get(`flag_${key}`) === "on", updated_by: v.personId, updated_at: new Date().toISOString() })
-      .eq("key", key);
+  const { error } = await supabase.from("alert_rules").upsert(rows, { onConflict: "key" });
+  if (error) return fail(`Not saved: ${error.message}`);
+
+  const { data: flags } = await supabase.from("app_flags").select("key, label");
+  const flagRows = (flags ?? []).map((f) => ({ ...f, enabled: form.get(`flag_${f.key}`) === "on", updated_by: v.personId, updated_at: now }));
+  if (flagRows.length) {
+    const { error: flagErr } = await supabase.from("app_flags").upsert(flagRows, { onConflict: "key" });
+    if (flagErr) return fail(`Rules saved, but the email switches were not (${flagErr.message}).`);
   }
-  await logStep(v.personId, "alert_rules", null, "save");
   revalidatePath("/settings");
   return done("Alert rules saved.");
 }
@@ -219,40 +257,68 @@ export async function addListItem(_prev: ActionState, form: FormData): Promise<A
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
   const list = text(form.get("list"));
-  const label = text(form.get("label"));
+  const typed = text(form.get("label"));
   if (!LISTS.includes(list)) return fail("Unknown list.");
-  if (!label) return fail("Type a name first.");
+  if (!typed) return fail("Type a name first.");
 
   let code: string | null = null;
   if (CODED.includes(list)) {
-    code = list === "angle" ? toNameCode(label) : toNameCode(text(form.get("code")) || label).toUpperCase().replace(/-/g, "");
+    code = list === "angle" ? toNameCode(typed) : toNameCode(text(form.get("code")) || typed).toUpperCase().replace(/-/g, "");
     if (!code) return fail("The name needs letters or numbers.");
   }
+  const label = list === "angle" ? (code as string) : typed;
   const track = list === "angle" ? (["knee", "hips", "both"].includes(text(form.get("track"))) ? text(form.get("track")) : "both") : null;
 
   const supabase = await createClient();
-  const { data: last } = await supabase.from("list_items").select("sort").eq("list", list).order("sort", { ascending: false }).limit(1).maybeSingle();
-  const { data, error } = await supabase
+  // Already there (maybe removed earlier)? Bring it back instead of failing.
+  const { data: same } = await supabase
     .from("list_items")
-    .insert({ list, label: list === "angle" ? (code as string) : label, code, track, sort: (last?.sort ?? 0) + 1, created_by: v.personId })
-    .select("id")
-    .single();
+    .select("id, label, code, status, archived_from")
+    .eq("list", list);
+  const match = (same ?? []).find(
+    (i) => i.label.toLowerCase() === label.toLowerCase() || (code && i.code?.toLowerCase() === code.toLowerCase()),
+  );
+  if (match) {
+    if (match.status !== "archived") return fail(`${match.label} is already in this list.`);
+    const { error } = await supabase.from("list_items").update({ status: match.archived_from ?? "approved", archived_from: null }).eq("id", match.id);
+    if (error) return fail(`Not restored: ${error.message}`);
+    revalidatePath("/settings");
+    return done(`${match.label} is back in the list.`);
+  }
+
+  const { data: last } = await supabase.from("list_items").select("sort").eq("list", list).order("sort", { ascending: false }).limit(1).maybeSingle();
+  const { error } = await supabase
+    .from("list_items")
+    .insert({ list, label, code, track, sort: (last?.sort ?? 0) + 1, created_by: v.personId });
   if (error) return fail(error.code === "23505" ? "Already in this list." : `Not added: ${error.message}`);
-  await logStep(v.personId, "list_item", data.id, "add", { list, label, code });
   revalidatePath("/settings");
-  return done(code && list === "angle" ? `Added as ${code} (the name used in ad names).` : "Added.");
+  return done(code && list === "angle" && code !== typed ? `Added as ${code} (the name used in ad names).` : "Added.");
 }
 
-/** "×" never deletes: old ad names and history still point at the item, so it is archived. */
-export async function setListItemStatus(id: string, status: "approved" | "archived"): Promise<ActionState> {
+/** "×" never deletes: old ad names and history still point at the item. It is archived and can be restored as it was. */
+export async function archiveListItem(id: string): Promise<ActionState> {
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
   const supabase = await createClient();
-  const { error } = await supabase.from("list_items").update({ status }).eq("id", id);
+  const { data: item } = await supabase.from("list_items").select("status").eq("id", id).maybeSingle();
+  if (!item) return fail("Item not found.");
+  if (item.status === "archived") return done("Already removed.");
+  const { error } = await supabase.from("list_items").update({ status: "archived", archived_from: item.status }).eq("id", id);
   if (error) return fail(`Not saved: ${error.message}`);
-  await logStep(v.personId, "list_item", id, status === "archived" ? "archive" : "restore");
   revalidatePath("/settings");
-  return done(status === "archived" ? "Removed from pickers. Past ads keep their name." : "Back in the pickers.");
+  return done("Removed from pickers. Past ads keep their name.");
+}
+
+export async function restoreListItem(id: string): Promise<ActionState> {
+  const v = await founder();
+  if (!v) return fail("Only founders can change Settings.");
+  const supabase = await createClient();
+  const { data: item } = await supabase.from("list_items").select("archived_from").eq("id", id).maybeSingle();
+  if (!item) return fail("Item not found.");
+  const { error } = await supabase.from("list_items").update({ status: item.archived_from ?? "approved", archived_from: null }).eq("id", id);
+  if (error) return fail(`Not restored: ${error.message}`);
+  revalidatePath("/settings");
+  return done("Back in the list.");
 }
 
 // ─────────────────────────────── Campaigns in scope ───────────────────────────────
@@ -269,7 +335,6 @@ export async function addCampaign(_prev: ActionState, form: FormData): Promise<A
   const supabase = await createClient();
   const { error } = await supabase.from("campaign_scope").insert({ campaign_id, name, track, kind, updated_by: v.personId });
   if (error) return fail(error.code === "23505" ? "This campaign is already in scope." : `Not added: ${error.message}`);
-  await logStep(v.personId, "campaign_scope", null, "add", { campaign_id, name, track, kind });
   revalidatePath("/settings");
   return done(`${name} is now in scope.`);
 }
@@ -283,34 +348,38 @@ export async function setCampaignActive(campaignId: string, active: boolean): Pr
     .update({ active, updated_by: v.personId, updated_at: new Date().toISOString() })
     .eq("campaign_id", campaignId);
   if (error) return fail(`Not saved: ${error.message}`);
-  await logStep(v.personId, "campaign_scope", null, active ? "include" : "exclude", { campaign_id: campaignId });
   revalidatePath("/settings");
   return done(active ? "Back in scope." : "Out of scope: its ads are no longer read.");
 }
 
 // ─────────────────────────────── Copywriter levels ───────────────────────────────
 
+/**
+ * Saves the levels exactly as shown: level i = name box i + bonus box i. A level whose name and bonus are
+ * both empty is removed; a bonus without a name is refused. The whole set is rewritten in one go.
+ */
 export async function saveLevels(_prev: ActionState, form: FormData): Promise<ActionState> {
   const v = await founder();
   if (!v) return fail("Only founders can change Settings.");
-  const rows = form
-    .getAll("level")
-    .map((x) => String(x).trim())
-    .filter(Boolean);
-  const bonuses = form.getAll("bonus").map((x) => parseNumber(x));
+  const names = form.getAll("level").map((x) => String(x).trim());
+  const bonusesRaw = form.getAll("bonus");
+
+  const rows: { sort: number; name_and_rule: string; bonus_tnd: number | null; updated_at: string }[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const bonus = parseNumber(bonusesRaw[i]);
+    if (isBad(bonus)) return fail(`Level ${i + 1}: the bonus must be a number of TND, 0 or more.`);
+    if (!names[i] && bonus !== null) return fail(`Level ${i + 1}: give it a name and rule, or clear its bonus.`);
+    if (!names[i]) continue;
+    rows.push({ sort: rows.length + 1, name_and_rule: names[i], bonus_tnd: bonus, updated_at: new Date().toISOString() });
+  }
+
   const supabase = await createClient();
-  const { data: existing } = await supabase.from("copywriter_levels").select("id").order("sort");
-  // Rewrite in order: update the first N, add the rest. Empty boxes leave a level unchanged.
-  for (let i = 0; i < rows.length; i++) {
-    const bonus = bonuses[i] !== undefined && !Number.isNaN(bonuses[i]) ? bonuses[i] : null;
-    const id = existing?.[i]?.id;
-    const values = { sort: i + 1, name_and_rule: rows[i], bonus_tnd: bonus, updated_at: new Date().toISOString() };
-    const { error } = id
-      ? await supabase.from("copywriter_levels").update(values).eq("id", id)
-      : await supabase.from("copywriter_levels").insert(values);
+  const { error: delErr } = await supabase.from("copywriter_levels").delete().gte("sort", 0);
+  if (delErr) return fail(`Not saved: ${delErr.message}`);
+  if (rows.length) {
+    const { error } = await supabase.from("copywriter_levels").insert(rows);
     if (error) return fail(`Not saved: ${error.message}`);
   }
-  await logStep(v.personId, "copywriter_levels", null, "save", { count: rows.length });
   revalidatePath("/settings");
-  return done(rows.length ? "Levels saved as a draft." : "Nothing to save yet.");
+  return done(rows.length ? `${rows.length} level${rows.length > 1 ? "s" : ""} saved as a draft.` : "Levels cleared.");
 }
