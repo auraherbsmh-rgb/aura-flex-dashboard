@@ -77,7 +77,7 @@ export function MoneyForm({ money }: { money: MoneyRow | null }) {
       const t = e.target as unknown as HTMLInputElement;
       if (t.name) setDraft((d) => ({ ...d, [t.name]: t.value }));
     }} style={{ display: "contents" }}>
-      <div className="fg fg-4">
+      <div className="fg fg-4 fg-dates">
         <label className="f">
           <span className="lbl">Numbers from closed month</span>
           <input className="fi" type="month" name="month" defaultValue={m ? m.month.slice(0, 7) : ""} required />
@@ -221,7 +221,7 @@ function PersonFields({ p }: { p: Person }) {
     <div className="prow">
       <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
         <input type="hidden" name="person_id" value={p.id} />
-        <input className="fi" name={f("display_name")} defaultValue={p.display_name} aria-label="Name" style={{ fontFamily: "var(--font)", fontWeight: 600 }} />
+        <input className="fi" name={f("display_name")} defaultValue={p.display_name} aria-label={`Name of ${p.display_name}`} style={{ fontFamily: "var(--font)", fontWeight: 600 }} />
         {loginRole && (
           <input
             className={p.email ? "fi" : "fi fi-empty"}
@@ -238,7 +238,7 @@ function PersonFields({ p }: { p: Person }) {
         <span className="unit">
           {ROLE_LABEL[p.role]}
           {p.role === "editor" && (
-            <label style={{ marginLeft: 8, cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center", minHeight: 32 }}>
+            <label style={{ marginLeft: 8, cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center", minHeight: 44 }}>
               <input type="checkbox" name={f("does_ai_3d")} checked={ai} onChange={(e) => setAi(e.target.checked)} /> full AI / 3D
             </label>
           )}
@@ -263,7 +263,7 @@ function PersonFields({ p }: { p: Person }) {
       <span style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
         <span className="unit">{loginStatus(p)}</span>
         {!founderRow && (
-          <button type="button" className="btn b-quiet" style={{ height: 36, paddingLeft: 0 }} disabled={busy}
+          <button type="button" className="btn b-quiet" style={{ height: 44, paddingLeft: 0 }} disabled={busy}
             onClick={() => start(async () => setMsg(await setPersonActive(p.id, !p.active)))}>
             {p.active ? "Switch off" : "Switch on"}
           </button>
@@ -301,8 +301,8 @@ export function AddPersonForm() {
       )}
       <input className="fi" name="pay_amount_tnd" placeholder={role === "editor" ? "TND / video" : "TND / month"} aria-label="Pay in TND" inputMode="decimal" />
       <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 36 }}>{pending ? "Adding…" : "Add"}</button>
-        <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 36 }}>Cancel</button>
+        <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 44 }}>{pending ? "Adding…" : "Add"}</button>
+        <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 44 }}>Cancel</button>
         <Msg state={state} />
       </span>
     </form>
@@ -424,8 +424,8 @@ function AddItem({ list }: { list: ListItem["list"] }) {
           <option value="both">Both</option>
         </select>
       )}
-      <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 36 }}>Add</button>
-      <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 36 }}>Cancel</button>
+      <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 44 }}>Add</button>
+      <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 44 }}>Cancel</button>
       <Msg state={state} />
     </form>
   );
@@ -457,7 +457,7 @@ export function ListsBlock({ items }: { items: ListItem[] }) {
             </div>
             {removed.length > 0 && (
               <details>
-                <summary className="unit" style={{ cursor: "pointer", minHeight: 32, display: "flex", alignItems: "center" }}>Removed · {removed.length}</summary>
+                <summary className="unit" style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center" }}>Removed · {removed.length}</summary>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
                   {removed.map((i) => <RemovedChip key={i.id} item={i} />)}
                 </div>
@@ -489,9 +489,9 @@ function CampaignRow({ c }: { c: Campaign }) {
     <div className="drow">
       <span><b style={{ fontWeight: 600 }}>{c.name}</b> <span className="unit mono">{c.campaign_id}</span></span>
       <span><span className="src">{c.kind} · {c.track.toUpperCase()}</span></span>
-      <span className="unit">{c.active ? "read by the daily Meta pull" : "out of scope"} {msg.error && <span className="formmsg err">{msg.error}</span>}</span>
+      <span className="unit">{c.active ? "will be read by the daily Meta pull (not connected yet)" : "out of scope"} {msg.error && <span className="formmsg err">{msg.error}</span>}</span>
       <span>
-        <button type="button" className="btn b-quiet" style={{ height: 36 }} disabled={busy}
+        <button type="button" className="btn b-quiet" style={{ height: 44 }} disabled={busy}
           onClick={() => start(async () => setMsg(await setCampaignActive(c.campaign_id, !c.active)))}>
           {c.active ? "Take out of scope" : "Put back in scope"}
         </button>
@@ -510,8 +510,8 @@ function AddCampaign() {
       <input className="fi" name="name" placeholder="Name in Ads Manager" aria-label="Campaign name" style={{ width: 240, fontFamily: "var(--font)" }} required />
       <select className="fi" name="track" aria-label="Track" style={{ width: 110 }} defaultValue="knee"><option value="knee">Knee</option><option value="hips">Hips</option></select>
       <select className="fi" name="kind" aria-label="ABO or CBO" style={{ width: 100 }} defaultValue="ABO"><option>ABO</option><option>CBO</option></select>
-      <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 36 }}>Add</button>
-      <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 36 }}>Cancel</button>
+      <button className="btn b-primary" type="submit" disabled={pending} style={{ height: 44 }}>Add</button>
+      <button className="btn b-quiet" type="button" onClick={() => setOpen(false)} style={{ height: 44 }}>Cancel</button>
       <Msg state={state} />
     </form>
   );

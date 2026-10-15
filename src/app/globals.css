@@ -166,10 +166,12 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .drow { display: grid; grid-template-columns: minmax(0, 1.6fr) 120px minmax(0, 1.4fr) 150px; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 16px; background: #fff; border: 1px solid #ececE8; font-size: 14px; }
 .ar { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid #ececE8; }
 .prow { display: grid; grid-template-columns: minmax(0, 1.6fr) 150px 150px 180px; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 14px; background: #fff; border: 1px solid #ececE8; font-size: 14px; }
-.li { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px; background: #fff; border: 1px solid #e1e1dc; font-size: 13px; min-height: 36px; }
-.li button { border: 0; background: #efefec; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.li { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px; background: #fff; border: 1px solid #e1e1dc; font-size: 13px; min-height: 36px; margin: 4px 0; }
+.li button { position: relative; border: 0; background: #efefec; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+/* 28px dot, 44px touch area */
+.li button::after { content: ""; position: absolute; inset: -8px; }
 .li button:hover { background: #e3e3de; color: var(--ink); }
-.add { border: 1px dashed #c9c9c3; background: transparent; border-radius: 999px; padding: 0 14px; min-height: 36px; font: 500 13px var(--font); color: var(--ink-2); cursor: pointer; }
+.add { border: 1px dashed #c9c9c3; background: transparent; border-radius: 999px; padding: 0 14px; min-height: 44px; font: 500 13px var(--font); color: var(--ink-2); cursor: pointer; }
 .add:hover { color: var(--ink); border-color: var(--ink-3); }
 .tog-wrap { display: flex; gap: 10px; align-items: center; cursor: pointer; min-height: 44px; }
 .tog-wrap input { position: absolute; opacity: 0; width: 1px; height: 1px; }
@@ -198,6 +200,7 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .fg-5, .fg-4, .fg-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fg-10 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .rules-grid { grid-template-columns: 1fr; }
+  .fg-dates { grid-template-columns: 1fr; }
   .prow { grid-template-columns: 1fr 1fr; }
   .prow > :first-child { grid-column: 1 / -1; }
   .prow-head, .drow-head { display: none; }

@@ -52,7 +52,7 @@ export type Person = {
   rate_3d_tnd: number | null;
   weekly_target: number | null;
 };
-export type Level = { id: string; sort: number; name_and_rule: string; bonus_tnd: number | null };
+export type Level = { name_and_rule: string; bonus_tnd: number | null };
 
 export function toMoneyInputs(r: MoneyRow): MoneyInputs {
   const n = Number;
@@ -94,7 +94,7 @@ export async function getSettings() {
     supabase.from("campaign_scope").select("campaign_id, name, track, kind, active").order("track").order("kind"),
     supabase.from("people").select("id, display_name, role, email, does_ai_3d, active, auth_user_id, created_at").order("created_at"),
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit, rate_3d_tnd, weekly_target"),
-    supabase.from("copywriter_levels").select("id, sort, name_and_rule, bonus_tnd").order("sort"),
+    supabase.from("copywriter_level_set").select("levels").eq("id", 1).maybeSingle(),
   ]);
 
   const payBy = new Map((pay.data ?? []).map((p) => [p.person_id as string, p]));
@@ -125,6 +125,6 @@ export async function getSettings() {
     lists: (lists.data ?? []) as ListItem[],
     campaigns: (campaigns.data ?? []) as Campaign[],
     people: peopleRows,
-    levels: (levels.data ?? []) as Level[],
+    levels: ((levels.data?.levels ?? []) as Level[]),
   };
 }

@@ -349,14 +349,14 @@ export async function setCampaignActive(campaignId: string, active: boolean): Pr
     .eq("campaign_id", campaignId);
   if (error) return fail(`Not saved: ${error.message}`);
   revalidatePath("/settings");
-  return done(active ? "Back in scope." : "Out of scope: its ads are no longer read.");
+  return done(active ? "Back in scope." : "Out of scope: the Meta pull will skip its ads.");
 }
 
 // ─────────────────────────────── Copywriter levels ───────────────────────────────
 
 /**
  * Saves the levels exactly as shown: level i = name box i + bonus box i. A level whose name and bonus are
- * both empty is removed; a bonus without a name is refused. The whole set is rewritten in one go.
+ * both empty is removed; a bonus without a name is refused. The list is one row, saved in one statement.
  */
 export async function saveLevels(_prev: ActionState, form: FormData): Promise<ActionState> {
   const v = await founder();
@@ -364,22 +364,21 @@ export async function saveLevels(_prev: ActionState, form: FormData): Promise<Ac
   const names = form.getAll("level").map((x) => String(x).trim());
   const bonusesRaw = form.getAll("bonus");
 
-  const rows: { sort: number; name_and_rule: string; bonus_tnd: number | null; updated_at: string }[] = [];
+  const rows: { name_and_rule: string; bonus_tnd: number | null }[] = [];
   for (let i = 0; i < names.length; i++) {
     const bonus = parseNumber(bonusesRaw[i]);
     if (isBad(bonus)) return fail(`Level ${i + 1}: the bonus must be a number of TND, 0 or more.`);
     if (!names[i] && bonus !== null) return fail(`Level ${i + 1}: give it a name and rule, or clear its bonus.`);
     if (!names[i]) continue;
-    rows.push({ sort: rows.length + 1, name_and_rule: names[i], bonus_tnd: bonus, updated_at: new Date().toISOString() });
+    rows.push({ name_and_rule: names[i], bonus_tnd: bonus });
   }
 
   const supabase = await createClient();
-  const { error: delErr } = await supabase.from("copywriter_levels").delete().gte("sort", 0);
-  if (delErr) return fail(`Not saved: ${delErr.message}`);
-  if (rows.length) {
-    const { error } = await supabase.from("copywriter_levels").insert(rows);
-    if (error) return fail(`Not saved: ${error.message}`);
-  }
+  const levels = rows.map((r) => ({ name_and_rule: r.name_and_rule, bonus_tnd: r.bonus_tnd }));
+  const { error } = await supabase
+    .from("copywriter_level_set")
+    .upsert({ id: 1, levels, updated_by: v.personId, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) return fail(`Not saved: ${error.message}`);
   revalidatePath("/settings");
   return done(rows.length ? `${rows.length} level${rows.length > 1 ? "s" : ""} saved as a draft.` : "Levels cleared.");
 }

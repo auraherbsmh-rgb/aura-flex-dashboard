@@ -1,0 +1,4 @@
+-- Applied Oct 15, 2026 (Settings checker run 2 fixes).
+-- log_change(): every step-log row carries detail.key = the row it is about (rule key, flag key, campaign ID, month, id).
+-- copywriter_level_set: one row (id = 1) holding the ordered levels as JSON; one statement per save (all or nothing).
+-- The earlier copywriter_levels table stays empty and unused.
