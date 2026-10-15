@@ -265,9 +265,9 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .inrow-on { outline: 2px solid #111; outline-offset: 1px; }
 .inrow-title { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inrow-sub { display: block; font-size: 12px; color: var(--ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seg { display: inline-flex; flex-wrap: wrap; border-radius: 999px; padding: 4px; gap: 2px; }
-.seg a { text-decoration: none; color: #55564f; padding: 9px 14px; border-radius: 999px; font-size: 13px; min-height: 36px; display: inline-flex; align-items: center; }
-.seg a.seg-on { color: var(--ink); font-weight: 600; background: linear-gradient(180deg, #ffffff 0%, #f6f6f3 100%); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(20, 20, 15, 0.1), 0 4px 10px rgba(20, 20, 15, 0.07); }
+.wseg { display: inline-flex; flex-wrap: wrap; border-radius: 999px; padding: 4px; gap: 2px; }
+.wseg button { border: 0; background: transparent; font: inherit; cursor: pointer; text-decoration: none; color: #55564f; padding: 9px 14px; border-radius: 999px; font-size: 13px; min-height: 44px; display: inline-flex; align-items: center; }
+.wseg .seg-on { color: var(--ink); font-weight: 600; background: linear-gradient(180deg, #ffffff 0%, #f6f6f3 100%); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(20, 20, 15, 0.1), 0 4px 10px rgba(20, 20, 15, 0.07); }
 .tv { padding: 26px 28px; display: flex; flex-direction: column; gap: 22px; scroll-margin-top: 16px; }
 .tv-title { margin: 8px 0 12px; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; overflow-wrap: anywhere; }
 .tv-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

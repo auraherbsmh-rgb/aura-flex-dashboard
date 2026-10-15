@@ -40,6 +40,54 @@ export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: Ta
   );
 }
 
+/**
+ * Inbox with the founders' copywriter switch (Copywriter 1 · 2 · All). Switching filters right here in the browser,
+ * with no trip to the server, and only rewrites the address so a reload keeps the choice.
+ */
+export function BoardInbox({
+  tasks,
+  writers,
+  initialCw,
+  selectedId,
+  forFounder,
+  now,
+  action,
+}: {
+  tasks: TaskRow[];
+  writers: [string, string][];
+  initialCw: string | null;
+  selectedId: string | null;
+  forFounder: boolean;
+  now: number;
+  action?: React.ReactNode;
+}) {
+  const [cw, setCw] = useState<string | null>(initialCw);
+  const pick = (id: string | null) => {
+    setCw(id);
+    const q = new URLSearchParams(window.location.search);
+    if (id) q.set("cw", id); else q.delete("cw");
+    window.history.replaceState(window.history.state, "", `/copywriting${q.size ? `?${q}` : ""}`);
+  };
+  const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
+  return (
+    <section className="tray" style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }} aria-labelledby="h-inbox">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 6px 6px", gap: 12, flexWrap: "wrap" }}>
+        <h2 id="h-inbox" style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Inbox</h2>
+        {action ?? <span className="lbl">Click a line → task</span>}
+      </div>
+      {forFounder && writers.length > 0 && (
+        <div className="recess wseg" role="group" aria-label="Copywriter" style={{ alignSelf: "flex-start", marginBottom: 6 }}>
+          {writers.map(([id, name]) => (
+            <button key={id} type="button" className={cw === id ? "seg-on" : ""} aria-pressed={cw === id} onClick={() => pick(id)}>{name}</button>
+          ))}
+          <button type="button" className={!cw ? "seg-on" : ""} aria-pressed={!cw} onClick={() => pick(null)}>All</button>
+        </div>
+      )}
+      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} />
+    </section>
+  );
+}
+
 /** Task view (Copywriting board, right): the brief, the progress, the script link and the founder's review buttons. */
 export function TaskView({
   task,

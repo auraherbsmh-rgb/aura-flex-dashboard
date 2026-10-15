@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { TabPage, NotBuiltYet } from "@/components/TabPage";
 import { ProposeButton, ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
-import { Inbox, TaskView } from "@/components/TaskView";
+import { BoardInbox, TaskView } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
 import { getCreateTaskContext, getTaskExtras, getTasks, inboxLine, requestTime } from "@/lib/tasks";
@@ -31,7 +30,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     : [];
   const cw = founder && sp.cw && writers.some(([id]) => id === sp.cw) ? sp.cw : null;
   const tasks = cw ? allTasks.filter((t) => t.copywriterId === cw) : allTasks;
-  const query = cw ? `cw=${cw}` : "";
 
   // Selected task: the one clicked, else the most urgent line.
   const now = requestTime();
@@ -39,26 +37,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const extras = selected ? await getTaskExtras(selected) : null;
 
-  const switcher = founder && writers.length > 0 && (
-    <nav className="recess seg" aria-label="Copywriter">
-      {writers.map(([id, name]) => (
-        <Link key={id} href={`/copywriting?cw=${id}`} className={cw === id ? "seg-on" : ""} aria-current={cw === id ? "page" : undefined}>{name}</Link>
-      ))}
-      <Link href="/copywriting" className={!cw ? "seg-on" : ""} aria-current={!cw ? "page" : undefined}>All</Link>
-    </nav>
-  );
-
   return (
-    <TabPage tab="copywriting" title="Copywriting" below={switcher || undefined}>
+    <TabPage tab="copywriting" title="Copywriting">
       <div className="board">
         <aside className="board-side">
-          <section className="tray" style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }} aria-labelledby="h-inbox">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 6px 6px", gap: 12, flexWrap: "wrap" }}>
-              <h2 id="h-inbox" style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Inbox</h2>
-              {ctx ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : <span className="lbl">Click a line → task</span>}
-            </div>
-            <Inbox tasks={tasks} selectedId={selected?.id ?? null} forFounder={founder} query={query} now={now} />
-          </section>
+          <BoardInbox
+            tasks={allTasks}
+            writers={writers}
+            initialCw={cw}
+            selectedId={selected?.id ?? null}
+            forFounder={founder}
+            now={now}
+            action={ctx ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
+          />
 
           <section className="card sec" aria-labelledby="h-prop">
             <div className="sh">
