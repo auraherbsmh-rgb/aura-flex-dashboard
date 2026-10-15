@@ -172,7 +172,7 @@ export function ScriptDetailsButton({
 
         <div className="acts" style={{ justifyContent: "space-between" }}>
           <span className={`formmsg ${error || missing.length ? "err" : "ok"}`} role="status" style={{ maxWidth: 440 }}>
-            {error || (missing.length ? `Missing to confirm: ${missing.join(", ")}.` : "Everything is filled. Confirm to create the ad names.")}
+            {error || (missing.length ? `Missing to confirm: ${missing.join(", ")}.` : confirmed ? "Everything is filled. Confirming renames the ads: do it before launch." : "Everything is filled. Confirm to create the ad names.")}
           </span>
           <span style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {confirmed

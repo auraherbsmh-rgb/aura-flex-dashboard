@@ -142,7 +142,7 @@ export async function saveScriptDetails(taskId: string, input: DetailsInput, con
   const face = input.face.trim();
   if (face.length > 60) return fail("Keep the face name short (first name only).");
   const tag = toConceptTag(face);
-  if (face && !tag) return fail("Write the face name with Latin letters: it goes into ad names.");
+  if (face && !tag) return fail("Start with a letter and use Latin letters (it goes into ad names).");
   if (input.variations.length > 6) return fail("At most 6 variations.");
   if (input.shootOn && !/^\d{4}-\d{2}-\d{2}$/.test(input.shootOn)) return fail("Pick the shoot date from the calendar.");
   const offer = input.offer && [1, 2, 3].includes(input.offer) ? input.offer : null;
