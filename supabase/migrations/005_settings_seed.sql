@@ -1,0 +1,8 @@
+-- Applied Oct 15, 2026 (live migration "settings_seed").
+-- money_settings: September 2026 FINAL (File 1 §1–§4, File 3 v3.4): line $4.18 · ROAS 5.5 · AOV $20–26 · 3.35 TND/USD ·
+--   fixed 17,813 TND · kill table 13/14/20/28/38.50/44/50/55/60.50/66 · bottle 20.6 · delivery 13.00 · fixed/order 9.78 ·
+--   bridge 0.6279 · door 69.1% / 82.6% / 87.2% / avg 74.9% · ritual Oct 12 · next Nov 2 (first Monday).
+-- alert_rules: Settings artboard values; stock red line left empty (to fill).
+-- lists: 6 avatars, 5 formats, File 6 §4 angles (12 active + Knee-Surgery-Fear and Offer-Urgency reserved), hook types, main arguments.
+-- campaign_scope: the 4 campaign IDs of File 2 §1.
+-- people: Shooting agency 4,000 TND/month and Creative strategist 1,500 TND/month (File 1 §5), no logins.

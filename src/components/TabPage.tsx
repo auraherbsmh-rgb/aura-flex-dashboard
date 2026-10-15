@@ -10,18 +10,31 @@ export async function TabPage({
   tab,
   title,
   children,
+  above,
+  below,
+  roleNote,
 }: {
   tab: TabKey;
   title: string;
   children: React.ReactNode;
+  /** Switch shown above the title (e.g. "All settings", "Money | Creative engine"). */
+  above?: React.ReactNode;
+  /** Count pills under the title. */
+  below?: React.ReactNode;
+  /** Replaces the subtitle under the person's name, as some artboards do ("Founders only"). */
+  roleNote?: string;
 }) {
   const viewer = await requireTab(tab);
   return (
     <main className="page">
       <div className="slab">
         <div className="band">
-          <AppHeader viewer={viewer} active={tab} />
-          <h1 className="h1" style={{ marginTop: 28 }}>{title}</h1>
+          <AppHeader viewer={viewer} active={tab} roleNote={roleNote} />
+          <div style={{ marginTop: 28 }}>
+            {above && <div style={{ marginBottom: 18 }}>{above}</div>}
+            <h1 className="h1">{title}</h1>
+            {below && <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginTop: 12 }}>{below}</div>}
+          </div>
         </div>
         <div className="body">{children}</div>
       </div>

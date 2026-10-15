@@ -4,7 +4,7 @@ import type { Viewer } from "@/lib/viewer";
 import { signOut } from "@/app/actions";
 
 /** Header band shared by every tab (artboards: logo · tab bar · person). Only the tabs this role may see are shown. */
-export function AppHeader({ viewer, active }: { viewer: Viewer; active: TabKey }) {
+export function AppHeader({ viewer, active, roleNote }: { viewer: Viewer; active: TabKey; roleNote?: string }) {
   const allowed = TABS_BY_ROLE[viewer.role];
   const tabs = TABS.filter((t) => allowed.includes(t.key));
 
@@ -38,7 +38,7 @@ export function AppHeader({ viewer, active }: { viewer: Viewer; active: TabKey }
         <div className="avatar raise" aria-hidden="true">{initials(viewer.name)}</div>
         <div>
           <div className="who-name">{viewer.name}</div>
-          <div className="who-role">{ROLE_SUBTITLE[viewer.role]}</div>
+          <div className="who-role">{roleNote ?? ROLE_SUBTITLE[viewer.role]}</div>
         </div>
         <form action={signOut}>
           <button type="submit" className="btn b-quiet">Log out</button>

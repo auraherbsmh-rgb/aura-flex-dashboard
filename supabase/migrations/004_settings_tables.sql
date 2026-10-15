@@ -1,0 +1,12 @@
+-- Applied Oct 15, 2026 (live migration "settings_tables"). Money per month, alert rules, flags, lists, campaign scope, copywriter levels.
+-- Full SQL as applied: see the live migration in Supabase (supabase migration list). Summary of the shape:
+--   money_settings(month unique, status provisional|final, business_line_usd, roas_line, aov_band_low/high_usd, exchange_rate,
+--                  fixed_costs_tnd, kill_table_usd numeric[10], bottle_cost_tnd, delivery_cost_tnd, fixed_per_order_tnd,
+--                  bridge_factor, door_rate_1b/2b/3b/avg, price_1b/2b/3b_tnd, ritual_on, next_ritual_on, updated_by)
+--   alert_rules(key, grp copywriting|editing|live, label, value, unit, sort)
+--   app_flags(key, enabled, label)
+--   list_items(list avatar|angle|hook_type|main_argument|format, code ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$, label,
+--              status approved|on_hold|rejected|reserved|archived, track knee|hips|both, core_message, sort)
+--   campaign_scope(campaign_id digits, name, track knee|hips, kind ABO|CBO, active)
+--   copywriter_levels(sort, name_and_rule, bonus_tnd)
+-- RLS: lists readable by every active person; everything else founders only.

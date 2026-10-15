@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/confirm"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth/confirm",
+  // Local preview with sample data (never enabled on Vercel).
+  ...(process.env.ENABLE_PREVIEW === "1" ? ["/dev-preview"] : []),
+];
 
 /** Runs before every page: refreshes the login session and sends logged-out visitors to /login. */
 export async function proxy(request: NextRequest) {

@@ -1,9 +1,17 @@
-import { TabPage, NotBuiltYet } from "@/components/TabPage";
+import { TabPage } from "@/components/TabPage";
+import { requireTab } from "@/lib/viewer";
+import { getSettings } from "@/lib/settings/data";
+import { SettingsSections, SettingsSwitch, SettingsPills } from "./SettingsView";
+
 export const metadata = { title: "Settings · Aura Flex" };
-export default function Page() {
+
+export default async function SettingsPage() {
+  await requireTab("settings");
+  const s = await getSettings();
+  const today = new Date().toISOString().slice(0, 10);
   return (
-    <TabPage tab="settings" title="Settings">
-      <NotBuiltYet phase="screen 2, next" what="Money, people and pay, alerts, data sources and lists are the next screen to be built." />
+    <TabPage tab="settings" title="Settings" roleNote="Founders only" above={<SettingsSwitch />} below={<SettingsPills s={s} today={today} />}>
+      <SettingsSections s={s} today={today} />
     </TabPage>
   );
 }
