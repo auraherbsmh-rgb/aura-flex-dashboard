@@ -531,7 +531,7 @@ export function LevelsForm({ levels }: { levels: Level[] }) {
             <div className="f" key={i}>
               <label className="lbl" htmlFor={`level_${i}`}>Level {i + 1} · name and rule</label>
               <input id={`level_${i}`} className={l ? "fi" : "fi fi-empty"} name="level" defaultValue={l?.name_and_rule ?? ""} placeholder="to fill" style={{ fontFamily: "var(--font)" }} />
-              <input className={l?.bonus_tnd ? "fi" : "fi fi-empty"} name="bonus" defaultValue={l?.bonus_tnd ?? ""} placeholder="bonus, TND / month" aria-label={`Level ${i + 1} bonus in TND`} inputMode="decimal" />
+              <input className={l?.bonus_tnd !== null && l?.bonus_tnd !== undefined ? "fi" : "fi fi-empty"} name="bonus" defaultValue={l?.bonus_tnd ?? ""} placeholder="bonus, TND / month" aria-label={`Level ${i + 1} bonus in TND`} inputMode="decimal" />
             </div>
           );
         })}

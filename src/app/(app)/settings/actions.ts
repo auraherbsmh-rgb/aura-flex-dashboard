@@ -349,7 +349,7 @@ export async function setCampaignActive(campaignId: string, active: boolean): Pr
     .eq("campaign_id", campaignId);
   if (error) return fail(`Not saved: ${error.message}`);
   revalidatePath("/settings");
-  return done(active ? "Back in scope." : "Out of scope: the Meta pull will skip its ads.");
+  return done(active ? "Back in scope." : "Out of scope: the Meta pull will skip its ads once it is connected.");
 }
 
 // ─────────────────────────────── Copywriter levels ───────────────────────────────

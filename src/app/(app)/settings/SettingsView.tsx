@@ -55,7 +55,7 @@ export function summarize(s: SettingsData, today: string) {
     { item: "Copywriter pay", src: "MANUAL", detail: "People and pay", tone: copyPayToFill ? "amber" : "green", status: copyPayToFill ? "TO FILL" : "FILLED" },
     { item: "3D generation rate · AI / 3D editor", src: "MANUAL", detail: "set at the first 3D launch", tone: rate3dToFill ? "amber" : "green", status: rate3dToFill ? "TO FILL" : "FILLED" },
     { item: "Copywriter levels and bonus rules", src: "MANUAL", detail: "section below · scorecard block 8 stays hidden until set", tone: levelsToFill ? "amber" : "green", status: levelsToFill ? "TO FILL" : "FILLED" },
-    { item: "Winners alive, chain, speed, engine cost", src: "CALCULATED", detail: "from Meta, task dates and this page", tone: "grey", status: "AUTOMATIC" },
+    { item: "Winners alive, chain, speed, engine cost", src: "CALCULATED", detail: "from Meta, task dates and this page · waits for Meta", tone: "grey", status: "AUTOMATIC" },
   ];
 
   return { active, inactive, copyPayToFill, rate3dToFill, stockToFill, levelsToFill, toFill, moneyDue, connectionsToMake, moneyLine, dataRows };
@@ -98,7 +98,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
             <span><Tag tone={r.tone}>{r.status}</Tag></span>
           </div>
         ))}
-        <div className="lbl" style={{ marginTop: 8 }}>Campaigns in scope · only these campaign IDs are read (File 2 §1)</div>
+        <div className="lbl" style={{ marginTop: 8 }}>Campaigns in scope · only these campaign IDs will be read (File 2 §1)</div>
         <CampaignRows campaigns={s.campaigns} />
       </section>
 
