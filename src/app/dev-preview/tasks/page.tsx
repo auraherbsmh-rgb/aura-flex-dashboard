@@ -32,15 +32,25 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       { id: "c2", name: "Copywriter 2", target: 4, approvedThisWeek: 4, openTasks: 2 },
     ],
   };
-  const base = { createdAt: "", angleId: "g2", scriptUrl: null, changeFacts: { used: [{ label: "UGC", count: 2 }], total: 2, untried: ["Doctor video (AUTH)", "VSL", "AI / 3D"] }, rounds: [] };
+  const base = { createdAt: "", angleId: "g2", angleCode: "Knee-Surgery-Fear", formatCode: "UGC", scriptUrl: null, changeFacts: { used: [{ label: "UGC", count: 2 }], total: 2, untried: ["Doctor video (AUTH)", "VSL", "AI / 3D"] }, rounds: [] };
   const r1 = { round: 1, scriptUrl: "https://docs.google.com/document/d/abc", submittedAt: "2026-10-15T08:00:00Z", submittedBy: "Copywriter 2", decision: null, loom: null, note: null, decidedBy: null, decidedAt: null };
   const tasks: TaskRow[] = [
     { ...base, id: "t2", status: "writing", dueOn: "2026-10-13", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: "The surgery isn't the only road; your knee can still be helped.", note: "new face, a doctor's voice", reference: null },
     { ...base, id: "t3", status: "writing", dueOn: "2026-10-22", copywriter: "Copywriter 1", copywriterId: "c1", avatarCode: "FSB", awareness: "Most-Aware", angle: "Knee-Broad", format: "VSL", keep: null, note: null, reference: "Amel V1" },
     { ...base, id: "t4", status: "changes", dueOn: "2026-10-20", copywriter: "Copywriter 1", copywriterId: "c1", avatarCode: "MSP", awareness: "Solution-Aware", angle: "Knee-Standing-Profession", format: "Doctor video (AUTH)", keep: null, note: null, reference: "https://www.facebook.com/ads/library/?id=1", scriptUrl: r1.scriptUrl, rounds: [{ ...r1, submittedBy: "Copywriter 1", decision: "changes", note: "The hook is too slow: start with the stairs.", loom: "https://www.loom.com/share/x", decidedBy: "Founder 1", decidedAt: "2026-10-15T10:00:00Z" }] },
+    { ...base, id: "t6", status: "approved", dueOn: "2026-10-18", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: null, note: null, reference: null, rounds: [{ ...r1, decision: "approved", decidedBy: "Founder 1", decidedAt: "2026-10-15T11:00:00Z" }] },
+    { ...base, id: "t7", status: "details_done", dueOn: "2026-10-18", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: null, note: null, reference: null, rounds: [{ ...r1, decision: "approved", decidedBy: "Founder 1", decidedAt: "2026-10-15T11:00:00Z" }] },
     { ...base, id: "t5", status: "review", dueOn: "2026-10-18", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "CGS", awareness: "Problem-Aware", angle: "Father-Suffer", format: "UGC", keep: "A son who couldn't bear watching his father suffer found what actually helped.", note: null, reference: null, scriptUrl: r1.scriptUrl, rounds: [r1] },
   ];
-  const sel = tasks.find((t) => t.id === sp.task) ?? tasks[3];
+  const sel = tasks.find((t) => t.id === sp.task) ?? tasks[tasks.length - 1];
+  const dp = { hookTypes: [{ id: "h1", label: "Storytelling" }, { id: "h2", label: "Myth Busting" }], mainArguments: [{ id: "m1", label: "Mechanism · triple therapy" }], prices: [59, 90, 129] as [number, number, number] };
+  const nm = "UGC_FSS_Problem-Aware_Knee-Surgery-Fear_Sami";
+  const det = {
+    face: "Sami", shootOn: "2026-10-18", generate: false, mainArgumentId: "m1", offer: 2,
+    variations: [1, 2, 3, 4, 5].map((i) => ({ hookTypeId: i % 2 ? "h1" : "h2", hookLine: `Hook line number ${i}`, headline: "" })),
+    adSetName: nm, confirmedAt: "2026-10-15T12:00:00Z",
+    ads: [1, 2, 3, 4, 5].map((i) => ({ v: i, hookType: i % 2 ? "Storytelling" : "Myth Busting", hookLine: `Hook line number ${i}`, headline: null, adName: `${nm}_V${i}` })),
+  };
   const needs = buildNeeds({ personId: "f1", name: "Founder 1", role: "founder_1", email: "" }, [], 48, Date.parse("2026-10-15T15:00:00Z"), tasks, 48);
   const p: Proposal = { id: "p1", status: "approved", createdAt: "2026-10-14T10:00:00Z", decidedAt: null, proposedById: "c2", proposedBy: "Copywriter 2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", isNewAngle: false, why: "Women with a surgery date are the most ready to act.", format: "Doctor video (AUTH)", answer: "Go ahead.", decidedBy: "Founder 1", avatarId: "a2", angleId: "g2", formatId: "f2", hasTask: false };
   const v1 = { personId: "f1", name: "Founder 1", role: "founder_1" as const, email: "" };
@@ -58,7 +68,8 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
               </section>
             </aside>
             <div className="board-main">
-              <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"} />
+              <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"}
+                details={sel.id === "t7" ? det : sel.id === "t6" ? { ...det, adSetName: null, confirmedAt: null, ads: [], variations: det.variations.slice(0, 2) } : null} detailsPickers={dp} />
             </div>
           </div>
           <section className="card sec"><div className="sh"><h2>Proposals</h2></div><ProposalList proposals={[p, { ...p, id: "p2", hasTask: true }]} showAuthor taskCtx={{ ctx, pickers }} /></section>

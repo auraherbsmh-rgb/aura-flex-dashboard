@@ -45,7 +45,7 @@ import { inboxLine, stepNow, type TaskRow } from "../src/lib/tasks-shared";
 
 const t0: TaskRow = {
   id: "t", status: "writing", dueOn: "2026-10-20", createdAt: "", copywriter: "C1", copywriterId: "c1", avatarCode: "FSB", awareness: "Problem-Aware",
-  angleId: "g", angle: "Knee-Broad", format: "UGC", keep: null, note: null, reference: null, scriptUrl: null, changeFacts: null, rounds: [],
+  angleId: "g", angle: "Knee-Broad", angleCode: "Knee-Broad", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: null, changeFacts: null, rounds: [],
 };
 const NOW = Date.parse("2026-10-15T10:00:00Z");
 
@@ -67,4 +67,24 @@ test("progress step", () => {
   assert.equal(stepNow("changes"), 0);
   assert.equal(stepNow("review"), 1);
   assert.equal(stepNow("approved"), 2);
+});
+
+import { adSetName, missingDetails } from "../src/lib/tasks-shared";
+import { toConceptTag } from "../src/lib/parse";
+
+test("concept tag and ad names (decision Oct 15)", () => {
+  assert.equal(toConceptTag("Sami"), "Sami");
+  assert.equal(toConceptTag("hédi"), "Hedi");
+  assert.equal(toConceptTag("talking objects"), "TalkingObjects");
+  assert.equal(toConceptTag("سامي"), "");
+  assert.equal(adSetName({ formatCode: "AUTH", avatarCode: "CGD", awareness: "Problem-Aware", angleCode: "Knee-Broad" }, "Ali"), "AUTH_CGD_Problem-Aware_Knee-Broad_Ali");
+});
+
+test("Script details: what blocks Confirm", () => {
+  const v = { hookTypeId: "h", hookLine: "Hello there", headline: "" };
+  const ok = { face: "Sami", shootOn: "2026-10-20", generate: false, mainArgumentId: "m", variations: [v, v, v, v, v] };
+  assert.deepEqual(missingDetails(ok, "Sami"), []);
+  assert.deepEqual(missingDetails({ ...ok, shootOn: "", generate: true }, "Sami"), []);
+  assert.deepEqual(missingDetails({ ...ok, shootOn: "" }, "Sami"), ["shoot date (or AI / 3D)"]);
+  assert.deepEqual(missingDetails({ ...ok, variations: [v, { ...v, hookTypeId: "" }] }, ""), ["face name", "3 more variations", "V2 hook type"]);
 });

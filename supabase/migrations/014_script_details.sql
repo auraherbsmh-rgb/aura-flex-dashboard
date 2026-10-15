@@ -1,0 +1,11 @@
+-- Applied Oct 15, 2026 (screen 6: Script details and ad names). Summary of live migrations
+-- "script_details_and_ad_names", "save_script_details_function", "save_script_details_fix_var_name".
+-- public.script_details (one per task): face, tag (one word, Latin letters = concept tag), shoot_on or generate (AI / 3D),
+--   main_argument_id, offer_bottles 1–3, variations jsonb (draft, ≤6), ad_set_name (unique), confirmed_at.
+-- public.ad_variations: one row per V# with hook type, hook line, headline, ad_name (unique among active), active flag
+--   (extra rows are switched off, never deleted). RLS read: founders or the task's copywriter. No direct writes.
+-- public.save_script_details(...) security definer: own task or founder; task approved|details_done; draft saves anything;
+--   confirm needs face, shoot date or AI / 3D, main argument, 5–6 variations with hook type + hook line, then writes
+--   Format_Avatar_Awareness_Angle_Tag_V# names and moves the task to details_done. AI format forces "generate".
+-- Live test (rolled back): incomplete confirm lists what is missing; bad tag refused; names UGC_FSB_Product-Aware_Benefits_Sami_V1…V5;
+--   re-edit 6 → 5 variations switches V6 off; direct writes refused.

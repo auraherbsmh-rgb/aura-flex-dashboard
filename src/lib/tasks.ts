@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -58,7 +58,7 @@ export async function getTasks(): Promise<TaskRow[]> {
   type Row = {
     id: string; status: string; due_on: string; created_at: string; keep_text: string | null; founder_note: string | null;
     reference: string | null; copywriter_id: string; awareness: string; angle_id: string; script_url: string | null; change_facts: ChangeFacts | Record<string, never>;
-    writer: { display_name: string } | null; avatar: { code: string } | null; angle: { label: string } | null; format: { label: string } | null;
+    writer: { display_name: string } | null; avatar: { code: string } | null; angle: { label: string; code: string } | null; format: { label: string; code: string } | null;
   };
   type RoundRow = {
     task_id: string; round: number; script_url: string; submitted_at: string; decision: Round["decision"]; loom_url: string | null; note: string | null;
@@ -71,7 +71,7 @@ export async function getTasks(): Promise<TaskRow[]> {
         .select(
           "id, status, due_on, created_at, keep_text, founder_note, reference, copywriter_id, awareness, angle_id, script_url, change_facts, " +
             "writer:people!tasks_copywriter_id_fkey(display_name), avatar:list_items!tasks_avatar_id_fkey(code), " +
-            "angle:list_items!tasks_angle_id_fkey(label), format:list_items!tasks_format_id_fkey(label)",
+            "angle:list_items!tasks_angle_id_fkey(label, code), format:list_items!tasks_format_id_fkey(label, code)",
         )
         .neq("status", "cancelled")
         .order("id")
@@ -101,7 +101,8 @@ export async function getTasks(): Promise<TaskRow[]> {
     .map((r) => ({
       id: r.id, status: r.status, dueOn: r.due_on, createdAt: r.created_at,
       copywriter: r.writer?.display_name ?? "—", copywriterId: r.copywriter_id,
-      avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angleId: r.angle_id, angle: r.angle?.label ?? "—", format: r.format?.label ?? "—",
+      avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angleId: r.angle_id, angle: r.angle?.label ?? "—", angleCode: r.angle?.code ?? "?",
+      format: r.format?.label ?? "—", formatCode: r.format?.code ?? "?",
       keep: r.keep_text, note: r.founder_note, reference: r.reference, scriptUrl: r.script_url,
       changeFacts: "untried" in (r.change_facts ?? {}) ? (r.change_facts as ChangeFacts) : null,
       rounds: (byTask.get(r.id) ?? []).sort((x, y) => x.round - y.round),
@@ -110,12 +111,44 @@ export async function getTasks(): Promise<TaskRow[]> {
 }
 
 /** "Already tried in this angle" (other tasks in the same angle, no names) and the business line, for the task view. */
-export async function getTaskExtras(task: TaskRow): Promise<{ history: AngleHistoryRow[]; line: number | null }> {
+export async function getTaskExtras(task: TaskRow): Promise<{
+  history: AngleHistoryRow[];
+  line: number | null;
+  details: ScriptDetails | null;
+  pickers: DetailsPickers;
+}> {
   const supabase = await createClient();
-  const [hist, money] = await Promise.all([
+  const [hist, money, det, ads, lists] = await Promise.all([
     supabase.rpc("angle_history", { p_angle: task.angleId, p_exclude: task.id }),
-    supabase.from("money_settings").select("business_line_usd").order("month", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("money_settings").select("business_line_usd, price_1b_tnd, price_2b_tnd, price_3b_tnd").order("month", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("script_details").select("face, shoot_on, generate, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").eq("task_id", task.id).maybeSingle(),
+    supabase.from("ad_variations").select("v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("task_id", task.id).eq("active", true).order("v"),
+    supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
   ]);
+  type V = { hook_type_id?: string | null; hook_line?: string | null; headline?: string | null };
+  type A = { v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
+  const d = det.data;
+  const details: ScriptDetails | null = d
+    ? {
+        face: d.face ?? "",
+        shootOn: d.shoot_on ?? "",
+        generate: d.generate,
+        mainArgumentId: d.main_argument_id ?? "",
+        offer: d.offer_bottles,
+        variations: ((d.variations ?? []) as V[]).map((x) => ({ hookTypeId: x.hook_type_id ?? "", hookLine: x.hook_line ?? "", headline: x.headline ?? "" })),
+        adSetName: d.ad_set_name,
+        confirmedAt: d.confirmed_at,
+        ads: ((ads.data ?? []) as unknown as A[]).map((a) => ({ v: a.v, hookType: a.hook?.label ?? "—", hookLine: a.hook_line, headline: a.headline, adName: a.ad_name })),
+      }
+    : null;
+  const rows = lists.data ?? [];
+  const m = money.data;
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x));
+  const pickers: DetailsPickers = {
+    hookTypes: rows.filter((r) => r.list === "hook_type").map((r) => ({ id: r.id, label: r.label })),
+    mainArguments: rows.filter((r) => r.list === "main_argument").map((r) => ({ id: r.id, label: r.label })),
+    prices: [num(m?.price_1b_tnd), num(m?.price_2b_tnd), num(m?.price_3b_tnd)],
+  };
   type H = { avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
   const history = ((hist.data ?? []) as H[]).map((h) => ({
     cell: `${h.avatar_code} × ${h.awareness.replace("-Aware", "")}`,
@@ -123,6 +156,5 @@ export async function getTaskExtras(task: TaskRow): Promise<{ history: AngleHist
     status: h.status,
     month: new Date(h.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "Africa/Tunis" }),
   }));
-  const line = money.data?.business_line_usd;
-  return { history, line: line === null || line === undefined ? null : Number(line) };
+  return { history, line: num(m?.business_line_usd), details, pickers };
 }

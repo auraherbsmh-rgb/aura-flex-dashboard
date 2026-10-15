@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
+import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
 import { reviewScript, submitScript } from "@/app/tasks/actions";
 import { shortAwareness } from "@/lib/proposals-shared";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type ScriptDetails, type TaskRow } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
   changes: { word: "CHANGES", tone: "t-red" },
   review: { word: "REVIEW", tone: "t-blue" },
   approved: { word: "APPROVED", tone: "t-green" },
-  details_done: { word: "DETAILS DONE", tone: "t-green" },
+  details_done: { word: "IN PRODUCTION", tone: "t-grey" },
 };
 
 /** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
@@ -95,12 +96,16 @@ export function TaskView({
   line,
   isFounder,
   isOwner,
+  details,
+  detailsPickers,
 }: {
   task: TaskRow;
   history: AngleHistoryRow[];
   line: number | null;
   isFounder: boolean;
   isOwner: boolean;
+  details: ScriptDetails | null;
+  detailsPickers: DetailsPickers;
 }) {
   const [url, setUrl] = useState(task.scriptUrl ?? "");
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
@@ -227,7 +232,9 @@ export function TaskView({
         <h3 className="h3">{isOwner ? "My work" : "Progress"}</h3>
         <ol className="recess steps" aria-label="Progress">
           {STEPS.map((s, i) => (
-            <li key={s} className={`step ${i < now ? "st-done" : i === now ? "st-now" : ""}`} aria-current={i === now ? "step" : undefined}>{s}</li>
+            <li key={s} className={`step ${i < now ? "st-done" : i === now ? "st-now" : ""}`} aria-current={i === now ? "step" : undefined}>
+              {s === "SHOOT" && (details?.generate || task.formatCode === "AI") ? "GENERATE" : s}
+            </li>
           ))}
         </ol>
         {canReview && (
@@ -240,6 +247,53 @@ export function TaskView({
           </div>
         )}
       </div>
+
+      {task.status === "approved" && (isOwner || isFounder) && (
+        <div className="tv-next">
+          <div>
+            <b>Script approved.</b> Fill the script details: face, {details?.generate || task.formatCode === "AI" ? "AI / 3D" : "shoot date"}, main argument, and 5–6 hook variations.
+            The shoot and the ad names wait until it’s confirmed.
+            {details && !details.confirmedAt && <span className="unit"> · Draft saved</span>}
+          </div>
+          <ScriptDetailsButton task={task} details={details} pickers={detailsPickers} label={details ? "Continue script details" : "Fill script details"} onDone={(m) => setMsg({ ok: m })} />
+        </div>
+      )}
+      {task.status === "approved" && !isOwner && !isFounder && <div className="info">Script approved. Script details come next.</div>}
+
+      {task.status === "details_done" && details && (
+        <div>
+          <h3 className="h3">Script details</h3>
+          <div className="tv-det">
+            <div><span className="lbl">Face</span><b>{details.face}</b></div>
+            <div><span className="lbl">{details.generate ? "Production" : "Shoot"}</span><b>{details.generate ? "AI / 3D, no shoot" : fmtDay(details.shootOn)}</b></div>
+            <div><span className="lbl">Main argument</span><b>{detailsPickers.mainArguments.find((a) => a.id === details.mainArgumentId)?.label ?? "—"}</b></div>
+            <div><span className="lbl">Offer at the end</span><b>{details.offer ? `${details.offer} bottle${details.offer > 1 ? "s" : ""}` : "None"}</b></div>
+          </div>
+          {details.adSetName && (
+            <div className="field" style={{ marginTop: 14 }}>
+              <span className="lbl">Ad set name</span>
+              <div className="copy"><span>{details.adSetName}</span><CopyName text={details.adSetName} /></div>
+            </div>
+          )}
+          <div className="field" style={{ marginTop: 10 }}>
+            <span className="lbl">Ad variations · one ad name each</span>
+            {details.ads.map((a) => (
+              <div className="tv-ad" key={a.v}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14 }}><b>V{a.v}</b> · <span className="unit">{a.hookType}</span> · “{a.hookLine}”{a.headline ? <span className="unit"> · headline: {a.headline}</span> : null}</div>
+                  <div className="copy" style={{ marginTop: 6 }}><span>{a.adName}</span><CopyName text={a.adName} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {(isOwner || isFounder) && (
+            <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <ScriptDetailsButton task={task} details={details} pickers={detailsPickers} label="Edit details" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />
+              <span className="unit">Editing changes the ad names: do it before launch.</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {task.status === "review" && last && (
         <div className="info">

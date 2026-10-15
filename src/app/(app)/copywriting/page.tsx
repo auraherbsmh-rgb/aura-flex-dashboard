@@ -72,6 +72,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
               line={extras.line}
               isFounder={founder}
               isOwner={selected.copywriterId === viewer.personId}
+              details={extras.details}
+              detailsPickers={extras.pickers}
             />
           ) : (
             <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>

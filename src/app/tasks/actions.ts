@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/viewer";
-import { text, toNameCode } from "@/lib/parse";
+import { text, toConceptTag, toNameCode } from "@/lib/parse";
 import { AWARENESS } from "@/lib/proposals-shared";
 import { changeFacts, tunisDate, type TaskLite } from "@/lib/tasks-shared";
 
@@ -121,4 +121,48 @@ export async function reviewScript(taskId: string, round: number, decision: "app
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
   return done(decision === "approved" ? "Approved. Her inbox now says: fill script details." : "Sent back with your note. She sees it at the top of her inbox.");
+}
+
+export type DetailsInput = {
+  face: string;
+  shootOn: string;
+  generate: boolean;
+  mainArgumentId: string;
+  offer: number | null;
+  variations: { hookTypeId: string; hookLine: string; headline: string }[];
+};
+
+/**
+ * Script details (after approval): save a draft, or confirm. Confirm needs every ● field and 5–6 variations;
+ * the database then writes one ad name per variation and hands the script to production.
+ */
+export async function saveScriptDetails(taskId: string, input: DetailsInput, confirm: boolean): Promise<TaskState> {
+  const v = await getViewer();
+  if (!["founder_1", "founder_2", "copywriter"].includes(v.role)) return fail("Only copywriters and founders fill script details.");
+  const face = input.face.trim();
+  if (face.length > 60) return fail("Keep the face name short (first name only).");
+  const tag = toConceptTag(face);
+  if (face && !tag) return fail("Write the face name with Latin letters: it goes into ad names.");
+  if (input.variations.length > 6) return fail("At most 6 variations.");
+  if (input.shootOn && !/^\d{4}-\d{2}-\d{2}$/.test(input.shootOn)) return fail("Pick the shoot date from the calendar.");
+  const offer = input.offer && [1, 2, 3].includes(input.offer) ? input.offer : null;
+  const vars = input.variations.map((x) => ({ hook_type_id: x.hookTypeId || null, hook_line: x.hookLine.trim(), headline: x.headline.trim() }));
+  if (vars.some((x) => x.hook_line.length > 300)) return fail("Keep each hook line under 300 characters.");
+  if (vars.some((x) => x.headline.length > 200)) return fail("Keep each headline under 200 characters.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_script_details", {
+    p_task: taskId,
+    p_face: face,
+    p_tag: tag,
+    p_shoot: input.generate ? null : input.shootOn || null,
+    p_generate: input.generate,
+    p_arg: input.mainArgumentId || null,
+    p_offer: offer,
+    p_vars: vars,
+    p_confirm: confirm,
+  });
+  if (error) return fail(error.code === "23505" ? "One of these ad names is already used. Use another word for the face." : plain(error));
+  revalidatePath("/", "layout");
+  return done(confirm ? "Details confirmed. The ad names are ready and the script is handed to production." : "Draft saved.");
 }

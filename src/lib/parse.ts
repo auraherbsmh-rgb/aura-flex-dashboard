@@ -35,3 +35,11 @@ export function toNameCode(label: string): string {
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join("-");
 }
+
+/**
+ * Concept tag for ad names (decision Oct 15): the face's first name, or one word for the idea when nobody is
+ * in the video. One word, Latin letters, no dashes: "Sami", "talking objects" → "TalkingObjects", "Hédi" → "Hedi".
+ */
+export function toConceptTag(name: string): string {
+  return toNameCode(name).replace(/-/g, "").slice(0, 30);
+}

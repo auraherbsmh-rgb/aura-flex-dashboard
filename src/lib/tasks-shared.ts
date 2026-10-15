@@ -85,7 +85,9 @@ export type TaskRow = {
   awareness: string;
   angleId: string;
   angle: string;
+  angleCode: string;
   format: string;
+  formatCode: string;
   keep: string | null;
   note: string | null;
   reference: string | null;
@@ -99,6 +101,7 @@ export const OPEN_STATUSES = ["writing", "changes", "review"];
 /** Progress steps of the task view (handoff §7). Index of the step the task is on now. */
 export const STEPS = ["WRITE", "REVIEW", "APPROVED", "SHOOT", "EDIT", "LIVE", "RESULT"] as const;
 export function stepNow(status: string): number {
+  // approved = script approved, details still to fill; details_done = handed to production (shoot or generate next)
   if (status === "review") return 1;
   if (status === "approved") return 2;
   if (status === "details_done") return 3;
@@ -129,8 +132,9 @@ export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now()): In
   if (t.status === "review") {
     return { tag: forFounder ? "REVIEW" : "IN REVIEW", tone: "t-blue", title: cell, sub: `Round ${last?.round ?? 1} · ${forFounder ? "waiting on you" : "waiting on Founder 1"}${who}`, rank: forFounder ? 0 : 4 };
   }
-  if (t.status === "approved") return { tag: "APPROVED", tone: "t-green", title: cell, sub: `Next: fill script details${who}`, rank: 5 };
-  return { tag: "DETAILS DONE", tone: "t-grey", title: cell, sub: `${t.format}${who}`, rank: 6 };
+  // Approved: the copywriter still has to fill the Script details, so it sits near the top of her inbox.
+  if (t.status === "approved") return { tag: "FILL DETAILS", tone: "t-amber", title: cell, sub: `Script approved · fill the script details${who}`, rank: forFounder ? 5 : 1 };
+  return { tag: "IN PRODUCTION", tone: "t-grey", title: cell, sub: `${t.format} · details done${who}`, rank: 6 };
 }
 
 export function fmtDay(iso: string) {
@@ -150,3 +154,36 @@ export type AngleHistoryRow = { cell: string; format: string; status: string; mo
 
 /** Request time, read once per render on the server and passed down (keeps client and server in step). */
 export const requestTime = () => Date.now();
+
+/** Ad set and ad names (handoff §5): Format_Avatar_Awareness_Angle_ConceptTag[_V#]. Same rule as the database. */
+export function adSetName(t: Pick<TaskRow, "formatCode" | "avatarCode" | "awareness" | "angleCode">, tag: string): string {
+  return `${t.formatCode}_${t.avatarCode}_${t.awareness}_${t.angleCode}_${tag || "Face"}`;
+}
+
+export type Variation = { hookTypeId: string; hookLine: string; headline: string };
+export type ScriptDetails = {
+  face: string;
+  shootOn: string; // YYYY-MM-DD or ""
+  generate: boolean;
+  mainArgumentId: string;
+  offer: number | null;
+  variations: Variation[];
+  adSetName: string | null;
+  confirmedAt: string | null;
+  ads: { v: number; hookType: string; hookLine: string; headline: string | null; adName: string }[];
+};
+export type DetailsPickers = { hookTypes: { id: string; label: string }[]; mainArguments: { id: string; label: string }[]; prices: [number | null, number | null, number | null] };
+
+/** What still blocks "Confirm details" (same checks as the database), in plain words. */
+export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "generate" | "mainArgumentId" | "variations">, tag: string): string[] {
+  const miss: string[] = [];
+  if (!tag) miss.push("face name");
+  if (!d.generate && !d.shootOn) miss.push("shoot date (or AI / 3D)");
+  if (!d.mainArgumentId) miss.push("main argument");
+  if (d.variations.length < 5) miss.push(`${5 - d.variations.length} more variation${5 - d.variations.length > 1 ? "s" : ""}`);
+  d.variations.forEach((v, i) => {
+    if (!v.hookTypeId) miss.push(`V${i + 1} hook type`);
+    if (v.hookLine.trim().length < 2) miss.push(`V${i + 1} hook line`);
+  });
+  return miss;
+}
