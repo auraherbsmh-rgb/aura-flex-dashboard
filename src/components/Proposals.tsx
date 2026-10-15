@@ -94,26 +94,34 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
   );
 }
 
-/** Decide pop-up (Pop-ups artboard, DECIDE item). */
-function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p: Proposal; open: boolean; onClose: () => void; who?: string }) {
-  const [state, action, pending] = useActionState(decide, empty);
+/** Decide pop-up (Pop-ups artboard, DECIDE item). Calls the server directly so it can close and confirm. */
+function DecideModal({ p, open, onClose, onDone, who = "Founder 1 · DECIDE item" }: { p: Proposal; open: boolean; onClose: () => void; onDone: (msg: string) => void; who?: string }) {
   const [answer, setAnswer] = useState(p.answer ?? "");
   const [track, setTrack] = useState("knee");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
 
+  const close = () => { setError(""); onClose(); };
   const send = (decision: "approved" | "on_hold" | "rejected") => {
     const fd = new FormData();
     fd.set("id", p.id);
     fd.set("decision", decision);
     fd.set("answer", answer);
     fd.set("track", track);
-    startTransition(() => action(fd));
+    fd.set("expected", p.status);
+    setPending(true);
+    setError("");
+    startTransition(async () => {
+      const res = await decide(empty, fd);
+      setPending(false);
+      if (res.ok) { onDone(res.ok); onClose(); }
+      else setError(res.error ?? "Not saved.");
+    });
   };
-  const [openedAt] = useState(() => Date.now());
-  const shown = open && !(state.ok && (state.at ?? 0) > openedAt);
 
   const needAnswer = answer.trim().length === 0;
   return (
-    <Modal open={shown} onClose={onClose} who={who} title={`Proposal from ${p.proposedBy}`}>
+    <Modal open={open} onClose={close} who={who} title={`Proposal from ${p.proposedBy}`}>
       <span className={`tag ${p.isNewAngle ? "t-violet" : "t-grey"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{p.isNewAngle ? "NEW ANGLE" : "TEST IN A CELL"}</span>
       <div className="row2">
         <div className="field"><span className="lbl">Cell</span><div className="inp inp-ro">{p.avatarCode} × {shortAwareness(p.awareness)}</div></div>
@@ -122,7 +130,7 @@ function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p
       <div className="info"><b style={{ color: "var(--ink)" }}>Why (her words):</b> {p.why}</div>
       {p.isNewAngle && (
         <label className="field">
-          <span className="lbl">Track for the new angle</span>
+          <span className="lbl">Track for the new angle · used if you approve</span>
           <select className="inp" value={track} onChange={(e) => setTrack(e.target.value)}>
             <option value="knee">Knee</option>
             <option value="hips">Hips</option>
@@ -137,7 +145,7 @@ function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p
         <textarea className="ta" rows={2} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Go ahead, use the moment as the opening." />
       </label>
       <div className="acts">
-        <Msg s={state.error ? state : {}} />
+        {error && <span className="formmsg err" role="alert">{error}</span>}
         <button type="button" className="btn b-ghost" disabled={pending || needAnswer} title={needAnswer ? "Write an answer first" : undefined} onClick={() => send("on_hold")}>On hold</button>
         <button type="button" className="btn b-red" disabled={pending || needAnswer} title={needAnswer ? "Write an answer first" : undefined} onClick={() => send("rejected")}>Reject</button>
         <button type="button" className="btn b-primary" disabled={pending} onClick={() => send("approved")}>{pending ? "Saving…" : "Approve"}</button>
@@ -149,6 +157,7 @@ function DecideModal({ p, open, onClose, who = "Founder 1 · DECIDE item" }: { p
 /** Needs me list (Founder Homes): one list, most urgent first, one button per line. */
 export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [doneMsg, setDoneMsg] = useState("");
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 18 }} aria-labelledby="h-needs">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", gap: 12, flexWrap: "wrap" }}>
@@ -157,6 +166,7 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
         </h2>
         <div className="lbl">Most urgent first</div>
       </div>
+      {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
       {groups.length === 0 && <div className="info">Nothing needs you right now.</div>}
       {groups.map((g) => (
         <div key={g.name}>
@@ -171,7 +181,7 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
                 <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setOpenId(it.key)}>Approve / Reject</button>
-                <DecideModal p={it.proposal} open={openId === it.key} onClose={() => setOpenId(null)} who={it.type === "COVERING" ? "Founder 2 · covering Founder 1’s DECIDE item" : "Founder 1 · DECIDE item"} />
+                <DecideModal p={it.proposal} open={openId === it.key} onClose={() => setOpenId(null)} onDone={setDoneMsg} who={it.type === "COVERING" ? "Founder 2 · covering Founder 1’s DECIDE item" : "Founder 1 · DECIDE item"} />
               </div>
             ))}
           </div>
@@ -184,11 +194,13 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
 /** Proposals list: a copywriter sees her own with the founder's answers; founders see all. */
 export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[]; showAuthor: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [doneMsg, setDoneMsg] = useState("");
   if (!proposals.length) return <div className="info">No proposals yet.</div>;
   const tone = { waiting: "t-violet", approved: "t-green", on_hold: "t-amber", rejected: "t-red" } as const;
   const word = { waiting: "WAITING", approved: "APPROVED", on_hold: "ON HOLD", rejected: "REJECTED" } as const;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
       {proposals.map((p) => (
         <div className="row" key={p.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -202,7 +214,7 @@ export function ProposalList({ proposals, showAuthor }: { proposals: Proposal[];
           {showAuthor && p.status === "on_hold" && (
             <div>
               <button type="button" className="btn b-ghost" onClick={() => setOpenId(p.id)}>Decide again</button>
-              <DecideModal p={p} open={openId === p.id} onClose={() => setOpenId(null)} who="Founder · proposal on hold" />
+              <DecideModal p={p} open={openId === p.id} onClose={() => setOpenId(null)} onDone={setDoneMsg} who="Founder · proposal on hold" />
             </div>
           )}
         </div>

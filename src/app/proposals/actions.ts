@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/viewer";
-import { text } from "@/lib/parse";
+import { text, toNameCode } from "@/lib/parse";
 import { AWARENESS } from "@/lib/proposals-shared";
 
 export type ProposeState = { ok?: string; error?: string; at?: number };
@@ -29,6 +29,8 @@ export async function propose(_prev: ProposeState, form: FormData): Promise<Prop
   if (!angle) return fail("Pick an angle, or “+ New angle…”.");
   if (angle === NEW && newName.length < 2) return fail("Give the new angle a name.");
   if (newName.length > 80) return fail("Keep the angle name under 80 characters.");
+  const newCode = angle === NEW ? toNameCode(newName) : null;
+  if (angle === NEW && !newCode) return fail("Write the angle name with Latin letters: it goes into ad names.");
   if (why.length < 3) return fail("Say why in one line.");
   if (why.length > 500) return fail("Keep the why to one or two lines.");
 
@@ -39,6 +41,7 @@ export async function propose(_prev: ProposeState, form: FormData): Promise<Prop
     awareness,
     angle_id: angle === NEW ? null : angle,
     new_angle_name: angle === NEW ? newName : null,
+    new_angle_code: newCode,
     why,
     format_id: formatId || null,
   });
@@ -67,6 +70,7 @@ export async function decide(_prev: ProposeState, form: FormData): Promise<Propo
     p_choice: choice,
     p_answer: answer,
     p_track: text(form.get("track")) || "knee",
+    p_expected: text(form.get("expected")) || null,
   });
   if (error) return fail(error.message);
   revalidatePath("/", "layout");

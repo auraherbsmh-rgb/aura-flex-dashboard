@@ -1,0 +1,7 @@
+-- Applied Oct 15, 2026 (screen 3 checker run 2 fixes).
+-- proposals.new_angle_code: computed once by the app (toNameCode) when proposing; Latin letters required.
+-- proposals_decide policy set to false: decisions only through decide_proposal (now security definer, founders only).
+-- decide_proposal(id, choice, answer, track, expected): refuses if the status changed since the screen was loaded;
+--   only an approval changes an existing angle in the lists; hold/reject of a duplicate leaves the list alone;
+--   track applies when the angle becomes approved.
+-- Live test (rolled back): stale screen refused · duplicate rejected while Knee-Broad stays approved · direct update blocked.
