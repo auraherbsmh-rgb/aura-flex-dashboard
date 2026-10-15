@@ -9,3 +9,4 @@
 --   Format_Avatar_Awareness_Angle_Tag_V# names and moves the task to details_done. AI format forces "generate".
 -- Live test (rolled back): incomplete confirm lists what is missing; bad tag refused; names UGC_FSB_Product-Aware_Benefits_Sami_V1…V5;
 --   re-edit 6 → 5 variations switches V6 off; direct writes refused.
+-- v2 (checker round 1): draft save refused after confirm; main argument checked as approved only on confirm; tag must start with a letter.

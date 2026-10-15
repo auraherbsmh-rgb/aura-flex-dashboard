@@ -41,5 +41,6 @@ export function toNameCode(label: string): string {
  * in the video. One word, Latin letters, no dashes: "Sami", "talking objects" → "TalkingObjects", "Hédi" → "Hedi".
  */
 export function toConceptTag(name: string): string {
-  return toNameCode(name).replace(/-/g, "").slice(0, 30);
+  const tag = toNameCode(name).replace(/-/g, "").slice(0, 30);
+  return /^[A-Z]/.test(tag) ? tag : ""; // must start with a letter, like the database rule
 }

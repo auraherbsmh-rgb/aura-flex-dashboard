@@ -77,6 +77,7 @@ test("concept tag and ad names (decision Oct 15)", () => {
   assert.equal(toConceptTag("hédi"), "Hedi");
   assert.equal(toConceptTag("talking objects"), "TalkingObjects");
   assert.equal(toConceptTag("سامي"), "");
+  assert.equal(toConceptTag("3D"), ""); // must start with a letter (database rule)
   assert.equal(adSetName({ formatCode: "AUTH", avatarCode: "CGD", awareness: "Problem-Aware", angleCode: "Knee-Broad" }, "Ali"), "AUTH_CGD_Problem-Aware_Knee-Broad_Ali");
 });
 

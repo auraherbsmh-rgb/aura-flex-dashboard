@@ -316,6 +316,8 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .vnum { font: 600 14px var(--mono); padding-top: 12px; }
 .vname { font: 500 11px var(--mono); color: var(--ink-3); overflow-wrap: anywhere; }
 .vdel { width: 44px; height: 44px; font-size: 15px; }
+.vcell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vlbl { display: none; }
 .copy { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 14px; background: #f4f4f1; padding: 6px 6px 6px 12px; font: 500 12px var(--mono); min-width: 0; }
 .copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cbtn { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 999px; min-height: 44px; min-width: 64px; padding: 0 12px; font: 600 12px var(--font); cursor: pointer; color: var(--ink); }
@@ -327,8 +329,8 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .row4, .tv-det { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vhead { display: none; }
   .vgrid { grid-template-columns: 36px minmax(0, 1fr) 44px; }
-  .vgrid > select { grid-column: 2 / 3; }
-  .vgrid > span:nth-of-type(2), .vgrid > input { grid-column: 2 / 3; }
+  .vcell { grid-column: 2 / 3; }
+  .vlbl { display: block; }
   .vdel { grid-column: 3; grid-row: 1; }
 }
 

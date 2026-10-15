@@ -125,6 +125,8 @@ export async function getTaskExtras(task: TaskRow): Promise<{
     supabase.from("ad_variations").select("v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("task_id", task.id).eq("active", true).order("v"),
     supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
   ]);
+  // A failed read must not look like "no draft": the pop-up would open blank and Save draft would erase the real one.
+  if (det.error || ads.error || lists.error) throw new Error("Could not read the script details. Reload the page.");
   type V = { hook_type_id?: string | null; hook_line?: string | null; headline?: string | null };
   type A = { v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
   const d = det.data;
