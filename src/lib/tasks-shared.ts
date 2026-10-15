@@ -118,7 +118,8 @@ export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now()): In
   const writing = t.status === "writing" || t.status === "changes";
   if (t.status === "changes") {
     const what = last?.note ?? (last?.loom ? "watch the founder Loom" : "see the founder note");
-    return { tag: "NEEDS CHANGES", tone: "t-red", title: cell, sub: `Round ${last?.round ?? 1}: ${what}${who}`, rank: 0 };
+    // For founders the rework is the copywriter's job: it sorts below scripts waiting on them.
+    return { tag: "NEEDS CHANGES", tone: "t-red", title: cell, sub: `Round ${last?.round ?? 1}: ${what}${who}`, rank: forFounder ? 1 : 0 };
   }
   if (writing && t.dueOn < today) return { tag: "LATE", tone: "t-red", title: cell, sub: `${t.format} · was ${due}${who}`, rank: 1 };
   if (writing && t.dueOn === today) return { tag: "DUE TODAY", tone: "t-amber", title: cell, sub: `${t.format}${who}`, rank: 2 };

@@ -104,7 +104,7 @@ export function TaskView({
           {last.note && <div style={{ fontSize: 15, marginTop: 6 }}>{last.note}</div>}
           <div className="unit" style={{ marginTop: 6 }}>
             {last.decidedBy ?? "Founder"} · {last.decidedAt ? fmtWhen(last.decidedAt) : ""}
-            {last.loom && <> · <a href={last.loom} target="_blank" rel="noopener noreferrer">Watch the Loom ↗</a></>}
+            {last.loom && <> · <a className="tap" href={last.loom} target="_blank" rel="noopener noreferrer">Watch the Loom ↗</a></>}
           </div>
         </div>
       )}
@@ -165,7 +165,7 @@ export function TaskView({
           <div className="raise tv-mat-item">
             <span className="lbl">Reference ad</span>
             {isLink(task.reference)
-              ? <a href={task.reference} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 600 }}>Open ↗</a>
+              ? <a className="tap" href={task.reference} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 600 }}>Open ↗</a>
               : <span style={{ fontSize: 14, fontWeight: 600 }}>{task.reference ?? "None"}</span>}
           </div>
           <div className="raise tv-mat-item">
@@ -196,7 +196,7 @@ export function TaskView({
       {task.status === "review" && last && (
         <div className="info">
           <b style={{ color: "var(--ink)" }}>Sent for review · round {last.round}</b> · {fmtWhen(last.submittedAt)} ·{" "}
-          <a href={last.scriptUrl} target="_blank" rel="noopener noreferrer">Open the script ↗</a>
+          <a className="tap" href={last.scriptUrl} target="_blank" rel="noopener noreferrer">Open the script ↗</a>
           {!isFounder && " · waiting on Founder 1"}
         </div>
       )}
@@ -214,7 +214,7 @@ export function TaskView({
             </label>
           </div>
           <div className="info">
-            <b style={{ color: "var(--ink)" }}>After Founder 1 approves:</b> your inbox gets “Fill script details”: face, shoot, main argument, and for each variation its hook type and hook line. The shoot and the ad names wait until it’s done.
+            <b style={{ color: "var(--ink)" }}>After Founder 1 approves:</b> {isOwner ? "your" : "her"} inbox gets “Fill script details”: face, shoot, main argument, and for each variation its hook type and hook line. The shoot and the ad names wait until it’s done.
           </div>
           <div className="acts">
             {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}
@@ -235,7 +235,7 @@ export function TaskView({
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <b style={{ fontSize: 14 }}>Round {r.round}</b>
                   <span className="unit">sent {fmtWhen(r.submittedAt)} by {r.submittedBy}</span>
-                  <a href={r.scriptUrl} target="_blank" rel="noopener noreferrer" className="unit">Script ↗</a>
+                  <a className="tap" href={r.scriptUrl} target="_blank" rel="noopener noreferrer" >Script ↗</a>
                   {r.decision && (
                     <span className={`tag ${r.decision === "approved" ? "t-green" : "t-red"}`}><i aria-hidden="true" />{r.decision === "approved" ? "APPROVED" : "NEEDS CHANGES"}</span>
                   )}
@@ -243,7 +243,7 @@ export function TaskView({
                 {(r.note || r.loom) && (
                   <div className="sub">
                     {r.note}
-                    {r.loom && <> {r.note ? "· " : ""}<a href={r.loom} target="_blank" rel="noopener noreferrer">Loom ↗</a></>}
+                    {r.loom && <> {r.note ? "· " : ""}<a className="tap" href={r.loom} target="_blank" rel="noopener noreferrer">Loom ↗</a></>}
                     {r.decidedBy && <span className="unit"> · {r.decidedBy}</span>}
                   </div>
                 )}

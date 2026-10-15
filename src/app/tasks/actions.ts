@@ -82,12 +82,15 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
     p_change: facts,
     p_proposal: proposalId,
   });
-  if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : `Not created: ${error.message}`);
+  if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : plain(error));
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");
 }
 
 const LINK = /^https?:\/\/\S+\.\S+$/i;
+
+/** Our own database messages (raised by the functions, code P0001) are written for people; anything else is not. */
+const plain = (e: { code?: string; message: string }) => (e.code === "P0001" ? e.message : "Not saved. Reload the page and try again.");
 
 /** Copywriter (her own task) or a founder sends the script link for review. writing / changes → review. */
 export async function submitScript(taskId: string, url: string): Promise<TaskState> {
@@ -98,9 +101,9 @@ export async function submitScript(taskId: string, url: string): Promise<TaskSta
   if (link.length > 1000) return fail("That link is too long.");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("submit_script", { p_task: taskId, p_url: link });
-  if (error) return fail(error.message);
+  if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done(`Sent for review (round ${data}). Founder 1 gets it on Home.`);
+  return done(v.role === "copywriter" ? `Sent for review (round ${data}). Founder 1 gets it on Home.` : `Sent for review (round ${data}). It is now a REVIEW item on Home.`);
 }
 
 /** Founder decides on the round in review. Needs changes: Loom optional, one line required when there is no Loom. */
@@ -110,11 +113,12 @@ export async function reviewScript(taskId: string, round: number, decision: "app
   const l = loom.trim();
   const n = note.trim();
   if (l && !LINK.test(l)) return fail("The Loom link must start with https://.");
+  if (l.length > 1000) return fail("That Loom link is too long.");
   if (decision === "changes" && !l && !n) return fail("Write one line on what to fix (or add a Loom).");
   if (n.length > 1000) return fail("Keep the note under 1,000 characters.");
   const supabase = await createClient();
   const { error } = await supabase.rpc("review_script", { p_task: taskId, p_round: round, p_decision: decision, p_loom: l, p_note: n });
-  if (error) return fail(error.message);
+  if (error) return fail(plain(error));
   revalidatePath("/", "layout");
   return done(decision === "approved" ? "Approved. Her inbox now says: fill script details." : "Sent back with your note. She sees it at the top of her inbox.");
 }

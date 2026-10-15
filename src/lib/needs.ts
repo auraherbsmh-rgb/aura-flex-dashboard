@@ -4,7 +4,8 @@ import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared"
 import type { TaskRow } from "@/lib/tasks-shared";
 
 /**
- * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New.
+ * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
+ * (Today = arrived today in Tunisia and over 12h old, New = under 12h).
  * Items are computed from the records they are about, never stored, so they disappear the moment the work is done.
  * Built so far: DECIDE and REVIEW (script), and COVERING for both. The other types arrive with their screens.
  */
@@ -69,10 +70,13 @@ export function buildNeeds(
   // Both rules are 48h today; the late group uses the smaller one so nothing late hides in "This week".
   const lateFrom = Math.min(unansweredHours, reviewHours);
   const late = items.filter((i) => i.ageTone === "red" || i.hours >= lateFrom);
-  const week = items.filter((i) => !late.includes(i) && i.hours >= 24);
-  const fresh = items.filter((i) => !late.includes(i) && i.hours < 24);
+  const rest = items.filter((i) => !late.includes(i));
+  const week = rest.filter((i) => i.hours >= 24);
+  const today = rest.filter((i) => i.hours >= 12 && i.hours < 24);
+  const fresh = rest.filter((i) => i.hours < 12);
   return [
     { name: `LATE / OVER ${lateFrom}H`, tone: "red" as const, items: late },
+    { name: "TODAY", tone: "amber" as const, items: today },
     { name: "THIS WEEK", tone: "amber" as const, items: week },
     { name: "NEW", tone: "grey" as const, items: fresh },
   ].filter((g) => g.items.length > 0);
