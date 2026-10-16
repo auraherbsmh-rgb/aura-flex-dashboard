@@ -5,7 +5,7 @@ import { startTransition, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
-import { AssignButton, FootageButton, HoldButton, PinButton } from "./Production";
+import { AssignButton, FootageButton, HoldButton } from "./Production";
 import { reviewScript, seeResult, submitScript } from "@/app/tasks/actions";
 import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
 import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
@@ -510,9 +510,8 @@ export function TaskView({
               <div style={{ minWidth: 0 }}>
                 {production?.holdAt
                   ? <><span className="tag t-hold"><i aria-hidden="true" />ON HOLD</span><div style={{ fontSize: 14, marginTop: 6 }}>Since {fmtWhen(production.holdAt)}{production.holdReason ? ` · ${production.holdReason}` : ""} · no late alerts, the editor can&rsquo;t send a version</div></>
-                  : <span className="unit">{prio ? <><b style={{ color: "var(--ink)" }}>Production order {prioLabel(prio)}</b> · </> : null}Should another script go first? Move this one to the top, or put it on hold.</span>}
+                  : <span className="unit">{prio ? <><b style={{ color: "var(--ink)" }}>Production order {prioLabel(prio)}</b> · </> : null}{isFounder ? <>Change the order in <Link href="/editing?view=pipeline">Editing → Pipeline</Link>, or put it on hold.</> : null}</span>}
               </div>
-              {isFounder && prio && !production?.holdAt && <PinButton taskId={task.id} pinned={!!prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
               {isFounder && <HoldButton taskId={task.id} face={details?.face ?? task.angle} current={production} onDone={(m) => setMsg({ ok: m })} />}
             </div>
           )}

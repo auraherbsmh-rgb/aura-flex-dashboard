@@ -171,6 +171,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         views={views}
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}
+        prio={prio}
+        now={now}
       />
     </TabPage>
   );

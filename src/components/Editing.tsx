@@ -4,7 +4,8 @@ import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
-import { AssignButton, HoldButton, LaunchButton, PinButton } from "./Production";
+import { AssignButton, HoldButton, LaunchButton } from "./Production";
+import { ProductionOrder } from "./ProductionOrder";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
 import { VideosPipeline } from "./VideosPipeline";
@@ -63,7 +64,12 @@ export function EditBoard({
   pipeCards,
   pipeCurrent,
   testimonials,
+  prio,
+  now = 0,
 }: {
+  /** Production order (founders' panel above the Videos pipeline). */
+  prio?: Record<string, Prio>;
+  now?: number;
   statsBy: Record<string, EditorStats>;
   aiBy: Record<string, boolean>;
   items: QueueItem[];
@@ -123,6 +129,9 @@ export function EditBoard({
           </div>
           {createTask}
         </div>
+      )}
+      {view === "pipeline" && pipelineRows && prio && forFounder && (
+        <ProductionOrder items={pipelineRows.map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }))} prio={prio} now={now} />
       )}
       {view === "pipeline" && pipelineRows && (
         <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onTestimonials={testimonials ? () => setView("testimonials") : undefined} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
@@ -404,7 +413,6 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
       )}
       {isFounder && v.card && (v.state !== "approved" || !p.launchedAt) && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {v.state !== "approved" && v.prio && !p.holdAt && <PinButton taskId={v.taskId} pinned={!!v.prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
           <HoldButton taskId={v.taskId} face={v.title} current={p} onDone={(m) => setMsg({ ok: m })} />
           {v.state !== "approved" && <AssignButton card={v.card} editors={editors} current={p} who="Founder · Assign" label="Change assignment" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />}
         </div>

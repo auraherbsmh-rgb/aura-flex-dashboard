@@ -260,10 +260,70 @@ export type TestimonialRow = TestimonialLite & {
 export type ProdStage = "shoot" | "assign" | "editing";
 /** Where a confirmed script stands: waiting for footage (shoot), ready to assign, or with an editor. */
 /** On hold and not launched yet: late alerts and Home items pause, the editor can't send versions. */
-/** Production order (one order for everyone, DB function production_priority): position and why. */
-export type Prio = { pos: number; grp: 1 | 2 | 3 | 4; pinned: boolean };
-export const prioLabel = (p: Prio | undefined) =>
-  !p ? "" : `#${p.pos} · ${p.pinned ? "moved to top" : p.grp === 1 ? "successor" : p.grp === 2 ? "winning cell" : p.grp === 4 ? "testimonial" : "new test"}`;
+/**
+ * Production order (DB function production_order): the founders' order (pos) next to the dashboard's suggestion (sug),
+ * and the numbers behind the suggestion. Meta money (winner, cell CPA and spend) reaches founders only.
+ */
+export type OrderWhy = {
+  winner: { taskId: string; face: string | null; state: string | null; cpa7: number | null; line: number | null; spendDay: number | null; salesDay: number | null; since: string | null } | null;
+  cell: { alive: number; bestCpa: number | null; spendDay: number | null; tested: number; won: number; lost: number };
+};
+export type Prio = { pos: number; sug: number; grp: 1 | 2 | 3 | 4; manual: boolean; dueOn: string; why: OrderWhy };
+export const GROUP_WORD = { 1: "successor", 2: "winning cell", 3: "new test", 4: "testimonial" } as const;
+/** The reason behind a suggested place, in plain words with its numbers (founders' order panel). */
+export function orderWhy(p: Prio, now: number): { head: string; facts: { k: string; v: string; tone?: "red" | "green" }[]; note: string } {
+  const usd = (x: number | null) => (x === null ? "—" : `$${x.toFixed(2)}`);
+  const day = (x: number | null, unit = "") => (x === null ? "—" : `${unit}${Math.round(x)}`);
+  const due = { k: "Due", v: new Date(`${p.dueOn}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) };
+  const c = p.why.cell, w = p.why.winner;
+  if (p.grp === 1) {
+    if (!w) return { head: "Successor for a fading winner.", facts: [due], note: "The winner's numbers show once Meta is connected and the successor was created from its alert." };
+    const days = w.since ? Math.max(0, Math.floor((now - Date.parse(w.since)) / 864e5)) : null;
+    return {
+      head: `Replaces ${w.face ?? "a winner"}, a winner that is ${w.state ?? "fading"}.`,
+      facts: [
+        { k: "CPA, last 7 days", v: usd(w.cpa7), tone: w.cpa7 !== null && w.line !== null && w.cpa7 > w.line ? "red" : undefined },
+        { k: "Business line", v: usd(w.line) },
+        { k: "Spend per day", v: day(w.spendDay, "$") },
+        { k: "Orders per day at risk", v: w.salesDay === null ? "—" : `~${Math.round(w.salesDay)}` },
+        { k: `${w.state === "deteriorating" ? "Deteriorating" : "Fading"} since`, v: days === null ? "—" : `${days} day${days === 1 ? "" : "s"}` },
+        due,
+      ],
+      note: "Successors go first: revenue depends on them. Between successors, the one replacing the bigger spender goes first.",
+    };
+  }
+  if (p.grp === 2) {
+    return {
+      head: "More variants for a winning cell.",
+      facts: [
+        { k: "Winners alive in the cell", v: String(c.alive), tone: "green" },
+        { k: "Best CPA, last 7 days", v: usd(c.bestCpa), tone: "green" },
+        { k: "Cell spend per day", v: day(c.spendDay, "$") },
+        due,
+      ],
+      note: "A proven cell: a new variant is the most likely next winner. Between winning cells, the best CPA goes first.",
+    };
+  }
+  const history = c.tested === 0 ? "This cell has never been tested." : `This cell: ${c.tested} concept${c.tested === 1 ? "" : "s"} tested · ${c.won} won · ${c.lost} lost.`;
+  return {
+    head: p.grp === 4 ? `Testimonial video. ${history}` : history,
+    facts: [due],
+    note: "No current revenue depends on it: it comes after successors and winning cells, earliest due date first.",
+  };
+}
+
+export const prioLabel = (p: Prio | undefined) => (!p ? "" : `#${p.pos} · ${GROUP_WORD[p.grp]}`);
+
+/**
+ * The order everyone follows: scripts the founders placed keep their order; a script not placed yet (new in production)
+ * goes in at its suggested place. Without any founder order it is the suggestion itself.
+ */
+export function finalOrder(rows: { id: string; sug: number; rank: number | null }[]): Map<string, number> {
+  const placed = rows.filter((r) => r.rank !== null).sort((a, b) => (a.rank as number) - (b.rank as number) || a.sug - b.sug);
+  const out = placed.map((r) => r.id);
+  for (const r of rows.filter((x) => x.rank === null).sort((a, b) => a.sug - b.sug)) out.splice(Math.min(r.sug - 1, out.length), 0, r.id);
+  return new Map(out.map((id, i) => [id, i + 1]));
+}
 /** Sort key: in the order first (by position), the rest after. */
 export const prioPos = (p: Prio | undefined) => p?.pos ?? 1e6;
 

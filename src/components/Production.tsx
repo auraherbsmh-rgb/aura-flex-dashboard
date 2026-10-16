@@ -2,7 +2,7 @@
 
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
-import { assignEdit, launchConcept, markFootage, markVo, pinTask, setHold } from "@/app/tasks/actions";
+import { assignEdit, launchConcept, markFootage, markVo, setHold } from "@/app/tasks/actions";
 import { CopyName } from "./ScriptDetails";
 import { fmtDay, fmtWhen, suggestEditor, tunisDate, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
@@ -260,17 +260,6 @@ export function LaunchButton({
         </div>
       </Modal>
     </>
-  );
-}
-
-/** Move to top / Back to automatic order (founders): the production order everyone follows. */
-export function PinButton({ taskId, pinned, onDone }: { taskId: string; pinned: boolean; onDone: (msg: string) => void }) {
-  const { error, pending, run } = useRun(onDone, () => {});
-  return (
-    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-      <button type="button" className="btn b-ghost" disabled={pending} onClick={() => run(() => pinTask(taskId, !pinned))}>{pending ? "Saving…" : pinned ? "Back to automatic order" : "Move to top"}</button>
-      {error && <span className="formmsg err" role="alert">{error}</span>}
-    </span>
   );
 }
 

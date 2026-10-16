@@ -190,15 +190,29 @@ test("Editing: state, queue order and alerts, private tiles", () => {
   assert.match(q[1].alert ?? "", /Footage ready 4 days, not started/);
   assert.equal(q[3].dim, true);
   // Production order: #1 first among the work still to do, whatever its state; approved stays last.
-  const qo = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio: { sb: { pos: 1, grp: 1, pinned: false }, rd: { pos: 2, grp: 3, pinned: false }, ch: { pos: 3, grp: 3, pinned: false } } });
+  const qo = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio: Object.fromEntries((["sb", "rd", "ch"] as const).map((id, i) => [id, { pos: i + 1, sug: i + 1, grp: (i ? 3 : 1) as 1 | 3, manual: false, dueOn: "2026-10-20", why: { winner: null, cell: { alive: 0, bestCpa: null, spendDay: null, tested: 0, won: 0, lost: 0 } } }])) });
   assert.deepEqual(qo.map((x) => x.taskId), ["sb", "rd", "ch", "ok"]);
   assert.match(qo[0].sub, /^#1 · successor · /);
+
 
   const s = editorStats("eb", prods, rounds, cards, { perVideo: 100, rate3d: null }, now);
   assert.equal(s.approvedMonth, 1);
   assert.equal(s.onTime, 1);
   assert.equal(s.onTimeOf, 1);
   assert.equal(s.avgRounds, 1);
+});
+
+test("Production order: founders' order kept, new scripts land at their suggested place", async () => {
+  const { finalOrder, orderWhy } = await import("../src/lib/tasks-shared");
+  // No founder order yet = the suggestion.
+  assert.deepEqual([...finalOrder([{ id: "a", sug: 2, rank: null }, { id: "b", sug: 1, rank: null }])], [["b", 1], ["a", 2]]);
+  // Founders put c, a, b; new script n is suggested #1 → it goes in first, the rest keep their order.
+  const f = finalOrder([{ id: "a", sug: 2, rank: 2 }, { id: "b", sug: 3, rank: 3 }, { id: "c", sug: 4, rank: 1 }, { id: "n", sug: 1, rank: null }]);
+  assert.deepEqual([...f.entries()].sort((x, y) => x[1] - y[1]).map((x) => x[0]), ["n", "c", "a", "b"]);
+  const why = orderWhy({ pos: 1, sug: 1, grp: 1, manual: false, dueOn: "2026-10-20", why: { winner: { taskId: "w", face: "Boulbeba", state: "fading", cpa7: 4.62, line: 4.18, spendDay: 85, salesDay: 18, since: "2026-10-10T08:00:00Z" }, cell: { alive: 0, bestCpa: null, spendDay: null, tested: 0, won: 0, lost: 0 } } }, Date.parse("2026-10-16T08:00:00Z"));
+  assert.equal(why.head, "Replaces Boulbeba, a winner that is fading.");
+  assert.equal(why.facts.find((x) => x.k === "CPA, last 7 days")?.tone, "red");
+  assert.equal(why.facts.find((x) => x.k === "Fading since")?.v, "6 days");
 });
 
 import { buildVideoPipeline } from "../src/lib/editing-shared";

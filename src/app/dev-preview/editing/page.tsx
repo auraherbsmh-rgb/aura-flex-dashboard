@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { EditBoard, type EditView } from "@/components/Editing";
 import { buildQueue, buildVideoPipeline, editorStats, type EditRound } from "@/lib/editing-shared";
+import type { Prio } from "@/lib/tasks-shared";
 import type { Production, TaskRow } from "@/lib/tasks-shared";
 
 /** Local-only preview of screen 9 (ENABLE_PREVIEW=1; never on Vercel). ?as=founder for the founder view. */
@@ -32,7 +33,12 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     ["mervet", [R(1, "approved")]],
   ]);
   const cards = new Map(tasks.map((t) => [t.id, { face: t.id[0].toUpperCase() + t.id.slice(1), cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", generate: false }]));
-  const prio = Object.fromEntries(tasks.filter((t) => t.id !== "mervet").map((t, i) => [t.id, { pos: i + 1, grp: (t.origin === "successor" ? 1 : 3) as 1 | 3, pinned: false }]));
+  const cell0 = { alive: 0, bestCpa: null, spendDay: null, tested: 0, won: 0, lost: 0 };
+  const prio: Record<string, Prio> = Object.fromEntries(tasks.filter((t) => t.id !== "mervet").map((t, i) => [t.id, {
+    pos: i + 1, sug: i === 0 ? 2 : i === 1 ? 1 : i + 1, grp: (i === 1 ? 1 : i === 0 ? 2 : 3) as 1 | 2 | 3, manual: true, dueOn: "2026-10-20",
+    why: i === 1 ? { winner: { taskId: "w", face: "Boulbeba", state: "fading", cpa7: 4.62, line: 4.18, spendDay: 85, salesDay: 18, since: "2026-10-10T08:00:00Z" }, cell: cell0 }
+      : i === 0 ? { winner: null, cell: { alive: 2, bestCpa: 3.25, spendDay: 60, tested: 3, won: 2, lost: 1 } } : { winner: null, cell: { ...cell0, tested: 1, lost: 1 } },
+  } satisfies Prio]));
   const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio });
   const sel = sp.task ?? "hedi";
   const view: EditView = {
@@ -56,7 +62,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             selectedId={sel}
             editors={[["ea", "Editor A"], ["eb", "Editor B"]]}
             initialEd={null}
-            forFounder={founder}
+            forFounder={founder} prio={prio} now={now}
             createTask={founder ? <button type="button" className="add">+ Create task</button> : undefined}
             pipelineRows={(buildVideoPipeline(tasks, prods, rounds, new Map(tasks.map((t) => [t.id, { shootOn: "2026-10-12", generate: false, face: cards.get(t.id)!.face, confirmedAt: "2026-10-11T08:00:00Z" }])), { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3, prio }))}
             views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}

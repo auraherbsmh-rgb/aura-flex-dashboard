@@ -245,7 +245,7 @@ export function NeedsMe({
                   <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setMeta(it)}>Core message</button>
                 ) : it.alert && createCtx && pickers ? (
                   <CreateTaskButton ctx={createCtx} pickers={pickers} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} label="Create successor"
-                    prefill={{ proposalId: null, successor: true, avatarId: it.alert.avatarId ?? "", awareness: it.alert.awareness, angleId: it.alert.angleId, formatId: null, reference: it.alert.reference ?? it.alert.face, label: `successor · ${it.alert.avatarCode} × ${shortAwareness(it.alert.awareness)} · ${it.alert.angle}` }} />
+                    prefill={{ proposalId: null, successor: true, successorOf: it.alert.taskId, avatarId: it.alert.avatarId ?? "", awareness: it.alert.awareness, angleId: it.alert.angleId, formatId: null, reference: it.alert.reference ?? it.alert.face, label: `successor · ${it.alert.avatarCode} × ${shortAwareness(it.alert.awareness)} · ${it.alert.angle}` }} />
                 ) : it.kill ? (
                   <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setMeta(it)}>Pause in Meta</button>
                 ) : it.unmapped ? (

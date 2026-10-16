@@ -2,7 +2,7 @@ import type { State as MetaState } from "./meta-shared";
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type Bands, type ConceptResult, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type Prio, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type Bands, type ConceptResult, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type Prio, finalOrder, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
 import type { MapConcept, MapVariation } from "@/lib/map-shared";
 export * from "@/lib/tasks-shared";
 
@@ -467,12 +467,27 @@ export async function getBands(): Promise<Bands | null> {
   return { on: !!d.on, hook: n(d.hook), hold: n(d.hold), ctrVideo: n(d.ctrVideo), ctrImage: n(d.ctrImage), minImpressions: n(d.minImpressions) };
 }
 
-/** Production order for scripts in production (not launched, not on hold). */
+/** Production order for scripts in production (not launched, not on hold, edit not approved), with the reasons. */
 export async function getPriority(): Promise<Record<string, Prio>> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("production_priority");
+  const { data, error } = await supabase.rpc("production_order");
   if (error) { console.error(`[prio] production order not read: ${error.message}`); return {}; }
-  return Object.fromEntries(((data ?? []) as { task_id: string; pos: number; grp: 1 | 2 | 3 | 4; pinned: boolean }[]).map((r) => [r.task_id, { pos: r.pos, grp: r.grp, pinned: r.pinned }]));
+  type R = {
+    task_id: string; sug: number; grp: 1 | 2 | 3 | 4; order_rank: number | null; due_on: string;
+    winner_task: string | null; winner_face: string | null; winner_state: string | null; winner_cpa7: number | null; winner_line: number | null;
+    winner_spend_day: number | null; winner_sales_day: number | null; winner_since: string | null;
+    cell_alive: number; cell_best_cpa: number | null; cell_spend_day: number | null; cell_tested: number; cell_won: number; cell_lost: number;
+  };
+  const rows = (data ?? []) as R[];
+  const n = (x: number | string | null) => (x === null ? null : Number(x));
+  const pos = finalOrder(rows.map((r) => ({ id: r.task_id, sug: r.sug, rank: n(r.order_rank) })));
+  return Object.fromEntries(rows.map((r) => [r.task_id, {
+    pos: pos.get(r.task_id) ?? r.sug, sug: r.sug, grp: r.grp, manual: r.order_rank !== null, dueOn: r.due_on,
+    why: {
+      winner: r.winner_task ? { taskId: r.winner_task, face: r.winner_face, state: r.winner_state, cpa7: n(r.winner_cpa7), line: n(r.winner_line), spendDay: n(r.winner_spend_day), salesDay: n(r.winner_sales_day), since: r.winner_since } : null,
+      cell: { alive: r.cell_alive, bestCpa: n(r.cell_best_cpa), spendDay: n(r.cell_spend_day), tested: r.cell_tested, won: r.cell_won, lost: r.cell_lost },
+    },
+  } satisfies Prio]));
 }
 
 export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null; results: Record<string, ConceptResult>; bands: Bands | null; prio: Record<string, Prio> }> {

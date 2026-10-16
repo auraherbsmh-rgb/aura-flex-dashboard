@@ -85,7 +85,8 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : plain(error));
   // Created from an ALERT item: saved as the fading winner's successor.
   if (form.get("successor") === "1" && newId) {
-    const mark = await supabase.rpc("mark_successor", { p_task: newId as string });
+    const of = String(form.get("successor_of") ?? "");
+    const mark = await supabase.rpc("mark_successor2", { p_task: newId as string, p_of: /^[0-9a-f-]{36}$/i.test(of) ? of : null });
     if (mark.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be marked as a successor."); }
   }
   revalidatePath("/", "layout");
@@ -277,15 +278,16 @@ export async function setHold(taskId: string, hold: boolean, reason: string): Pr
   return done(hold ? "On hold. Its late alerts and Home items stop until you resume it." : "Resumed. Alerts and Home items are back.");
 }
 
-/** Move to top / back to automatic order (founders): the production order everyone follows. */
-export async function pinTask(taskId: string, on: boolean): Promise<TaskState> {
+/** The founders' production order: the full list of in-production task ids, first = #1 (arrows, or ✓ Use suggested order). */
+export async function setProductionOrder(ids: string[]): Promise<TaskState> {
   const v = await getViewer();
   if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders change the production order.");
+  if (!ids.length || ids.length > 500 || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) return fail("Reload the page and try again.");
   const supabase = await createClient();
-  const { error } = await supabase.rpc("pin_task", { p_task: taskId, p_on: on });
+  const { error } = await supabase.rpc("set_production_order", { p_ids: ids });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done(on ? "Moved to the top of the production order. Everyone sees it first." : "Back to the automatic order.");
+  return done("Order saved. Everyone sees it.");
 }
 
 /** VO received (founders): the voice recording link + an optional inspiration link for the editor. */

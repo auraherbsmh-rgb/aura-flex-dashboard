@@ -788,3 +788,8 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .trend-ticks span { position: absolute; right: 0; transform: translateY(-50%); }
 .trend-end { position: absolute; right: 0; transform: translate(0, -130%); font: 600 12px var(--mono); background: #fff; border-radius: 8px; padding: 3px 7px; box-shadow: 0 1px 3px rgba(20, 20, 15, 0.12); white-space: nowrap; }
 @media (max-width: 700px) { .trend-ticks { height: 160px; } .trend-wrap { grid-template-columns: 44px minmax(0, 1fr); } }
+
+.order-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.order-fact { background: #f3f3f0; border-radius: 14px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.order-fact b { font: 600 16px var(--font); }
+@media (max-width: 700px) { .order-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
