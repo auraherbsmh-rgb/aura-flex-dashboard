@@ -59,7 +59,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
                       onPick(k);
                       if (c.state === "empty" && pickers) setPropose(k);
                     }}>
-                    <b>{c.word}</b><span className="cell-line">{c.line}</span>
+                    <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : c.line}</span>
                   </button>
                 </span>
               );
