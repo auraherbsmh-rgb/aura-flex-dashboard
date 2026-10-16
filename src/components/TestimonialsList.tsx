@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { TestimonialButton } from "./Testimonial";
-import { fmtWhen, tunisDate, type EditorLoad, type TestimonialRow } from "@/lib/tasks-shared";
+import { AssignButton } from "./Production";
+import { fmtWhen, tunisDate, type EditorLoad, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
 import type { Pickers } from "@/lib/proposals-shared";
 
 export type TestimonialVideo = { name: string; where: string; inQueue: boolean };
@@ -35,6 +36,8 @@ export function TestimonialsList({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [msg, setMsg] = useState("");
+  // Assign after tagging: held here because the row's Tag button goes away once the testimonial is used.
+  const [assign, setAssign] = useState<{ card: ProdCard; current: Production } | null>(null);
   const month = tunisDate(0).slice(0, 7);
   const thisMonth = rows.filter((r) => tunisDate(0, Date.parse(r.addedAt)).slice(0, 7) === month);
   const count = (s: TestimonialRow["status"]) => thisMonth.filter((r) => r.status === s).length;
@@ -55,6 +58,7 @@ export function TestimonialsList({
         <span className="pill raise"><b>{count("new")}</b>waiting</span>
       </div>
       {msg && <div className="notice notice-green" role="status">{msg}</div>}
+      {assign && <AssignButton key={assign.card.taskId} startOpen card={assign.card} editors={editors} current={assign.current} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={setMsg} />}
       <div className="tray pipe" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {shown.length === 0 && <div className="info">{rows.length === 0 ? "No testimonial yet. Add one with + Testimonial." : "None here."}</div>}
         {shown.map((r) => {
@@ -75,7 +79,7 @@ export function TestimonialsList({
               <div className="testi-acts">
                 <a className="btn b-ghost" href={r.url} target="_blank" rel="noopener noreferrer">Listen ↗</a>
                 {r.status === "new" && (
-                  <TestimonialButton item={{ id: r.id, url: r.url, note: r.note, addedAt: r.addedAt }} pickers={pickers} editors={editors} label="Tag" className="btn b-primary" onDone={setMsg} />
+                  <TestimonialButton item={{ id: r.id, url: r.url, note: r.note, addedAt: r.addedAt }} pickers={pickers} editors={editors} label="Tag" className="btn b-primary" onDone={setMsg} onCreated={(card, current) => setAssign({ card, current })} />
                 )}
                 {r.status === "used" && r.taskId && (
                   v?.inQueue
