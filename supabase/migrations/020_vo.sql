@@ -1,0 +1,6 @@
+-- Applied live Oct 16 as migration "vo_no_shoot".
+-- script_details.vo (VO, no shoot) · productions.inspiration_url.
+-- save_script_details2 = save_script_details + p_vo (VO clears the shoot date; confirm needs a shoot date unless VO or AI / 3D).
+--   The old save_script_details is retired: execute revoked from authenticated.
+-- mark_footage refuses VO scripts; mark_vo(task, url, inspiration): founders, details_done, not assigned yet, https links,
+--   stores the recording in footage_url (all hooks = true) so the ASSIGN step works unchanged.

@@ -200,6 +200,8 @@ export type EditView = {
   scriptUrl: string | null;
   hooks: { v: number; type: string; line: string; headline: string | null; name: string }[];
   generate: boolean;
+  /** VO (no shoot): the editor works from the voice recording. */
+  vo?: boolean;
   payPerVideo: number | null;
   editorName: string;
   card?: ProdCard;
@@ -280,6 +282,8 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           {isLink(v.scriptUrl) ? <a className="raise tv-mat-item ed-link" href={v.scriptUrl} target="_blank" rel="noopener noreferrer"><b>Script ↗</b><span className="unit">Google Doc</span></a> : <div className="raise tv-mat-item"><b>Script</b><span className="unit">no link</span></div>}
           {v.generate
             ? <div className="raise tv-mat-item"><b>AI / 3D</b><span className="unit">no footage: generate it</span></div>
+            : v.vo
+              ? isLink(p.footageUrl) ? <a className="raise tv-mat-item ed-link" href={p.footageUrl} target="_blank" rel="noopener noreferrer"><b>VO recording ↗</b><span className="unit">no shoot{p.footageAt ? ` · ${fmtDay(p.footageAt.slice(0, 10))}` : ""}</span></a> : <div className="raise tv-mat-item"><b>VO recording</b><span className="unit">not in yet</span></div>
             : isLink(p.footageUrl) ? <a className="raise tv-mat-item ed-link" href={p.footageUrl} target="_blank" rel="noopener noreferrer"><b>Raw footage ↗</b><span className="unit">Drive{p.footageAt ? ` · ${fmtDay(p.footageAt.slice(0, 10))}` : ""}</span></a> : <div className="raise tv-mat-item"><b>Raw footage</b><span className="unit">not in yet</span></div>}
           {last ? <a className="raise tv-mat-item ed-link" href={last.videoUrl} target="_blank" rel="noopener noreferrer"><b>{isEditor ? "My" : "Last"} v{last.round} ↗</b><span className="unit">{fmtWhen(last.submittedAt)}</span></a> : <div className="raise tv-mat-item"><b>{isEditor ? "My" : "Last"} version</b><span className="unit">none sent yet</span></div>}
         </div>
@@ -300,13 +304,14 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
         <div className="lbl">Brief from Founder 2</div>
         <div style={{ marginTop: 6, lineHeight: 1.5, color: "var(--ink)" }}>{p.brief ?? "—"}</div>
         {p.reference && (isLink(p.reference) ? <a className="tap" href={p.reference} target="_blank" rel="noopener noreferrer">Reference ↗</a> : <div className="unit" style={{ marginTop: 6 }}>Reference: {p.reference}</div>)}
+        {v.vo && isLink(p.inspirationUrl) && <div><a className="tap" href={p.inspirationUrl!} target="_blank" rel="noopener noreferrer">Inspiration ↗</a></div>}
         {p.footageGap && <div className="formmsg err" style={{ marginTop: 8 }}>Missing in the footage: {p.footageGap}</div>}
-        <div className="unit" style={{ marginTop: 8 }}>Gap in the footage? Find a match in the Drive or generate it with AI.</div>
+        <div className="unit" style={{ marginTop: 8 }}>{v.vo ? "VO, no shoot: build the visuals from the script and the recording (B-roll, AI, stock)." : "Gap in the footage? Find a match in the Drive or generate it with AI."}</div>
       </div>
 
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <h3 className="h3">Hooks to deliver · {v.generate ? "full AI / 3D video" : "full video"} + {v.hooks.length} hooks, subtitled</h3>
+          <h3 className="h3">Hooks to deliver · {v.generate ? "full AI / 3D video" : v.vo ? "VO video" : "full video"} + {v.hooks.length} hooks, subtitled</h3>
           <span className="lbl">Names ready to copy</span>
         </div>
         <div className="tray vtray">

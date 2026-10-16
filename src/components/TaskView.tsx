@@ -223,6 +223,7 @@ export function TaskView({
 
   const last = task.rounds[task.rounds.length - 1];
   const generate = !!details?.generate || task.formatCode === "AI";
+  const vo = !generate && !!details?.vo;
   const stage = task.status === "details_done" ? prodStage(generate, production) : null;
   // After hand-off: Shoot (or Generate) until the footage is in (AI / 3D: until assigned), then Edit.
   const now = production?.liveAt ? 5 : stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
@@ -345,7 +346,7 @@ export function TaskView({
         <ol className="recess steps" aria-label="Progress">
           {STEPS.map((s, i) => (
             <li key={s} className={`step ${i < now ? "st-done" : i === now ? "st-now" : ""}`} aria-current={i === now ? "step" : undefined}>
-              {s === "SHOOT" && (details?.generate || task.formatCode === "AI") ? "GENERATE" : s}
+              {s === "SHOOT" && (details?.generate || task.formatCode === "AI") ? "GENERATE" : s === "SHOOT" && details?.vo ? "VO" : s}
             </li>
           ))}
         </ol>
@@ -363,7 +364,7 @@ export function TaskView({
       {task.status === "approved" && (isOwner || isFounder) && (
         <div className="tv-next">
           <div>
-            <b>Script approved.</b> Fill the script details: face, {details?.generate || task.formatCode === "AI" ? "AI / 3D" : "shoot date"}, main argument, and {task.formatCode === "AI" ? "1–6" : "5–6"} hook variations.
+            <b>Script approved.</b> Fill the script details: face, {details?.generate || task.formatCode === "AI" ? "AI / 3D" : "shoot date (or VO)"}, main argument, and {task.formatCode === "AI" ? "1–6" : "5–6"} hook variations.
             The shoot and the ad names wait until it’s confirmed.
             {details && !details.confirmedAt && <span className="unit"> · Draft saved</span>}
           </div>
@@ -377,7 +378,7 @@ export function TaskView({
           <h3 className="h3">Script details</h3>
           <div className="tv-det">
             <div><span className="lbl">Face</span><b>{details.face}</b></div>
-            <div><span className="lbl">{details.generate ? "Production" : "Shoot"}</span><b>{details.generate ? "AI / 3D, no shoot" : fmtDay(details.shootOn)}</b></div>
+            <div><span className="lbl">{details.generate || details.vo ? "Production" : "Shoot"}</span><b>{details.generate ? "AI / 3D, no shoot" : details.vo ? "VO, no shoot" : fmtDay(details.shootOn)}</b></div>
             <div><span className="lbl">Main argument</span><b>{detailsPickers.mainArguments.find((a) => a.id === details.mainArgumentId)?.label ?? "—"}</b></div>
             <div><span className="lbl">Offer at the end</span><b>{details.offer ? `${details.offer} bottle${details.offer > 1 ? "s" : ""}` : "None"}</b></div>
           </div>
@@ -424,10 +425,14 @@ export function TaskView({
           <div className="tv-prod">
             <div className="tv-prod-row">
               <div style={{ minWidth: 0 }}>
-                <span className="lbl">{generate ? "Generate" : "Shoot and footage"}</span>
+                <span className="lbl">{generate ? "Generate" : vo ? "VO recording" : "Shoot and footage"}</span>
                 <div style={{ fontSize: 14, marginTop: 4 }}>
                   {generate
                     ? "AI / 3D: no shoot. Goes straight to an editor."
+                    : vo
+                      ? production?.footageAt
+                        ? <>VO received {fmtWhen(production.footageAt)} · <a className="tap" href={production.footageUrl ?? "#"} target="_blank" rel="noopener noreferrer">VO recording ↗</a>{production.inspirationUrl ? <> · <a className="tap" href={production.inspirationUrl} target="_blank" rel="noopener noreferrer">Inspiration ↗</a></> : null}</>
+                        : "No shoot · waiting for the VO recording (Founder 2 uploads it)"
                     : production?.footageAt
                       ? <>Footage received {fmtWhen(production.footageAt)} · <a className="tap" href={production.footageUrl ?? "#"} target="_blank" rel="noopener noreferrer">Raw footage ↗</a>{production.allHooksShot ? " · all hooks shot ✓" : <span className="formmsg err"> · missing: {production.footageGap}</span>}</>
                       : <>Shoot {details?.shootOn ? fmtDay(details.shootOn) : "date not set"} · waiting for the agency’s footage</>}

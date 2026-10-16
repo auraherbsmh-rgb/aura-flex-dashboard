@@ -48,7 +48,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
   const dp = { hookTypes: [{ id: "h1", label: "Storytelling" }, { id: "h2", label: "Myth Busting" }], mainArguments: [{ id: "m1", label: "Mechanism · triple therapy" }], prices: [59, 90, 129] as [number, number, number] };
   const nm = "UGC_FSS_Problem-Aware_Knee-Surgery-Fear_Sami";
   const det = {
-    face: "Sami", shootOn: "2026-10-18", generate: false, mainArgumentId: "m1", offer: 2,
+    face: "Sami", shootOn: "2026-10-18", generate: false, vo: false, mainArgumentId: "m1", offer: 2,
     variations: [1, 2, 3, 4, 5].map((i) => ({ hookTypeId: i % 2 ? "h1" : "h2", hookLine: `Hook line number ${i}`, headline: "" })),
     adSetName: nm, confirmedAt: "2026-10-15T12:00:00Z",
     ads: [1, 2, 3, 4, 5].map((i) => ({ v: i, hookType: i % 2 ? "Storytelling" : "Myth Busting", hookLine: `Hook line number ${i}`, headline: null, adName: `${nm}_V${i}` })),
@@ -91,7 +91,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             <div className="board-main">
               <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"}
                 production={sel.id === "t7" && sp.prod === "in" ? { taskId: "t7", footageUrl: "https://drive.google.com/x", allHooksShot: false, footageGap: "V5 not shot", footageAt: "2026-10-16T07:00:00Z", editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null } : undefined}
-                prodCard={{ taskId: sel.id, face: "Sami", cell: "FSS × Problem", angle: "Knee-Surgery-Fear", format: "UGC", copywriter: "Copywriter 2", shootOn: "2026-10-17", generate: false, hooks: 5, confirmedAt: "2026-10-15T12:00:00Z" }}
+                prodCard={{ taskId: sel.id, face: "Sami", cell: "FSS × Problem", angle: "Knee-Surgery-Fear", format: "UGC", copywriter: "Copywriter 2", shootOn: "2026-10-17", generate: false, vo: false, hooks: 5, confirmedAt: "2026-10-15T12:00:00Z" }}
                 editors={[{ id: "ea", name: "Editor A", doesAi: true, queue: 3 }, { id: "eb", name: "Editor B", doesAi: false, queue: 1 }]}
                 details={sel.id === "t7" ? det : sel.id === "t6" ? { ...det, adSetName: null, confirmedAt: null, ads: [], variations: det.variations.slice(0, 2) } : null} detailsPickers={dp} />
             </div>

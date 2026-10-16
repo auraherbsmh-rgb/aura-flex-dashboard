@@ -123,7 +123,7 @@ export async function getTaskExtras(task: TaskRow): Promise<{
   const [hist, money, det, ads, lists] = await Promise.all([
     supabase.rpc("angle_history", { p_angle: task.angleId, p_exclude: task.id }),
     supabase.from("money_settings").select("business_line_usd, price_1b_tnd, price_2b_tnd, price_3b_tnd").order("month", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("script_details").select("face, shoot_on, generate, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").eq("task_id", task.id).maybeSingle(),
+    supabase.from("script_details").select("face, shoot_on, generate, vo, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").eq("task_id", task.id).maybeSingle(),
     supabase.from("ad_variations").select("v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("task_id", task.id).eq("active", true).order("v"),
     supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
   ]);
@@ -137,6 +137,7 @@ export async function getTaskExtras(task: TaskRow): Promise<{
         face: d.face ?? "",
         shootOn: d.shoot_on ?? "",
         generate: d.generate,
+        vo: !!d.vo,
         mainArgumentId: d.main_argument_id ?? "",
         offer: d.offer_bottles,
         variations: ((d.variations ?? []) as V[]).map((x) => ({ hookTypeId: x.hook_type_id ?? "", hookLine: x.hook_line ?? "", headline: x.headline ?? "" })),
@@ -174,14 +175,14 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
   history: Map<string, AngleHistoryRow[]>;
 }> {
   const supabase = await createClient();
-  type D = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; main_argument_id: string | null; offer_bottles: number | null; variations: unknown; ad_set_name: string | null; confirmed_at: string | null };
+  type D = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; vo: boolean; main_argument_id: string | null; offer_bottles: number | null; variations: unknown; ad_set_name: string | null; confirmed_at: string | null };
   type A = { id: string; task_id: string; v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
   type H = { angle_id: string; task_id: string; avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
   const [money, lists, dets, ads, hists] = await Promise.all([
     supabase.from("money_settings").select("business_line_usd, price_1b_tnd, price_2b_tnd, price_3b_tnd").order("month", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
     allRows("script details", (a, b) =>
-      supabase.from("script_details").select("task_id, face, shoot_on, generate, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: D[] | null; error: unknown }>,
+      supabase.from("script_details").select("task_id, face, shoot_on, generate, vo, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: D[] | null; error: unknown }>,
     ),
     allRows("hooks", (a, b) =>
       supabase.from("ad_variations").select("id, task_id, v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("active", true).order("id").range(a, b) as unknown as PromiseLike<{ data: A[] | null; error: unknown }>,
@@ -210,6 +211,7 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
       face: d.face ?? "",
       shootOn: d.shoot_on ?? "",
       generate: d.generate,
+      vo: !!d.vo,
       mainArgumentId: d.main_argument_id ?? "",
       offer: d.offer_bottles,
       variations: ((d.variations ?? []) as V[]).map((x) => ({ hookTypeId: x.hook_type_id ?? "", hookLine: x.hook_line ?? "", headline: x.headline ?? "" })),
@@ -239,11 +241,11 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
 /** Script details of the tasks the viewer may see (face, shoot, confirmed), for the Scripts pipeline. */
 export async function getDetailsLite(): Promise<DetailsLite[]> {
   const supabase = await createClient();
-  type R = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; confirmed_at: string | null };
+  type R = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; vo: boolean; confirmed_at: string | null };
   const rows = await allRows("script details", (a, b) =>
-    supabase.from("script_details").select("task_id, face, shoot_on, generate, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
+    supabase.from("script_details").select("task_id, face, shoot_on, generate, vo, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
-  return rows.map((r) => ({ taskId: r.task_id, face: r.face, shootOn: r.shoot_on, generate: r.generate, confirmedAt: r.confirmed_at }));
+  return rows.map((r) => ({ taskId: r.task_id, face: r.face, shootOn: r.shoot_on, generate: r.generate, vo: !!r.vo, confirmedAt: r.confirmed_at }));
 }
 
 /** Productions the viewer may see, by task (founders all; a copywriter her own; an editor the ones assigned to her). */
@@ -253,13 +255,13 @@ export async function getProductions(): Promise<Map<string, Production>> {
     task_id: string; footage_url: string | null; all_hooks_shot: boolean | null; footage_gap: string | null; footage_at: string | null;
     editor_id: string | null; edit_due: string | null; brief: string | null; edit_reference: string | null; assigned_at: string | null;
     edit_started_at: string | null; final_url: string | null; launched_at: string | null; live_at: string | null; live_source: "manual" | "meta" | null;
-    hold_at: string | null; hold_reason: string | null;
+    hold_at: string | null; hold_reason: string | null; inspiration_url: string | null;
     editor: { display_name: string } | null;
   };
   const rows = await allRows("production", (a, b) =>
     supabase
       .from("productions")
-      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, final_url, launched_at, live_at, live_source, hold_at, hold_reason, editor:people!productions_editor_id_fkey(display_name)")
+      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, final_url, launched_at, live_at, live_source, hold_at, hold_reason, inspiration_url, editor:people!productions_editor_id_fkey(display_name)")
       .order("task_id")
       .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
@@ -270,7 +272,7 @@ export async function getProductions(): Promise<Map<string, Production>> {
         taskId: r.task_id, footageUrl: r.footage_url, allHooksShot: r.all_hooks_shot, footageGap: r.footage_gap, footageAt: r.footage_at,
         editorId: r.editor_id, editorName: r.editor?.display_name ?? (r.editor_id ? "an editor" : null), editDue: r.edit_due,
         brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at, editStartedAt: r.edit_started_at,
-        finalUrl: r.final_url, launchedAt: r.launched_at, liveAt: r.live_at, liveSource: r.live_source, holdAt: r.hold_at, holdReason: r.hold_reason,
+        finalUrl: r.final_url, launchedAt: r.launched_at, liveAt: r.live_at, liveSource: r.live_source, holdAt: r.hold_at, holdReason: r.hold_reason, inspirationUrl: r.inspiration_url,
       },
     ]),
   );
@@ -297,7 +299,7 @@ export function prodCards(tasks: TaskRow[], details: DetailsLite[], hooksByTask:
     if (t.status !== "details_done" || !d) continue;
     out.set(t.id, {
       taskId: t.id, face: d.face ?? t.angle, cell: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`, angle: t.angle, format: t.format,
-      copywriter: t.copywriter, shootOn: d.shootOn, generate: d.generate, hooks: hooksByTask.get(t.id) ?? 0, confirmedAt: d.confirmedAt,
+      copywriter: t.copywriter, shootOn: d.shootOn, generate: d.generate, vo: !!d.vo, hooks: hooksByTask.get(t.id) ?? 0, confirmedAt: d.confirmedAt,
     });
   }
   return out;

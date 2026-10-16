@@ -127,6 +127,8 @@ export type DetailsInput = {
   face: string;
   shootOn: string;
   generate: boolean;
+  /** VO (no shoot): a voice recording replaces the raw footage. */
+  vo: boolean;
   mainArgumentId: string;
   offer: number | null;
   variations: { hookTypeId: string; hookLine: string; headline: string }[];
@@ -151,16 +153,17 @@ export async function saveScriptDetails(taskId: string, input: DetailsInput, con
   if (vars.some((x) => x.headline.length > 200)) return fail("Keep each headline under 200 characters.");
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("save_script_details", {
+  const { error } = await supabase.rpc("save_script_details2", {
     p_task: taskId,
     p_face: face,
     p_tag: tag,
-    p_shoot: input.generate ? null : input.shootOn || null,
+    p_shoot: input.generate || input.vo ? null : input.shootOn || null,
     p_generate: input.generate,
     p_arg: input.mainArgumentId || null,
     p_offer: offer,
     p_vars: vars,
     p_confirm: confirm,
+    p_vo: !input.generate && input.vo,
   });
   if (error) return fail(error.code === "23505" ? "One of these ad names is already used. Use another word for the face." : plain(error));
   revalidatePath("/", "layout");
@@ -267,4 +270,20 @@ export async function setHold(taskId: string, hold: boolean, reason: string): Pr
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
   return done(hold ? "On hold. Its late alerts and Home items stop until you resume it." : "Resumed. Alerts and Home items are back.");
+}
+
+/** VO received (founders): the voice recording link + an optional inspiration link for the editor. */
+export async function markVo(taskId: string, url: string, inspiration: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders mark the VO received.");
+  const u = url.trim();
+  const i = inspiration.trim();
+  if (!LINK.test(u)) return fail("Paste the full link to the VO recording (starting with https://).");
+  if (i && !LINK.test(i)) return fail("The inspiration link must start with https://.");
+  if (u.length > 1000 || i.length > 1000) return fail("That link is too long.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("mark_vo", { p_task: taskId, p_url: u, p_inspiration: i });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("VO received. The task is ready to assign to an editor.");
 }

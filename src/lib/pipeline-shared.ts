@@ -8,7 +8,7 @@ import { fmtDay, isHeld, prodStage, tunisDate, type Production, type TaskRow } f
 export const RAIL = ["Writing", "Review", "Changes", "Approved", "Details"] as const;
 export type StepState = "done" | "now" | "late" | "skip" | "todo";
 
-export type DetailsLite = { taskId: string; face: string | null; shootOn: string | null; generate: boolean; confirmedAt: string | null };
+export type DetailsLite = { taskId: string; face: string | null; shootOn: string | null; generate: boolean; vo?: boolean; confirmedAt: string | null };
 
 export type PipeRow = {
   id: string;
@@ -96,7 +96,7 @@ export function buildPipeline(
       since = last?.decidedAt ?? since;
       late = (now - Date.parse(since)) / 864e5 >= detailsDays;
       waitingWhat = d ? "script details (draft)" : "script details";
-      due = late ? "details late" : d?.generate ? "AI / 3D" : d?.shootOn ? `shoot ${fmtDay(d.shootOn)}` : "details next";
+      due = late ? "details late" : d?.generate ? "AI / 3D" : d?.vo ? "VO" : d?.shootOn ? `shoot ${fmtDay(d.shootOn)}` : "details next";
     }
     const i = steps.indexOf("now");
     if (late) steps[i] = "late";
@@ -127,8 +127,8 @@ export function buildPipeline(
     const stage = prodStage(d.generate, p);
     const where =
       p?.liveAt ? "LIVE" : p?.launchedAt ? "LAUNCHED" : isHeld(p) ? "ON HOLD" : stage === "editing" ? "EDITING"
-      : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : "FOOTAGE IN")
-      : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
+      : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : d.vo ? "VO IN" : "FOOTAGE IN")
+      : d.vo ? "WAITING FOR VO" : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
     handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });
   }
   return { rows, handed };

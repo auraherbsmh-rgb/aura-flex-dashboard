@@ -12,7 +12,7 @@ import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Produc
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "ASSIGN" | "LAUNCH" | "COVERING";
+  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "COVERING";
   tagTone: "violet" | "blue" | "orange" | "green";
   title: string;
   sub: string;
@@ -109,7 +109,12 @@ export function buildNeeds(
       let kind: "footage" | "assign";
       let since: string;
       let lateH: number;
-      if (stage === "shoot") {
+      if (stage === "shoot" && card.vo) {
+        // VO, no shoot: due from the details confirmation.
+        kind = "footage";
+        since = card.confirmedAt ?? new Date(now).toISOString();
+        lateH = prod.footageLateDays * 24;
+      } else if (stage === "shoot") {
         if (!card.shootOn || card.shootOn > today) continue;
         kind = "footage";
         since = `${card.shootOn}T00:00:00+01:00`;
@@ -125,9 +130,9 @@ export function buildNeeds(
       const covering = age.hours >= (prod.coverHours ?? 48);
       const title = `${card.cell} · ${card.format} · ${card.face}`;
       const sub = kind === "footage"
-        ? `Shoot ${fmtDay(card.shootOn ?? today)} · paste the raw Drive link`
-        : card.generate ? "AI / 3D · no editor yet" : "Footage in, no editor yet";
-      const type = kind === "footage" ? "FOOTAGE" : "ASSIGN";
+        ? card.vo ? "VO, no shoot · paste the recording link" : `Shoot ${fmtDay(card.shootOn ?? today)} · paste the raw Drive link`
+        : card.generate ? "AI / 3D · no editor yet" : card.vo ? "VO in, no editor yet" : "Footage in, no editor yet";
+      const type = kind === "footage" ? (card.vo ? "VO" : "FOOTAGE") : "ASSIGN";
       if (viewer.role === "founder_2") {
         items.push({ key: `${kind}-${card.taskId}`, type, tagTone: kind === "footage" ? "blue" : "violet", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
       } else if (viewer.role === "founder_1" && covering) {

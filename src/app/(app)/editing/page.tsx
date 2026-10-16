@@ -41,7 +41,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const [editors, launchNames] = founder ? await Promise.all([getEditors(productions, tasks), getLaunchNames()]) : [[], undefined];
   const pcards = prodCards(tasks, details, hookCounts);
   const cards = new Map<string, EditCard>(
-    [...pcards.values()].map((c) => [c.taskId, { face: c.face, cell: c.cell, angle: c.angle, format: c.format, generate: c.generate }]),
+    [...pcards.values()].map((c) => [c.taskId, { face: c.face, cell: c.cell, angle: c.angle, format: c.format, generate: c.generate, vo: c.vo }]),
   );
 
   // An editor only ever has her own edits (row-level security); founders pick Editor A · B · All.
@@ -92,6 +92,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       scriptUrl: t.scriptUrl,
       hooks: allHooks.get(q.taskId) ?? [],
       generate: c.generate,
+      vo: pcards.get(q.taskId)?.vo ?? false,
       payPerVideo: pay.get(p.editorId ?? "")?.perVideo ?? null,
       editorName: p.editorName ?? "Editor",
       card: pcards.get(q.taskId),

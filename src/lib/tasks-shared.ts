@@ -166,6 +166,7 @@ export type ScriptDetails = {
   face: string;
   shootOn: string; // YYYY-MM-DD or ""
   generate: boolean;
+  vo: boolean;
   mainArgumentId: string;
   offer: number | null;
   variations: Variation[];
@@ -176,10 +177,10 @@ export type ScriptDetails = {
 export type DetailsPickers = { hookTypes: { id: string; label: string }[]; mainArguments: { id: string; label: string }[]; prices: [number | null, number | null, number | null] };
 
 /** What still blocks "Confirm details" (same checks as the database), in plain words. */
-export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "generate" | "mainArgumentId" | "variations">, tag: string, minVars = 5): string[] {
+export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "generate" | "vo" | "mainArgumentId" | "variations">, tag: string, minVars = 5): string[] {
   const miss: string[] = [];
   if (!tag) miss.push("face name");
-  if (!d.generate && !d.shootOn) miss.push("shoot date (or AI / 3D)");
+  if (!d.generate && !d.vo && !d.shootOn) miss.push("shoot date (or VO / AI / 3D)");
   if (!d.mainArgumentId) miss.push("main argument");
   if (d.variations.length < minVars) miss.push(`${minVars - d.variations.length} more variation${minVars - d.variations.length > 1 ? "s" : ""}`);
   d.variations.forEach((v, i) => {
@@ -210,6 +211,8 @@ export type Production = {
   /** On hold (founders): late alerts and Home items stop, the editor can't send versions. */
   holdAt?: string | null;
   holdReason?: string | null;
+  /** VO scripts: optional inspiration link for the editor. */
+  inspirationUrl?: string | null;
 };
 /** What the Launch pop-up shows: the ad set name and one ad name per hook, ready to copy. */
 export type LaunchNames = { adSetName: string | null; ads: { v: number; name: string }[] };
@@ -224,6 +227,8 @@ export type ProdCard = {
   copywriter: string;
   shootOn: string | null;
   generate: boolean;
+  /** VO (no shoot): Founder 2 uploads the voice recording instead of raw footage. */
+  vo: boolean;
   hooks: number;
   confirmedAt: string | null;
 };

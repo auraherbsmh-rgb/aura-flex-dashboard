@@ -55,6 +55,7 @@ export function ScriptDetailsButton({
     face: details?.face ?? "",
     shootOn: details?.shootOn ?? "",
     generate: isAI || (details?.generate ?? false),
+    vo: !isAI && !details?.generate && (details?.vo ?? false),
     mainArgumentId: known(details?.mainArgumentId ?? "", pickers.mainArguments),
     offer: details?.offer ?? null,
     variations: details?.variations.length
@@ -112,9 +113,13 @@ export function ScriptDetailsButton({
           </label>
           <div className="field">
             <span className="lbl">Shoot date ●</span>
-            <input className={`inp ${!d.generate && !d.shootOn ? "fi-miss" : ""}`} type="date" value={d.generate ? "" : d.shootOn} disabled={d.generate} onChange={(e) => setD({ ...d, shootOn: e.target.value })} aria-label="Shoot date" />
+            <input className={`inp ${!d.generate && !d.vo && !d.shootOn ? "fi-miss" : ""}`} type="date" value={d.generate || d.vo ? "" : d.shootOn} disabled={d.generate || d.vo} onChange={(e) => setD({ ...d, shootOn: e.target.value })} aria-label="Shoot date" />
             <label className="chk-row">
-              <input type="checkbox" checked={d.generate} disabled={isAI} onChange={(e) => setD({ ...d, generate: e.target.checked })} />
+              <input type="checkbox" checked={d.vo} disabled={isAI} onChange={(e) => setD({ ...d, vo: e.target.checked, generate: e.target.checked ? false : d.generate })} />
+              VO, no shoot: a voice recording, the editor builds the video
+            </label>
+            <label className="chk-row">
+              <input type="checkbox" checked={d.generate} disabled={isAI} onChange={(e) => setD({ ...d, generate: e.target.checked, vo: e.target.checked ? false : d.vo })} />
               Generate with AI / 3D, no shoot{isAI ? " (AI / 3D format)" : ""}
             </label>
           </div>

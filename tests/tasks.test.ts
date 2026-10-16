@@ -83,10 +83,11 @@ test("concept tag and ad names (decision Oct 15)", () => {
 
 test("Script details: what blocks Confirm", () => {
   const v = { hookTypeId: "h", hookLine: "Hello there", headline: "" };
-  const ok = { face: "Sami", shootOn: "2026-10-20", generate: false, mainArgumentId: "m", variations: [v, v, v, v, v] };
+  const ok = { face: "Sami", shootOn: "2026-10-20", generate: false, vo: false, mainArgumentId: "m", variations: [v, v, v, v, v] };
   assert.deepEqual(missingDetails(ok, "Sami"), []);
   assert.deepEqual(missingDetails({ ...ok, shootOn: "", generate: true }, "Sami"), []);
-  assert.deepEqual(missingDetails({ ...ok, shootOn: "" }, "Sami"), ["shoot date (or AI / 3D)"]);
+  assert.deepEqual(missingDetails({ ...ok, shootOn: "" }, "Sami"), ["shoot date (or VO / AI / 3D)"]);
+  assert.deepEqual(missingDetails({ ...ok, shootOn: "", vo: true }, "Sami"), [], "VO needs no shoot date");
   assert.deepEqual(missingDetails({ ...ok, variations: [v, { ...v, hookTypeId: "" }] }, ""), ["face name", "3 more variations", "V2 hook type"]);
 });
 
@@ -259,4 +260,22 @@ test("On hold: no alerts, sorted last, ON HOLD tag; pipeline rows open Footage /
   assert.equal(q[1].alert, null);
   assert.match(q[1].sub, /Knee script first/);
   assert.ok(q[0].alert, "the other one still alerts");
+});
+
+test("VO: no shoot, waiting on the VO recording, then assign", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const base = { taskId: "", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
+  const T = (id: string) => ({ ...t0, id, status: "details_done" });
+  const D = (confirmedAt: string) => ({ shootOn: null, generate: false, vo: true, face: "F", confirmedAt });
+  const details = new Map([["fresh", D("2026-10-15T10:00:00Z")], ["old", D("2026-10-12T10:00:00Z")], ["in", D("2026-10-12T10:00:00Z")]]);
+  const prods = new Map([["in", { ...base, taskId: "in", footageUrl: "https://d.x", footageAt: "2026-10-16T08:00:00Z" }]]);
+  const rows = buildVideoPipeline([T("fresh"), T("old"), T("in")], prods, new Map(), details, { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 });
+  const by = new Map(rows.map((r) => [r.taskId, r]));
+  assert.deepEqual(by.get("fresh")!.steps, ["skip", "now", "todo", "todo", "todo"]);
+  assert.equal(by.get("fresh")!.waitingWhat, "VO recording");
+  assert.equal(by.get("fresh")!.waitingOn, "You");
+  assert.equal(by.get("fresh")!.action, "footage");
+  assert.equal(by.get("old")!.late, true);
+  assert.deepEqual(by.get("in")!.steps, ["skip", "done", "now", "todo", "todo"]);
+  assert.equal(by.get("in")!.action, "assign");
 });

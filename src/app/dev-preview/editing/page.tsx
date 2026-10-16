@@ -39,7 +39,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     state: q.find((x) => x.taskId === sel)!.state, rounds: rounds.get(sel) ?? [], production: prods.get(sel)!, scriptUrl: "https://docs.google.com/document/d/x",
     hooks: [1, 2, 3, 4, 5].map((v) => ({ v, type: v % 2 ? "Storytelling" : "Authority", line: `Hook line ${v}`, headline: null, name: `UGC_MSB_Problem-Aware_Knee-Broad_Hedi_V${v}` })),
     generate: false, payPerVideo: 100, editorName: "Editor B",
-    card: { taskId: sel, face: cards.get(sel)!.face, cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" },
+    card: { taskId: sel, face: cards.get(sel)!.face, cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, vo: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" },
     names: { adSetName: "UGC_MSB_Problem-Aware_Knee-Broad_Mervet", ads: [1, 2, 3, 4, 5].map((v) => ({ v, name: `UGC_MSB_Problem-Aware_Knee-Broad_Mervet_V${v}` })) },
   };
   const v = { personId: founder ? "f2" : "eb", name: founder ? "Founder 2" : "Editor B", role: (founder ? "founder_2" : "editor") as "founder_2" | "editor", email: "" };
@@ -61,7 +61,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}
             isEditorId={founder ? null : "eb"}
             editorLoads={[{ id: "ea", name: "Editor A", doesAi: true, queue: 1 }, { id: "eb", name: "Editor B", doesAi: false, queue: 4 }]}
-            pipeCards={{ lina: { taskId: "lina", face: "Lina", cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" } }}
+            pipeCards={{ lina: { taskId: "lina", face: "Lina", cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, vo: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" } }}
             pipeCurrent={{ lina: prods.get("lina")! }}
           />
         </div>

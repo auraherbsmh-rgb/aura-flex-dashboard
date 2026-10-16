@@ -2,7 +2,7 @@
 
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
-import { assignEdit, launchConcept, markFootage, setHold } from "@/app/tasks/actions";
+import { assignEdit, launchConcept, markFootage, markVo, setHold } from "@/app/tasks/actions";
 import { CopyName } from "./ScriptDetails";
 import { fmtDay, fmtWhen, suggestEditor, tunisDate, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
@@ -52,8 +52,37 @@ export function FootageButton({
   const [url, setUrl] = useState(current?.footageUrl ?? "");
   const [all, setAll] = useState(current?.allHooksShot ?? true);
   const [gap, setGap] = useState(current?.footageGap ?? "");
+  const [insp, setInsp] = useState(current?.inspirationUrl ?? "");
   const close = () => { setOpen(false); onClose?.(); };
   const { error, setError, pending, run } = useRun(onDone, close);
+  if (card.vo) {
+    // VO (no shoot): Founder 2 uploads the voice recording; inspiration is optional.
+    return (
+      <>
+        {!startOpen && <button type="button" className={className} onClick={() => { setUrl(current?.footageUrl ?? ""); setInsp(current?.inspirationUrl ?? ""); setError(""); setOpen(true); }}>{label === "Footage received" ? "VO received" : label}</button>}
+        <Modal open={open} onClose={close} who={who.replace("Footage received", "VO received").replace("FOOTAGE item", "VO item")} title={`VO received · ${card.face}`}>
+          <div className="sub">{card.cell} · {card.angle} · {card.format} · VO, no shoot · script by {card.copywriter}</div>
+          <label className="field">
+            <span className="lbl">VO recording · link ●</span>
+            <input className="inp" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://drive.google.com/…" maxLength={1000} />
+          </label>
+          <label className="field">
+            <span className="lbl">Inspiration · optional</span>
+            <input className="inp" type="url" value={insp} onChange={(e) => setInsp(e.target.value)} placeholder="link to a video in the style you want" maxLength={1000} />
+            <span className="unit">The editor sees both links in the task.</span>
+          </label>
+          <div className="info">{current?.footageAt ? "Updates the links. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor builds the video from the script and the VO."}</div>
+          <div className="acts">
+            {error && <span className="formmsg err" role="alert">{error}</span>}
+            <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
+            <button type="button" className="btn b-primary" disabled={pending || !url.trim()} onClick={() => run(() => markVo(card.taskId, url, insp))}>
+              {pending ? "Saving…" : current?.footageAt ? "Save changes" : "Mark received"}
+            </button>
+          </div>
+        </Modal>
+      </>
+    );
+  }
   return (
     <>
       {!startOpen && <button type="button" className={className} onClick={() => { setUrl(current?.footageUrl ?? ""); setAll(current?.allHooksShot ?? true); setGap(current?.footageGap ?? ""); setError(""); setOpen(true); }}>{label}</button>}
@@ -123,7 +152,7 @@ export function AssignButton({
   const [f, setF] = useState(start);
   const close = () => { setOpen(false); onClose?.(); };
   const { error, setError, pending, run } = useRun(onDone, close);
-  const what = card.generate ? "full AI / 3D video" : `full video + ${card.hooks} hooks, subtitled`;
+  const what = card.generate ? "full AI / 3D video" : `${card.vo ? "VO video" : "full video"} + ${card.hooks} hooks, subtitled`;
   return (
     <>
       {!startOpen && <button type="button" className={className} onClick={() => { setF(start()); setError(""); setOpen(true); }}>{label}</button>}

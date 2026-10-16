@@ -60,7 +60,7 @@ export type QueueItem = {
   hold: boolean;
 };
 
-export type EditCard = { face: string; cell: string; angle: string; format: string; generate: boolean };
+export type EditCard = { face: string; cell: string; angle: string; format: string; generate: boolean; vo?: boolean };
 
 /**
  * The queue: successors first, then what needs the editor (changes, editing, ready), then what waits on Founder 2,
@@ -107,7 +107,7 @@ export function buildQueue(
       state === "changes" ? (last?.loom ? "Loom waiting" : last?.note ?? "Founder note waiting")
       : state === "submitted" ? `Waiting for Founder 2 review`
       : state === "approved" ? `Approved ${last?.decidedAt ? fmtDay(last.decidedAt.slice(0, 10)) : ""} · counted for payment`
-      : state === "ready" ? (c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `Footage in Drive since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
+      : state === "ready" ? (c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO" : "Footage"} in Drive since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
       : t.origin === "successor" ? "Successor for a fading winner" : "Editing";
     out.push({
       taskId: t.id,
@@ -226,7 +226,7 @@ export function buildVideoPipeline(
   tasks: TaskRow[],
   productions: Map<string, Production>,
   rounds: Map<string, EditRound[]>,
-  details: Map<string, { shootOn: string | null; generate: boolean; face: string | null; confirmedAt: string | null }>,
+  details: Map<string, { shootOn: string | null; generate: boolean; vo?: boolean; face: string | null; confirmedAt: string | null }>,
   opts: { now: number; footageLateDays: number; assignLateDays: number; reviewHours: number; launchLateDays: number; roundAlert: number },
 ): VideoRow[] {
   const { now } = opts;
@@ -243,7 +243,8 @@ export function buildVideoPipeline(
     const ok = r.find((x) => x.decision === "approved");
     const gen = d.generate || t.formatCode === "AI";
     const scriptOk = [...t.rounds].reverse().find((x) => x.decision === "approved");
-    const steps: VStep[] = gen ? ["skip", "skip", "todo", "todo", "todo"] : ["todo", "todo", "todo", "todo", "todo"];
+    const vo = !gen && !!d.vo;
+    const steps: VStep[] = gen ? ["skip", "skip", "todo", "todo", "todo"] : vo ? ["skip", "todo", "todo", "todo", "todo"] : ["todo", "todo", "todo", "todo", "todo"];
     let i = 0, since = now, late = false;
     let waitingOn: VideoRow["waitingOn"] = "Agency", waitingWhat = "", due = "on track";
     let label: string | null = null;
@@ -278,6 +279,12 @@ export function buildVideoPipeline(
       late = (now - since) / 864e5 >= opts.assignLateDays;
       waitingOn = "You"; waitingWhat = "assign";
       due = late ? "assign late" : "to assign";
+    } else if (vo) {
+      // VO, no shoot: Founder 2 uploads the recording; late after the footage rule, counted from the details confirmation.
+      i = 1; since = d.confirmedAt ? Date.parse(d.confirmedAt) : now;
+      late = (now - since) / 864e5 >= opts.footageLateDays;
+      waitingOn = "You"; waitingWhat = "VO recording";
+      due = late ? `${Math.floor((now - since) / 864e5)} d late` : "on track";
     } else if (d.shootOn && d.shootOn <= today) {
       i = 1; since = Date.parse(`${d.shootOn}T00:00:00+01:00`);
       late = (now - since) / 864e5 >= opts.footageLateDays;
