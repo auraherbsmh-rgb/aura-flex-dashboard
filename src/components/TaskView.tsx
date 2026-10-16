@@ -7,7 +7,8 @@ import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
 import { AssignButton, FootageButton, HoldButton } from "./Production";
 import { reviewScript, submitScript } from "@/app/tasks/actions";
-import { shortAwareness } from "@/lib/proposals-shared";
+import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
+import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
 import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
@@ -115,6 +116,8 @@ export function CopyBoard({
   action,
   side,
   data,
+  map,
+  proposePickers,
 }: {
   tasks: TaskRow[];
   writers: [string, string][];
@@ -125,7 +128,12 @@ export function CopyBoard({
   action?: React.ReactNode;
   side: React.ReactNode;
   data: BoardData;
+  /** The map under the inbox (artboard order Inbox → Map); a cell opens the cell view on the right. */
+  map?: MapData;
+  proposePickers?: Pickers;
 }) {
+  const [track, setTrack] = useState<"knee" | "hips">("knee");
+  const [cell, setCell] = useState<CellKey | null>(null);
   // Instant: the choice lives in state and is written to the address. A navigation to this page with another
   // ?task / ?cw (e.g. a Pipeline row) changes the address, and the board follows it ("previous value" pattern).
   const params = useSearchParams();
@@ -149,6 +157,7 @@ export function CopyBoard({
   const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now).rank - inboxLine(b, forFounder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = shown.find((t) => t.id === sel) ?? urgent ?? null;
   const open = (id: string) => {
+    setCell(null);
     setSel(id);
     setAddress({ task: id });
     if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("task-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -167,10 +176,17 @@ export function CopyBoard({
           action={action}
           onOpen={open}
         />
+        {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} onPick={(k) => {
+          setCell(k);
+          if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("cell-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        }} />}
         {side}
       </aside>
       <div className="board-main">
-        {selected ? (
+        {cell && map ? (
+          <CellView key={`${cell.avatarId}-${cell.awareness}-${track}`} data={map} cell={cell} track={track} pickers={proposePickers}
+            onBack={selected ? () => setCell(null) : undefined} backLabel={selected?.copywriterId === viewerId ? "← Back to my task" : "← Back to the task"} />
+        ) : selected ? (
           <TaskView
             key={selected.id}
             task={selected}

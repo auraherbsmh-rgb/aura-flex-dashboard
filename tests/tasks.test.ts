@@ -353,3 +353,35 @@ test("Home: pace, scripts this week, speed split, waiting to launch, blocked", (
   assert.equal(buildBlocked([t("c", { status: "changes", rounds: [R("changes", "2026-10-13T09:00:00Z")], dueOn: "2026-10-12" })], [], thu, true).length, 0);
   assert.equal(buildBlocked(tasks, [], thu, false).length, 0);
 });
+
+import { buildMap, groupByAngle, mapConcepts, mix } from "../src/lib/map-shared";
+
+test("Map: concepts by avatar × awareness, track, start date, states, cell view groups", () => {
+  const C = (id: string, extra: object = {}) => ({
+    taskId: id, avatarId: "a1", avatarCode: "FSB", awareness: "Problem-Aware", angleId: "g1", angle: "Knee-Broad", angleCode: "Knee-Broad", track: "knee",
+    format: "UGC", formatCode: "UGC", origin: "manual", status: "writing", copywriter: "C1", createdAt: "2026-10-20T10:00:00Z", face: null, generate: false, vo: false,
+    launchedAt: null, liveAt: null, holdAt: null, variations: [], ...extra,
+  });
+  const all = [
+    C("w"),
+    C("p", { status: "details_done", face: "Sami", variations: [{ v: 1, type: "Storytelling", line: "x", name: "n" }] }),
+    C("t", { status: "details_done", launchedAt: "2026-10-22T10:00:00Z", angleId: "g2", angle: "Knee-Prayer" }),
+    C("old", { createdAt: "2026-10-01T10:00:00Z" }),
+    C("hips", { track: "hips", awareness: "Solution-Aware" }),
+    C("both", { track: "both", awareness: "Most-Aware" }),
+  ];
+  const avatars = [{ id: "a1", code: "FSB", label: "FSB" }, { id: "a2", code: "MSB", label: "MSB" }];
+  const knee = mapConcepts(all, "knee", "2026-10-20");
+  assert.deepEqual(knee.map((c) => c.taskId).sort(), ["both", "p", "t", "w"]);
+  const rows = buildMap(knee, avatars);
+  const cell = rows[0].cells[0];
+  assert.equal(cell.state, "test");
+  assert.equal(cell.line, "1 testing · 1 in production · 1 writing");
+  assert.equal(rows[0].cells[3].word, "WRITING");
+  assert.equal(rows[1].cells[0].state, "empty");
+  assert.equal(rows[1].cells[0].line, "+ Propose a test");
+  assert.equal(mapConcepts(all, "hips", null).some((c) => c.taskId === "hips"), true);
+  const g = groupByAngle(cell.concepts);
+  assert.deepEqual(g.map((x) => x.angle), ["Knee-Broad", "Knee-Prayer"]);
+  assert.deepEqual(mix(cell.concepts).hooks, [["Storytelling", 1]]);
+});

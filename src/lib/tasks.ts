@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
 import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
+import type { MapConcept, MapVariation } from "@/lib/map-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -436,4 +437,26 @@ export async function getAllTestimonials(): Promise<TestimonialRow[]> {
     id: r.id, url: r.recording_url, note: r.note, status: r.status, reason: r.reason, taskId: r.task_id, addedAt: r.added_at,
     decidedAt: r.decided_at, decidedBy: r.decider?.display_name ?? null,
   }));
+}
+
+/** Every concept for the map (team-wide, names and states only) + the map start date (Settings). */
+export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null }> {
+  const supabase = await createClient();
+  type R = {
+    task_id: string; avatar_id: string; avatar_code: string; awareness: string; angle_id: string; angle_label: string; angle_code: string; angle_track: string | null;
+    format_label: string; format_code: string; origin: string; status: string; copywriter: string | null; created_at: string; face: string | null;
+    generate: boolean; vo: boolean; launched_at: string | null; live_at: string | null; hold_at: string | null; variations: MapVariation[] | null;
+  };
+  const [rows, start] = await Promise.all([
+    supabase.rpc("map_concepts"),
+    supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle(),
+  ]);
+  if (rows.error) throw new Error("Could not read the map. Reload the page.");
+  const concepts = ((rows.data ?? []) as R[]).map((r) => ({
+    taskId: r.task_id, avatarId: r.avatar_id, avatarCode: r.avatar_code, awareness: r.awareness, angleId: r.angle_id, angle: r.angle_label,
+    angleCode: r.angle_code, track: r.angle_track, format: r.format_label, formatCode: r.format_code, origin: r.origin, status: r.status,
+    copywriter: r.copywriter, createdAt: r.created_at, face: r.face, generate: r.generate, vo: r.vo, launchedAt: r.launched_at, liveAt: r.live_at,
+    holdAt: r.hold_at, variations: r.variations ?? [],
+  }));
+  return { concepts, start: (start.data?.value as string | null) ?? null };
 }

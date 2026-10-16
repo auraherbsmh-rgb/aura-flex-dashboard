@@ -4,7 +4,7 @@ import { CreateTaskButton } from "@/components/Tasks";
 import { CopyBoard } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
-import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getBoardExtras, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
+import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getBoardExtras, getMapData, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
 import { buildPipeline } from "@/lib/pipeline-shared";
 import { CopyViews } from "@/components/CopyViews";
@@ -48,7 +48,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const now = requestTime();
   const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
-  const extras = await getBoardExtras(allTasks);
+  const [extras, mapData] = await Promise.all([getBoardExtras(allTasks), getMapData()]);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   return (
@@ -65,6 +65,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
             viewerId={viewer.personId}
             now={now}
             action={ctx ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
+            map={{ ...mapData, avatars: pickers.avatars }}
+            proposePickers={pickers}
             data={{
               line: extras.line,
               pickers: extras.pickers,
@@ -84,7 +86,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
                   <div><ProposeButton pickers={pickers} /></div>
                   <ProposalList proposals={proposals} showAuthor={founder} taskCtx={ctx ? { ctx, pickers } : undefined} />
                 </section>
-                <NotBuiltYet phase="phase 2–3" what="The map and the recap come next; the map fills with results once Meta is connected." />
               </>
             }
           />

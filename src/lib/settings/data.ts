@@ -96,6 +96,7 @@ export async function getSettings() {
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit, rate_3d_tnd, weekly_target"),
     supabase.from("copywriter_level_set").select("levels").eq("id", 1).maybeSingle(),
   ]);
+  const mapStart = await supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle();
 
   const payBy = new Map((pay.data ?? []).map((p) => [p.person_id as string, p]));
   const roleOrder = ["founder_1", "founder_2", "copywriter", "editor", "agency", "strategist"];
@@ -119,6 +120,7 @@ export async function getSettings() {
     .sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role));
 
   return {
+    mapStart: (mapStart.data?.value as string | null) ?? null,
     money: (money.data as MoneyRow | null) ?? null,
     rules: (rules.data ?? []) as Rule[],
     flags: (flags.data ?? []) as Flag[],

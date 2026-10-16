@@ -384,3 +384,18 @@ export async function saveLevels(_prev: ActionState, form: FormData): Promise<Ac
   revalidatePath("/settings");
   return done(rows.length ? `${rows.length} level${rows.length > 1 ? "s" : ""} saved as a draft.` : "Levels cleared.");
 }
+
+// ─────────────────────────────── Map start date ───────────────────────────────
+
+/** Map start date (founder decision Oct 16): the map, win rate and scorecards count concepts from this day on. Empty = all. */
+export async function saveMapStart(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const v = await founder();
+  if (!v) return fail("Only founders can change Settings.");
+  const raw = text(form.get("map_start"));
+  if (raw && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return fail("Pick the date from the calendar.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_app_date", { p_key: "map_start", p_value: raw || null });
+  if (error) return fail(error.code === "P0001" ? error.message : "Not saved. Reload the page and try again.");
+  revalidatePath("/", "layout");
+  return done(raw ? "Saved. The map counts concepts from this day on." : "Saved. The map counts every concept.");
+}

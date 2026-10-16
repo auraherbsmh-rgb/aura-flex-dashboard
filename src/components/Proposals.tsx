@@ -22,7 +22,11 @@ function Msg({ s }: { s: ProposeState }) {
 }
 
 /** "+ Propose a test" → Propose pop-up (Pop-ups artboard). */
-export function ProposeButton({ pickers, label = "+ Propose a test", className = "add", sendTo = "Founder 1" }: { pickers: Pickers; label?: string; className?: string; sendTo?: string }) {
+export function ProposeButton({ pickers, label = "+ Propose a test", className = "add", sendTo = "Founder 1", prefill }: {
+  pickers: Pickers; label?: string; className?: string; sendTo?: string;
+  /** From a map cell: the cell's avatar and awareness are pre-picked. */
+  prefill?: { avatarId: string; awareness: string };
+}) {
   const [openedAt, setOpenedAt] = useState<number | null>(null);
   const [state, action, pending] = useActionState(propose, empty);
   const [angle, setAngle] = useState("");
@@ -49,14 +53,14 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
           <div className="row2">
             <label className="field">
               <span className="lbl">Avatar</span>
-              <select className="inp" name="avatar_id" required defaultValue="">
+              <select className="inp" name="avatar_id" required defaultValue={prefill && pickers.avatars.some((a) => a.id === prefill.avatarId) ? prefill.avatarId : ""}>
                 <option value="" disabled>Choose…</option>
                 {pickers.avatars.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
               </select>
             </label>
             <label className="field">
               <span className="lbl">Awareness</span>
-              <select className="inp" name="awareness" required defaultValue="">
+              <select className="inp" name="awareness" required defaultValue={prefill?.awareness ?? ""}>
                 <option value="" disabled>Choose…</option>
                 {AWARENESS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>

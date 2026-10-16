@@ -1,4 +1,4 @@
-import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm } from "./forms";
+import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm } from "./forms";
 import type { getSettings } from "@/lib/settings/data";
 
 export type SettingsData = Awaited<ReturnType<typeof getSettings>>;
@@ -104,6 +104,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
 
       <section className="card sec" aria-labelledby="h-lists">
         <div className="sh"><h2 id="h-lists">Lists</h2><span className="lbl">Used in every picker and in ad names</span></div>
+        <MapStartForm value={s.mapStart} />
         <ListsBlock items={s.lists} />
       </section>
 
