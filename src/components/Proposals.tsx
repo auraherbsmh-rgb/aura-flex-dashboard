@@ -165,19 +165,41 @@ function DecideModal({ p, open, onClose, onDone, who = "Founder 1 · DECIDE item
 }
 
 /** Needs me list (Founder Homes): one list, most urgent first, one button per line. */
-export function NeedsMe({ groups, total, editors = [] }: { groups: NeedGroup[]; total: number; editors?: EditorLoad[] }) {
+export function NeedsMe({
+  groups: mine,
+  total: mineTotal,
+  editors = [],
+  allGroups,
+}: {
+  groups: NeedGroup[];
+  total: number;
+  editors?: EditorLoad[];
+  /** Both founders' items (Mine | All switch, Founder Home artboard). */
+  allGroups?: NeedGroup[];
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const groups = showAll && allGroups ? allGroups : mine;
+  const total = showAll && allGroups ? allGroups.reduce((n, g) => n + g.items.length, 0) : mineTotal;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 18 }} aria-labelledby="h-needs">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", gap: 12, flexWrap: "wrap" }}>
         <h2 id="h-needs" style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-.02em", display: "flex", alignItems: "center", gap: 10 }}>
           Needs me <span className={total ? "count-red" : "count-grey"}>{total}</span>
         </h2>
-        <div className="lbl">Most urgent first</div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          {allGroups && (
+            <div className="recess wseg" role="group" aria-label="Whose items">
+              <button type="button" className={!showAll ? "seg-on" : ""} aria-pressed={!showAll} onClick={() => setShowAll(false)}>Mine</button>
+              <button type="button" className={showAll ? "seg-on" : ""} aria-pressed={showAll} onClick={() => setShowAll(true)}>All</button>
+            </div>
+          )}
+          <div className="lbl">Most urgent first</div>
+        </div>
       </div>
       {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
-      {groups.length === 0 && <div className="info">Nothing needs you right now.</div>}
+      {groups.length === 0 && <div className="info">{showAll ? "Nothing needs either founder right now." : "Nothing needs you right now."}</div>}
       {groups.map((g) => (
         <div key={g.name}>
           <div className={`lane l-${g.tone}`}><i aria-hidden="true" />{g.name}<span style={{ color: "#8c8c86", fontWeight: 500 }}>· {g.items.length}</span></div>

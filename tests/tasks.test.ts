@@ -152,3 +152,14 @@ test("production stage and ★ editor", () => {
   assert.equal(suggestEditor(eds, true), "a");
   assert.equal(suggestEditor([], false), null);
 });
+
+import { mergeNeeds, type NeedGroup } from "../src/lib/needs";
+
+test("Home All: both founders' items, covering shown once as its own type", () => {
+  const it = (key: string, type: "REVIEW" | "ASSIGN" | "COVERING", hours: number) => ({ key, type, tagTone: "blue" as const, title: key, sub: "s", age: "", ageTone: "red" as const, hours });
+  const f1: NeedGroup[] = [{ name: "LATE / OVER 48H", tone: "red", items: [it("r1", "REVIEW", 50), it("a1", "COVERING", 60)] }];
+  const f2: NeedGroup[] = [{ name: "LATE / OVER 48H", tone: "red", items: [it("a1", "ASSIGN", 60), it("r1", "COVERING", 50)] }, { name: "NEW", tone: "grey", items: [it("a2", "ASSIGN", 2)] }];
+  const all = mergeNeeds(f1, f2);
+  const flat = all.flatMap((g) => g.items.map((i) => `${g.name}:${i.key}:${i.type}:${i.sub}`));
+  assert.deepEqual(flat, ["LATE / OVER 48H:a1:ASSIGN:Founder 2 · s", "LATE / OVER 48H:r1:REVIEW:Founder 1 · s", "NEW:a2:ASSIGN:Founder 2 · s"]);
+});

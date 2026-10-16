@@ -122,3 +122,33 @@ export function buildNeeds(
     { name: "NEW", tone: "grey" as const, items: fresh },
   ].filter((g) => g.items.length > 0);
 }
+
+/**
+ * "All" on Home (Founder Home artboard: Mine | All): both founders' items in one list, each marked with whose it is.
+ * The same item seen as COVERING on one side and as its own type on the other is shown once, as its own type.
+ */
+export function mergeNeeds(f1: NeedGroup[], f2: NeedGroup[]): NeedGroup[] {
+  const order: string[] = [];
+  const byKey = new Map<string, { group: NeedGroup; item: NeedItem }>();
+  const add = (groups: NeedGroup[], owner: string) => {
+    for (const g of groups) {
+      if (!order.includes(g.name)) order.push(g.name);
+      for (const it of g.items) {
+        const prev = byKey.get(it.key);
+        const own = it.type !== "COVERING";
+        if (prev && (prev.item.type !== "COVERING" || !own)) continue;
+        byKey.set(it.key, { group: g, item: own ? { ...it, sub: `${owner} · ${it.sub}` } : it });
+      }
+    }
+  };
+  add(f1, "Founder 1");
+  add(f2, "Founder 2");
+  const rank = (name: string) => (name.startsWith("LATE") ? 0 : name === "TODAY" ? 1 : name === "THIS WEEK" ? 2 : 3);
+  return [...new Set(order)]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((name) => {
+      const items = [...byKey.values()].filter((x) => x.group.name === name).map((x) => x.item).sort((a, b) => b.hours - a.hours);
+      return { name, tone: (byKey.size && [...byKey.values()].find((x) => x.group.name === name)?.group.tone) || "grey", items } as NeedGroup;
+    })
+    .filter((g) => g.items.length > 0);
+}
