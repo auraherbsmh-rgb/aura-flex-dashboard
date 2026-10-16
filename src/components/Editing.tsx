@@ -125,7 +125,7 @@ export function EditBoard({
         </div>
       )}
       {view === "pipeline" && pipelineRows && (
-        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
+        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onTestimonials={testimonials ? () => setView("testimonials") : undefined} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
       )}
       {view === "testimonials" && testimonials && (
         <TestimonialsList rows={testimonials.rows} videos={testimonials.videos} pickers={testimonials.pickers} editors={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />

@@ -16,6 +16,7 @@ export function VideosPipeline({
   cards = {},
   current = {},
   editorLoads = [],
+  onTestimonials,
 }: {
   rows: VideoRow[];
   /** For rows not with an editor yet: what the Footage received / Assign pop-ups show. */
@@ -28,6 +29,8 @@ export function VideosPipeline({
   pick: (id: string | null) => void;
   /** Opens a video that is with an editor right in the queue (no page load). */
   onOpen?: (taskId: string) => void;
+  /** Editing → Testimonials: switches the view in place (a same-route Link keeps the board's state). */
+  onTestimonials?: () => void;
 }) {
   const setEd = pick;
   const [act, setAct] = useState<{ id: string; kind: "footage" | "assign" } | null>(null);
@@ -81,6 +84,7 @@ export function VideosPipeline({
               if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
               // Not with an editor yet: open Footage received / Assign right here (founder choice Oct 16).
               if (r.action && cards[r.taskId]) { e.preventDefault(); setMsg(""); setAct({ id: r.taskId, kind: r.action }); return; }
+              if (onTestimonials && r.href.startsWith("/editing?view=testimonials")) { e.preventDefault(); onTestimonials(); return; }
               if (!onOpen || !r.editorId) return;
               e.preventDefault();
               onOpen(r.taskId);

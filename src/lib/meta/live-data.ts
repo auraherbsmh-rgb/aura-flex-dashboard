@@ -11,7 +11,7 @@ const tunisDay = (ms: number) => new Date(ms + 36e5).toISOString().slice(0, 10);
 
 export type LastPull = { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null;
 
-export async function getLiveData(now: number) {
+export async function getLiveData(now: number, mapData?: ReturnType<typeof getMapData>) {
   const supabase = await createClient();
   const since = tunisDay(now - 75 * 864e5);
   type A = { ad_id: string; name: string; campaign_id: string; adset_id: string | null; status: string | null; created_time: string | null };
@@ -26,11 +26,11 @@ export async function getLiveData(now: number) {
     getRule("d3_colour_min_sales", 5),
     supabase.from("old_concepts").select("id, base_name, awareness, tag, avatar:list_items!old_concepts_avatar_id_fkey(code), angle:list_items!old_concepts_angle_id_fkey(label, track), format:list_items!old_concepts_format_id_fkey(label, code)"),
     supabase.from("meta_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
-    getMapData(),
+    mapData ?? getMapData(),
     supabase.from("productions").select("task_id, launched_at, editor:people!productions_editor_id_fkey(display_name)"),
   ]);
   const status = metaStatus();
-  if (!moneyRow) return { status, lastPull: (lastPull.data as LastPull) ?? null, d3Min, model: null, noMoney: true as const };
+  if (!moneyRow) return { status, lastPull: (lastPull.data as LastPull) ?? null, d3Min, model: null, noMoney: true as const, hasData: false };
 
   const ads: MetaAd[] = adsRows.map((r) => ({ adId: r.ad_id, name: r.name, campaignId: r.campaign_id, adsetId: r.adset_id, status: r.status, createdTime: r.created_time }));
   const daily: MetaDay[] = dailyRows.map((r) => ({

@@ -66,7 +66,7 @@ export function buildLive(input: {
     const concept = key.split("|")[0];
     // Freeze when any side's ad set (ABO) or campaign (CBO) changed budget in the last 48h.
     const frozen = g.sides.some((s) => budgetChanged(kindOf.get(s.ad.campaignId) === "CBO" ? s.ad.campaignId : s.ad.adsetId, budgets, now));
-    if (frozen) for (const s of g.sides) frozenCount.add(kindOf.get(s.ad.campaignId) === "CBO" ? s.ad.campaignId : s.ad.adsetId ?? "");
+    if (frozen) for (const s of g.sides) { const id = kindOf.get(s.ad.campaignId) === "CBO" ? s.ad.campaignId : s.ad.adsetId; if (id) frozenCount.add(id); }
     const res = judgeVariation(key, g.v, g.sides, m, w, frozen);
     const c = byConcept.get(concept) ?? { kind: g.owner.kind, vars: [], track: trackOf.get(g.sides[0].ad.campaignId) ?? null };
     c.vars.push({ res, adIds: g.sides.map((s) => s.ad.adId), names: g.sides.map((s) => s.ad.name) });
@@ -78,8 +78,10 @@ export function buildLive(input: {
   const states = new Map<string, { state: State; cpa7: number | null; line: number; vars: VariationResult[] }>();
   for (const [key, c] of byConcept) {
     const results = c.vars.map((x) => x.res);
-    const state = conceptState(results);
-    const t7: Totals = results.reduce((acc, r) => ({ ...acc, spend: acc.spend + r.t7.spend, sales: acc.sales + r.t7.sales, value: acc.value + r.t7.value }), { ...results[0].t7, spend: 0, sales: 0, value: 0 });
+    // A live concept is judged on its live variations only (a paused V1 that once won does not make it Won).
+    const judged = results.some((r) => r.live) ? results.filter((r) => r.live) : results;
+    const state = conceptState(judged);
+    const t7: Totals = judged.reduce((acc, r) => ({ ...acc, spend: acc.spend + r.t7.spend, sales: acc.sales + r.t7.sales, value: acc.value + r.t7.value }), { ...judged[0].t7, spend: 0, sales: 0, value: 0 });
     const line = lineFor(t7, m);
     states.set(key, { state, cpa7: conceptCpa7(results).cpa, line, vars: results });
     if (c.kind === "unmapped") {
@@ -107,15 +109,17 @@ export function buildLive(input: {
     const c7 = conceptCpa7(results);
     const pausedList = c.vars.filter((x) => !x.res.live && x.res.life.spend > 0).map((x) => `V${x.res.v ?? "?"}${info.hooks[x.res.v ?? -1]?.type ? ` ${info.hooks[x.res.v ?? -1]?.type}` : ""}`);
     const lostLive = liveRes.some((r) => r.state === "lost");
-    const attention = !!top || ["fading", "deteriorating"].includes(state) || lostLive;
+    // Budget changed in the last 48h on any live variation: no verdict yet (no flags, no Won / attention group).
+    const frozen = liveRes.some((r) => r.frozen);
+    const attention = !frozen && (!!top || ["fading", "deteriorating"].includes(state) || lostLive);
     live.push({
       key, kind: c.kind, info, track: info.track ?? c.track,
-      group: attention ? "attention" : state === "won" ? "won" : state === "recovering" ? "recovering" : "testing",
+      group: attention ? "attention" : frozen ? "testing" : state === "won" ? "won" : state === "recovering" ? "recovering" : "testing",
       state, flag, flagTone: top ? (top.f === "twin" || top.f === "deteriorating" ? "orange" : "red") : null,
       cpa7: c7.cpa, line, cpa3: t3.sales ? t3.spend / t3.sales : null, sales3: t3.sales, spend7: c7.spend, sales7: c7.sales,
-      daysLive: Math.max(...results.map((r) => r.daysLive)),
+      daysLive: Math.max(...liveRes.map((r) => r.daysLive)),
       live: liveVars, paused: pausedList.length ? `Paused: ${pausedList.join(", ")}` : "",
-      isStatic: info.formatCode === "IMG", frozen: liveRes.some((r) => r.frozen),
+      isStatic: info.formatCode === "IMG", frozen,
     });
   }
   const order = { attention: 0, testing: 1, recovering: 2, won: 3 };

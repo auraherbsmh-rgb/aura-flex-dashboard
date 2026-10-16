@@ -88,3 +88,21 @@ test("Meta budgets: a change within 48h freezes the verdict", () => {
   assert.equal(budgetChanged("as", b, NOW), true);
   assert.equal(budgetChanged("as", b.slice(0, 2), NOW), false);
 });
+
+test("Live ads: a concept is judged on its live variations; a budget change freezes its verdict", async () => {
+  const { buildLive } = await import("../src/lib/live-shared");
+  const base = "UGC_FSB_Problem-Aware_Knee-Prayer_Sami";
+  const ads = [ad("1", `${base}_V1`, "PAUSED"), ad("2", `${base}_V2`)];
+  const daily = [...days("2026-09-21", 21).map((x) => D("1", x, 10, 3)), ...days("2026-10-13", 3).map((x) => D("2", x, 3, 0))];
+  const generated = new Map([[`${base}_v1`.toLowerCase(), { taskId: "t1", v: 1 }], [`${base}_v2`.toLowerCase(), { taskId: "t1", v: 2 }]]);
+  const info = { key: "t:t1", name: "Sami", cell: "FSB × Problem", angle: "Knee-Prayer", format: "UGC", formatCode: "UGC", track: "knee", copywriter: null, editor: null, launchedAt: null, taskId: "t1", hooks: {} };
+  const scope = [{ campaignId: "abo", kind: "ABO" as const, track: "knee" }];
+  const run = (budgets: { entityId: string; day: string; dailyBudget: number }[]) =>
+    buildLive({ ads, daily, scope, budgets, generated, old: new Map(), concepts: new Map([["t:t1", info]]), money: SEP, now: NOW }).live[0];
+  const c = run([]);
+  assert.equal(c.state, "testing", "paused V1 won once, live V2 is testing");
+  assert.equal(c.group, "testing");
+  const f = run([{ entityId: "as-2", day: "2026-10-13", dailyBudget: 10 }, { entityId: "as-2", day: "2026-10-16", dailyBudget: 13 }]);
+  assert.equal(f.frozen, true);
+  assert.equal(f.group, "testing");
+});

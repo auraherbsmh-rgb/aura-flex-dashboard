@@ -13,8 +13,9 @@ export default async function Page() {
   await requireTab("map");
   const now = requestTime();
   const supabase = await createClient();
+  const mapP = getMapData();
   const [pickers, map, ctx, liveData, formats] = await Promise.all([
-    getPickers(), getMapData(), getCreateTaskContext(), getLiveData(now),
+    getPickers(), mapP, getCreateTaskContext(), getLiveData(now, mapP),
     supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
   ]);
   const st = liveData.status;
@@ -25,7 +26,8 @@ export default async function Page() {
       }
     : {
         connected: false,
-        missing: [!st.token && "META_ACCESS_TOKEN", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY", !st.cronSecret && "CRON_SECRET", liveData.noMoney && "money numbers in Settings → Money"].filter(Boolean) as string[],
+        missing: [!st.token && "META_ACCESS_TOKEN", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY", !st.cronSecret && "CRON_SECRET"].filter(Boolean) as string[],
+        noMoney: liveData.noMoney,
         lastError: liveData.lastPull && !liveData.lastPull.ok ? liveData.lastPull.message : null,
       };
   return (

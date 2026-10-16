@@ -16,6 +16,8 @@ const GROUPS = [
   { key: "won", label: "WON", tone: "green", note: "" },
 ] as const;
 
+const FROZEN_TAG = { word: "NO VERDICT · BUDGET CHANGED", tone: "t-grey" };
+
 /** CPA box: red over the line, green under, yellow while testing. */
 function cpaBox(c: number | null, line: number, testing: boolean) {
   if (testing || c === null) return "bx-y";
@@ -37,19 +39,20 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
   const [fmt, setFmt] = useState<"all" | "video" | "static">("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [detail, setDetail] = useState<{ c: LiveConcept; v: LiveVariation } | null>(null);
-  const shown = live.filter((c) => (c.track ?? "knee") === track || c.track === "both").filter((c) => fmt === "all" || (fmt === "static") === c.isStatic);
+  const onTrack = (t: string | null) => !t || t === "both" || t === track;
+  const shown = live.filter((c) => onTrack(c.track)).filter((c) => fmt === "all" || (fmt === "static") === c.isStatic);
   const spendAll = shown.reduce((n, c) => n + c.spend7, 0);
   const spendVideo = shown.filter((c) => !c.isStatic).reduce((n, c) => n + c.spend7, 0);
   const d3 = (c: number | null, sales: number, line: number) =>
     sales >= d3Min ? <span className={`bx ${c !== null && c > line ? "bx-r" : "bx-g"}`}>{money(c)}</span> : <span className="bx bx-n">n={sales}</span>;
-  const unmappedLive = unmapped.filter((u) => u.live && ((u.campaignTrack ?? "knee") === track));
+  const unmappedLive = unmapped.filter((u) => u.live && onTrack(u.campaignTrack));
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-labelledby="h-live">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <h2 id="h-live" style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>Is what we launched working?</h2>
           <div className="unit" style={{ marginTop: 6, fontSize: 13 }}>
-            Meta pull {lastPull ?? "—"} · yesterday still attributing{frozenEntities ? ` · ${frozenEntities} ad set${frozenEntities === 1 ? "" : "s"} had a budget change in the last 48h: no verdict yet` : ""}
+            Meta pull {lastPull ?? "—"} · yesterday still attributing{frozenEntities ? ` · ${frozenEntities} ad set${frozenEntities === 1 ? "" : "s"} / campaign${frozenEntities === 1 ? "" : "s"} had a budget change in the last 48h: no verdict yet` : ""}
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -83,7 +86,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
               <div className={`lane l-${g.tone}`}><i aria-hidden="true" />{g.label}<span style={{ color: "#8c8c86", fontWeight: 500 }}>· {list.length}{g.note ? ` · ${g.note}` : ""}</span></div>
               {list.map((c) => {
                 const isOpen = !!open[c.key];
-                const st = STATE_TAG[c.state];
+                const st = c.frozen ? FROZEN_TAG : STATE_TAG[c.state];
                 return (
                   <div key={c.key} className="live-concept">
                     <button type="button" className="row live-row" aria-expanded={isOpen} onClick={() => setOpen({ ...open, [c.key]: !isOpen })}>
@@ -92,7 +95,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                         {c.flag && <span className={`tag t-${c.flagTone === "orange" ? "orange" : "red"}`} style={{ marginLeft: 8 }}><i aria-hidden="true" />{c.flag}</span>}
                         <span className="pipe-meta" style={{ display: "block" }}>{c.info.angle} · {c.info.format} · {c.live.length} live variation{c.live.length === 1 ? "" : "s"}{c.kind === "old" ? " · tagged old ad" : ""}</span>
                       </span>
-                      <span><span className={`bx ${cpaBox(c.cpa7, c.line, c.state === "testing")}`}>{money(c.cpa7)}</span> <span className="unit">/ {c.line.toFixed(2)}</span></span>
+                      <span><span className={`bx ${c.frozen ? "bx-n" : cpaBox(c.cpa7, c.line, c.state === "testing")}`}>{money(c.cpa7)}</span> <span className="unit">/ {c.line.toFixed(2)}</span></span>
                       <span>{d3(c.cpa3, c.sales3, c.line)}</span>
                       <span className="mono">{money(c.spend7)}</span>
                       <span className="mono">{c.sales7}</span>
@@ -105,7 +108,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                           <span className="lbl">Var. · hook · why here</span><span className="lbl">CPA 7d / own line</span><span className="lbl">3d</span><span className="lbl">Spend 7d</span><span className="lbl">Sales 7d</span><span className="lbl">State</span><span />
                         </div>
                         {c.live.map((v) => {
-                          const vs = STATE_TAG[v.res.state];
+                          const vs = v.res.frozen ? FROZEN_TAG : STATE_TAG[v.res.state];
                           const killNow = v.res.flags.includes("kill");
                           return (
                             <div key={`${v.v}`} className={`live-vrow ${v.hot ? "vrow-hot" : ""}`}>
@@ -118,7 +121,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                                     : `${v.res.sides[0]?.side ?? "ABO"} only`}
                                 </span>
                               </span>
-                              <span><span className={`bx ${cpaBox(v.res.cpa7, v.res.line, v.res.state === "testing")}`}>{money(v.res.cpa7)}</span> <span className="unit">/ {v.res.line.toFixed(2)}</span></span>
+                              <span><span className={`bx ${v.res.frozen ? "bx-n" : cpaBox(v.res.cpa7, v.res.line, v.res.state === "testing")}`}>{money(v.res.cpa7)}</span> <span className="unit">/ {v.res.line.toFixed(2)}</span></span>
                               <span>{d3(v.res.cpa3, v.res.t3.sales, v.res.line)}</span>
                               <span className="mono">{money(v.res.t7.spend)}</span>
                               <span className="mono">{v.res.t7.sales}</span>
@@ -198,7 +201,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                   {detail.c.info.editor ? ` · edit ${detail.c.info.editor}` : ""}
                   {detail.c.info.launchedAt ? ` · launched ${new Date(Date.parse(detail.c.info.launchedAt) + 36e5).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : ""}
                 </span>
-                {detail.c.info.taskId && <Link className="btn b-ghost" href={`/copywriting?task=${detail.c.info.taskId}#task-view`}>Open task</Link>}
+                {detail.c.info.taskId && <Link className="btn b-ghost" href={detail.c.info.format === "Testimonial" ? `/editing?task=${detail.c.info.taskId}#edit-view` : `/copywriting?task=${detail.c.info.taskId}#task-view`}>Open task</Link>}
               </div>
             </>
           );
