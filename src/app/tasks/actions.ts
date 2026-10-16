@@ -87,7 +87,7 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   return done("Task created. It is in the copywriter’s list now.");
 }
 
-const LINK = /^https?:\/\/\S+\.\S+$/i;
+const LINK = /^https:\/\/\S+\.\S+$/i; // https only, as every message says
 
 /** Our own database messages (raised by the functions, code P0001) are written for people; anything else is not. */
 const plain = (e: { code?: string; message: string }) => (e.code === "P0001" ? e.message : "Not saved. Reload the page and try again.");

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
-import { EditQueue, EditTask, EditorTiles, type EditView } from "@/components/Editing";
+import { EditBoard, EditTask, type EditView } from "@/components/Editing";
 import { buildQueue, editorStats, type EditRound } from "@/lib/editing-shared";
 import type { Production, TaskRow } from "@/lib/tasks-shared";
 
@@ -45,11 +45,18 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       <div className="slab">
         <div className="band"><AppHeader viewer={v} active="editing" /><h1 className="h1" style={{ marginTop: 28 }}>{founder ? "Editing" : "Good morning, Editor B"}</h1></div>
         <div className="body">
-          <EditorTiles s={editorStats("eb", prods, rounds, cards, { perVideo: 100, rate3d: null }, now)} showAi={false} />
-          <div className="ed-layout">
-            <EditQueue items={q} selectedId={sel} editors={[["ea", "Editor A"], ["eb", "Editor B"]]} initialEd={null} forFounder={founder} />
-            <EditTask key={sel} v={view} isFounder={founder} isEditor={!founder} editors={[]} />
-          </div>
+          <EditBoard
+            statsBy={{ all: editorStats(null, prods, rounds, cards, { perVideo: 100, rate3d: null }, now), eb: editorStats("eb", prods, rounds, cards, { perVideo: 100, rate3d: null }, now), ea: editorStats("ea", prods, rounds, cards, { perVideo: 100, rate3d: 40 }, now) }}
+            aiBy={{ ea: true }}
+            items={q}
+            selectedId={sel}
+            editors={[["ea", "Editor A"], ["eb", "Editor B"]]}
+            initialEd={null}
+            forFounder={founder}
+            createTask={founder ? <button type="button" className="add">+ Create task</button> : undefined}
+            pipeline={<div className="info">Videos pipeline: screen 11.</div>}
+            task={<EditTask key={sel} v={view} isFounder={founder} isEditor={!founder} editors={[]} />}
+          />
         </div>
       </div>
     </main>

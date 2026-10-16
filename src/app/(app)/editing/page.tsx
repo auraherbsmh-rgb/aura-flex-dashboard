@@ -1,11 +1,13 @@
-import { TabPage } from "@/components/TabPage";
-import { EditQueue, EditTask, EditorTiles, type EditView } from "@/components/Editing";
+import { TabPage, NotBuiltYet } from "@/components/TabPage";
+import { CreateTaskButton } from "@/components/Tasks";
+import { getPickers } from "@/lib/proposals";
+import { EditBoard, EditTask, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getDetailsLite, getEditRounds, getEditors, getHookCounts, getHooks, getPay, getProductions, getTasks, prodCards, requestTime,
+  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getHookCounts, getHooks, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
-import { buildQueue, editState, editorStats, type EditCard } from "@/lib/editing-shared";
+import { buildQueue, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
 export const metadata = { title: "Editing · Aura Flex" };
 
@@ -45,15 +47,27 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const mine = isEditor ? queueAll.filter((q) => q.editorId === viewer.personId) : queueAll;
   const visible = ed ? mine.filter((q) => q.editorId === ed) : mine;
 
-  const selectedId = (visible.find((q) => q.taskId === sp.task) ?? mine.find((q) => q.taskId === sp.task) ?? visible[0])?.taskId ?? null;
-  const statsFor = isEditor ? viewer.personId : ed;
-  const payFor = statsFor ? pay.get(statsFor) : undefined;
-  const allSame = [...new Set(editors.map((e) => pay.get(e.id)?.perVideo ?? null))];
-  const stats = editorStats(statsFor, productions, rounds, cards, {
-    perVideo: payFor?.perVideo ?? (statsFor ? null : allSame.length === 1 ? allSame[0] : null),
-    rate3d: payFor?.rate3d ?? null,
-  }, now);
-  const showAi = isEditor ? !!pay.get(viewer.personId)?.rate3d || [...cards.values()].some((c) => c.generate) : !!editors.find((e) => e.id === ed)?.doesAi;
+  // The clicked task if it is in the queue shown, else the most urgent one shown.
+  const selectedId = (visible.find((q) => q.taskId === sp.task) ?? visible[0])?.taskId ?? null;
+
+  // Tiles for "All" and for each editor, computed here so the Editor A · B · All switch is instant and always matches.
+  const statsBy: Record<string, EditorStats> = {};
+  const aiBy: Record<string, boolean> = {};
+  if (isEditor) {
+    const own = pay.get(viewer.personId);
+    statsBy.all = editorStats(viewer.personId, productions, rounds, cards, { perVideo: own?.perVideo ?? null, rate3d: own?.rate3d ?? null }, now);
+    aiBy.all = own?.rate3d !== null && own?.rate3d !== undefined ? true : [...cards.values()].some((c) => c.generate);
+  } else {
+    const same = [...new Set(editors.map((e) => pay.get(e.id)?.perVideo ?? null))];
+    statsBy.all = editorStats(null, productions, rounds, cards, { perVideo: same.length === 1 ? same[0] : null, rate3d: null }, now);
+    aiBy.all = false;
+    for (const e of editors) {
+      const pe = pay.get(e.id);
+      statsBy[e.id] = editorStats(e.id, productions, rounds, cards, { perVideo: pe?.perVideo ?? null, rate3d: pe?.rate3d ?? null }, now);
+      aiBy[e.id] = e.doesAi;
+    }
+  }
+  const [ctx, pickers] = founder ? await Promise.all([getCreateTaskContext(), getPickers()]) : [null, null];
 
   let view: EditView | null = null;
   if (selectedId) {
@@ -90,20 +104,24 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         </>
       }
     >
-      <EditorTiles s={stats} showAi={showAi} />
-      <div className="unit" style={{ padding: "0 8px", marginTop: -8 }}>
-        Private to the editor and the founders. No ad results here: performance depends on the script and the acting, not on the edit.
-      </div>
-      <div className="ed-layout">
-        <EditQueue items={mine} selectedId={selectedId} editors={edList} initialEd={ed} forFounder={founder} />
-        <div style={{ minWidth: 0 }}>
-          {view ? (
+      <EditBoard
+        statsBy={statsBy}
+        aiBy={aiBy}
+        items={mine}
+        selectedId={selectedId}
+        editors={edList}
+        initialEd={ed}
+        forFounder={founder}
+        createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
+        pipeline={<NotBuiltYet phase="screen 11" what="The Videos pipeline (Shoot → Footage → Editing → Review → Launch, late first) comes after the Launch pop-up." />}
+        task={
+          view ? (
             <EditTask key={view.taskId} v={view} isFounder={founder} isEditor={isEditor && view.production.editorId === viewer.personId} editors={editors} />
           ) : (
             <section className="card sec"><div className="info">{founder ? "Pick a video in the queue." : "Nothing assigned to you yet."}</div></section>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
     </TabPage>
   );
 }

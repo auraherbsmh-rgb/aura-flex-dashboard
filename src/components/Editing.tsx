@@ -39,27 +39,84 @@ export function EditorTiles({ s, showAi }: { s: EditorStats; showAi: boolean }) 
   );
 }
 
-/** "My queue" (left): one card per video, its state, due day and its alert in red. Founders switch Editor A · B · All. */
-export function EditQueue({
+/**
+ * Tiles + queue + open task, with the founders' Editor A · B · All switch. Each editor's tiles are computed on the server,
+ * so switching is instant and the numbers always match the queue shown. Queue | Pipeline switch for founders.
+ */
+export function EditBoard({
+  statsBy,
+  aiBy,
   items,
   selectedId,
   editors,
   initialEd,
   forFounder,
+  task,
+  createTask,
+  pipeline,
 }: {
+  statsBy: Record<string, EditorStats>;
+  aiBy: Record<string, boolean>;
   items: QueueItem[];
   selectedId: string | null;
   editors: [string, string][];
   initialEd: string | null;
   forFounder: boolean;
+  task: React.ReactNode;
+  createTask?: React.ReactNode;
+  pipeline?: React.ReactNode;
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
+  const [view, setView] = useState<"queue" | "pipeline">("queue");
   const pick = (id: string | null) => {
     setEd(id);
     const q = new URLSearchParams(window.location.search);
     if (id) q.set("ed", id); else q.delete("ed");
     window.history.replaceState(null, "", `/editing${q.size ? `?${q}` : ""}`);
   };
+  const key = ed ?? "all";
+  return (
+    <>
+      {forFounder && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+          <div className="recess wseg" role="group" aria-label="View">
+            <button type="button" className={view === "queue" ? "seg-on" : ""} aria-pressed={view === "queue"} onClick={() => setView("queue")}>Queue</button>
+            <button type="button" className={view === "pipeline" ? "seg-on" : ""} aria-pressed={view === "pipeline"} onClick={() => setView("pipeline")}>Pipeline</button>
+          </div>
+          {createTask}
+        </div>
+      )}
+      {view === "pipeline" && pipeline}
+      <div hidden={view !== "queue"} style={{ display: view === "queue" ? "flex" : "none", flexDirection: "column", gap: 20 }}>
+        {statsBy[key] && <EditorTiles s={statsBy[key]} showAi={!!aiBy[key]} />}
+        <div className="unit" style={{ padding: "0 8px", marginTop: -8 }}>
+          Private to the editor and the founders. No ad results here: performance depends on the script and the acting, not on the edit.
+        </div>
+        <div className="ed-layout">
+          <EditQueue items={items} selectedId={selectedId} editors={editors} ed={ed} pick={pick} forFounder={forFounder} />
+          <div style={{ minWidth: 0 }}>{task}</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** "My queue" (left): one card per video, its state, due day and its alert in red. Founders switch Editor A · B · All. */
+export function EditQueue({
+  items,
+  selectedId,
+  editors,
+  ed,
+  pick,
+  forFounder,
+}: {
+  items: QueueItem[];
+  selectedId: string | null;
+  editors: [string, string][];
+  ed: string | null;
+  pick: (id: string | null) => void;
+  forFounder: boolean;
+}) {
   const shown = ed ? items.filter((i) => i.editorId === ed) : items;
   return (
     <section className="tray ed-queue" aria-labelledby="h-queue">
@@ -113,6 +170,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [pending, setPending] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const p = v.production;
   const last = v.rounds[v.rounds.length - 1];
   const now = editStepNow(v.state);
@@ -232,8 +290,18 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
             <div className="unit" style={{ marginTop: 6 }}>Approve = you upload the final to Drive; launching comes next.</div>
           </div>
           <a className="btn b-ghost" href={last.videoUrl} target="_blank" rel="noopener noreferrer">Open v{last.round} ↗</a>
-          <button type="button" className="btn b-green" disabled={pending} onClick={() => run(() => reviewEdit(v.taskId, last.round, "approved", "", ""))}>{pending ? "Saving…" : "Approve"}</button>
-          <button type="button" className="btn b-red" disabled={pending} onClick={() => setChangesOpen(true)}>Needs changes</button>
+          {confirming ? (
+            <>
+              <span className="formmsg" role="status">Approve v{last.round}? It can’t be undone and counts for payment.</span>
+              <button type="button" className="btn b-ghost" disabled={pending} onClick={() => setConfirming(false)}>Back</button>
+              <button type="button" className="btn b-green" disabled={pending} onClick={() => run(() => reviewEdit(v.taskId, last.round, "approved", "", ""))}>{pending ? "Saving…" : "Yes, approve"}</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn b-green" disabled={pending} onClick={() => setConfirming(true)}>Approve</button>
+              <button type="button" className="btn b-red" disabled={pending} onClick={() => setChangesOpen(true)}>Needs changes</button>
+            </>
+          )}
         </div>
       )}
       {isFounder && v.card && v.state !== "approved" && (

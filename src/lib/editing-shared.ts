@@ -89,8 +89,10 @@ export function buildQueue(
     if (working && due < today) { alert = `Late since ${fmtDay(due)}`; alertTone = "red"; }
     else if (working && due === today) alert = "Due today";
     else if (working && due === tomorrow) alert = "Due tomorrow";
-    if (state === "ready" && p.assignedAt && (opts.now - Date.parse(p.footageAt ?? p.assignedAt)) / 864e5 >= opts.notStartedDays) {
-      alert = `Footage ready ${Math.floor((opts.now - Date.parse(p.footageAt ?? p.assignedAt)) / 864e5)} days, not started`;
+    // Counted from when the editor could start: the later of footage in and assigned (Founder 2's delay is not hers).
+    const readySince = Math.max(Date.parse(p.assignedAt ?? ""), p.footageAt ? Date.parse(p.footageAt) : 0);
+    if (state === "ready" && p.assignedAt && (opts.now - readySince) / 864e5 >= opts.notStartedDays) {
+      alert = `Footage ready ${Math.floor((opts.now - readySince) / 864e5)} days, not started`;
       alertTone = "red";
     }
     const changesCount = r.filter((x) => x.decision === "changes").length;
