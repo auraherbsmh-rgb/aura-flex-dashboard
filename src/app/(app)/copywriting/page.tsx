@@ -97,7 +97,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
                     <h2 id="h-prop">{founder ? "Proposals" : "My proposals"}</h2>
                     <span className="lbl">{founder ? "Every proposal and its answer" : "Founder 1’s answers come back here"}</span>
                   </div>
-                  <div><ProposeButton pickers={pickers} /></div>
+                  {!founder && <div><ProposeButton pickers={pickers} /></div>}
                   <ProposalList proposals={proposals} showAuthor={founder} taskCtx={ctx ? { ctx, pickers } : undefined} />
                 </section>
               </>
