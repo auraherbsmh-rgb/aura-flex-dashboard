@@ -71,6 +71,7 @@ test("Business: buildMoney — settled month = books, provisional month estimate
   assert.equal(noMeta.closed!.leaks, null);
   assert.ok(noMeta.trend.filter((p) => p.monday >= "2026-09-01").every((p) => p.missing), "September and later weeks have no Meta data");
   assert.ok(noMeta.trend.some((p) => !p.missing));
+  assert.equal(noMeta.week.noMeta, true, "last week without Meta rows: the week tile waits for Meta");
 });
 
 test("Engine: buildEngine — chain counts, win rate, pace, bottleneck and cost", async () => {

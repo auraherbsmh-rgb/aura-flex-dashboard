@@ -62,7 +62,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             <div className="lbl">{isMonth ? `Profit after all costs · ${closed!.label}` : "Profit after all costs · estimate"}</div>
             <span className={`tag ${ZONE_TAG[zone][0]}`}><i aria-hidden="true" />{ZONE_TAG[zone][1]}</span>
           </div>
-          {isMonth && closed!.noMeta ? <div className="money-big money-muted">—</div> : <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>}
+          {(isMonth ? closed!.noMeta : w.noMeta) ? <div className="money-big money-muted">—</div> : <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>}
           <div className="unit">
             {isMonth ? "" : "Meta purchases × line − spend · "}CPA {cpa === null ? "—" : `$${cpa.toFixed(2)}`} vs line ${lineNow.toFixed(2)}{overPct !== null ? ` · ${Math.abs(overPct)}% ${overPct >= 0 ? "over" : "under"}` : ""}
           </div>
@@ -89,8 +89,9 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             )
           ) : (
             <>
+              {w.noMeta || w.prevNoMeta ? <><div className="money-big money-muted">—</div><div className="unit">waits for Meta</div></> : <>
               <div className="money-big">{signed(w.profit - w.prevProfit)}</div>
-              <div className="unit">Estimate · same formula both weeks</div>
+              <div className="unit">Estimate · same formula both weeks</div></>}
             </>
           )}
         </div>
@@ -225,19 +226,26 @@ function Trend({ points }: { points: TrendPoint[] }) {
   const have = points.map((p, i) => ({ p, i })).filter(({ p }) => !p.missing);
   const missingN = points.length - have.length;
   const vals = have.map(({ p }) => p.profit);
+  // Streak words count back from the latest week with data and stop at the first gap.
+  const lastRun: number[] = [];
+  for (let k = have.length - 1; k >= 0 && (k === have.length - 1 || have[k].i === have[k + 1].i - 1); k--) lastRun.unshift(have[k].p.profit);
   const max = Math.max(1000, ...vals.map(Math.abs));
   const W = 1000, H = 220, pad = 10;
   const x = (i: number) => ((i + 0.5) * W) / points.length; // centred under each date label
   const y = (v: number) => H / 2 - (v / max) * (H / 2 - pad);
-  const seg = (xs: { p: TrendPoint; i: number }[]) => xs.map(({ p, i }, k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
+  // A new "M" after a missing week: the line never bridges a gap.
+  const seg = (xs: { p: TrendPoint; i: number }[]) => xs.map(({ p, i }, k) => `${k && xs[k - 1].i === i - 1 ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
   const path = seg(have);
   const tick = Math.round(max / 2 / 100) * 100 || 500;
-  const area = have.length ? `${path} L${x(have[have.length - 1].i)},${H / 2} L${x(have[0].i)},${H / 2} Z` : "";
+  // Area per unbroken run of weeks.
+  const runs: { p: TrendPoint; i: number }[][] = [];
+  for (const h of have) { const r = runs[runs.length - 1]; if (r && r[r.length - 1].i === h.i - 1) r.push(h); else runs.push([h]); }
+  const area = runs.map((r) => `${seg(r)} L${x(r[r.length - 1].i)},${H / 2} L${x(r[0].i)},${H / 2} Z`).join(" ");
   const firstSettling = have.findIndex(({ p }) => p.settling);
-  let loss = 0; for (let i = vals.length - 1; i >= 0 && vals[i] < 0; i--) loss++;
-  let gain = 0; for (let i = vals.length - 1; i >= 0 && vals[i] >= 0; i--) gain++;
-  let up = 0; for (let i = vals.length - 1; i > 0 && vals[i] > vals[i - 1]; i--) up++;
-  let down = 0; for (let i = vals.length - 1; i > 0 && vals[i] < vals[i - 1]; i--) down++;
+  let loss = 0; for (let i = lastRun.length - 1; i >= 0 && lastRun[i] < 0; i--) loss++;
+  let gain = 0; for (let i = lastRun.length - 1; i >= 0 && lastRun[i] >= 0; i--) gain++;
+  let up = 0; for (let i = lastRun.length - 1; i > 0 && lastRun[i] > lastRun[i - 1]; i--) up++;
+  let down = 0; for (let i = lastRun.length - 1; i > 0 && lastRun[i] < lastRun[i - 1]; i--) down++;
   if (!have.length) return <section className="card" style={{ padding: "22px 24px" }}><h3 style={{ margin: 0 }}>Profit trend · last 12 weeks</h3><div className="info" style={{ marginTop: 10 }}>Waits for Meta: no week has ad spend pulled yet.</div></section>;
   const last = have[have.length - 1].p;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -267,7 +275,7 @@ function Trend({ points }: { points: TrendPoint[] }) {
         {firstSettling >= 0 && <path d={seg(have.slice(Math.max(0, firstSettling - 1)))} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
         
       </svg>
-      <span className="trend-end" style={{ top: `${(y(last.profit) / H) * 100}%` }}>{signed(last.profit)}{last.settling ? " · settling" : ""}</span>
+      <span className="trend-end" style={{ top: `${(y(last.profit) / H) * 100}%`, right: `${100 - (x(have[have.length - 1].i) / W) * 100}%`, transform: have[have.length - 1].i === points.length - 1 ? undefined : "translate(50%, -130%)" }}>{signed(last.profit)}{last.settling ? " · settling" : ""}</span>
       </div>
       <div className="trend-axis">{points.map((p) => <span key={p.monday}>{fmt(p.monday)}</span>)}</div>
       </div>

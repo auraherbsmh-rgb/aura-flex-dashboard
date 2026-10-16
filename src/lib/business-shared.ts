@@ -157,7 +157,7 @@ export type ClosedMonth = {
   aov: number; waterfall: Waterfall[]; leaks: LeakRow[] | null; leakTotal: number | null; leakWhy: string | null; tracking: number | null; lineStatus: string;
   fixed: number; estimatedDelivered: number; noMeta: boolean;
 };
-export type WeekView = { label: string; profit: number; prevProfit: number; zone: ReturnType<typeof lineZone>; cpa: number | null; metaOrders: number; dmOrders: number | null; grossSoFar: number | null; pace: number | null; monthLabel: string; closedLabel: string };
+export type WeekView = { label: string; profit: number; prevProfit: number; zone: ReturnType<typeof lineZone>; cpa: number | null; metaOrders: number; dmOrders: number | null; grossSoFar: number | null; pace: number | null; monthLabel: string; closedLabel: string; noMeta: boolean; prevNoMeta: boolean };
 /** missing = no Meta rows for that week (not pulled): no profit can be computed without ad spend. */
 export type TrendPoint = { monday: string; profit: number; settling: boolean; missing?: boolean };
 export type MoneyView = { closed: ClosedMonth | null; week: WeekView; trend: TrendPoint[]; hasShipper: boolean };
@@ -315,6 +315,7 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const week: WeekView = {
     label: `${fmt(wk)}–${wk.slice(5, 7) === sunday(wk).slice(5, 7) ? Number(sunday(wk).slice(8, 10)) : fmt(sunday(wk))}`,
+    noMeta: metaW.purchases === 0 && metaW.spendUsd === 0, prevNoMeta: metaWp.purchases === 0 && metaWp.spendUsd === 0,
     profit: estimateProfit(metaW, m), prevProfit: estimateProfit(metaWp, m), zone: lineZone(metaW.purchases ? metaW.spendUsd / metaW.purchases : null, m.businessLineUsd),
     cpa: metaW.purchases ? metaW.spendUsd / metaW.purchases : null, metaOrders: metaW.purchases, dmOrders: dmW,
     grossSoFar: soFar, pace: soFar === null || dayOfMonth <= 1 ? null : (soFar / Math.max(1, dayOfMonth - 1)) * daysIn(thisMonth),
