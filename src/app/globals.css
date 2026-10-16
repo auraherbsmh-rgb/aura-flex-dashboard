@@ -602,3 +602,26 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .lib-filters .lib-f:not(.lib-q) { display: none; }
   .lib-filters.lib-open .lib-f:not(.lib-q) { display: flex; flex-basis: 45%; }
 }
+
+/* Live ads (artboard "Live ads") */
+.l-green { color: var(--green-ink); } .l-blue { color: var(--blue-ink); }
+.bx { display: inline-flex; align-items: center; font: 600 13px var(--mono); padding: 5px 9px; border-radius: 10px; white-space: nowrap; }
+.bx-r { background: var(--red-bg); color: var(--red-ink); }
+.bx-g { background: var(--green-bg); color: var(--green-ink); }
+.bx-y { background: var(--amber-bg); color: var(--amber-ink); }
+.bx-n { background: #ecece8; color: #6b6b66; font-weight: 500; }
+.live-table { display: flex; flex-direction: column; gap: 14px; }
+.live-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.6fr) minmax(0, 0.6fr) 140px; gap: 12px; align-items: center; width: 100%; text-align: left; font: inherit; color: inherit; border: 0; padding: 14px 18px; min-height: 44px; cursor: pointer; }
+.live-head { background: none; box-shadow: none; padding: 4px 18px; cursor: default; }
+.live-concept { display: flex; flex-direction: column; gap: 6px; }
+.live-vars { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 8px 22px; }
+.live-vrow { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.6fr) 130px auto; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.6); }
+.live-vrow.live-head { background: none; padding: 2px 14px; }
+.vrow-hot { box-shadow: 0 0 0 1.5px #e3a49a inset; background: #fffaf8; }
+.live-unm { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #ececE8; }
+@media (max-width: 900px) {
+  .live-head { display: none; }
+  .live-row, .live-vrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .live-row > span:nth-child(n+3):not(:last-child), .live-vrow > span:nth-child(n+3):nth-child(-n+5) { display: none; }
+  .live-vars { padding-left: 6px; }
+}

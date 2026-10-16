@@ -10,7 +10,7 @@ import { killSpendFor, lineForOrderValue, type MoneyInputs } from "./money";
 
 export type MetaAd = { adId: string; name: string; campaignId: string; adsetId: string | null; status: string | null; createdTime: string | null };
 export type MetaDay = {
-  adId: string; day: string; spend: number; purchases: number; purchaseValue: number; impressions: number; linkClicks: number;
+  adId: string; day: string; spend: number; purchases: number; purchaseValue: number; impressions: number; reach: number; linkClicks: number;
   plays3s: number; thruplays: number; p25: number; p50: number; p75: number; p100: number;
 };
 export type Scope = { campaignId: string; kind: "ABO" | "CBO"; track: string };
@@ -55,13 +55,13 @@ export function ownerOf(name: string, generated: Map<string, { taskId: string; v
 const day = (ms: number) => new Date(ms + 36e5).toISOString().slice(0, 10); // Tunisia day
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
-export type Totals = { spend: number; sales: number; value: number; impressions: number; clicks: number; plays3s: number; thruplays: number; p25: number; p50: number; p75: number; p100: number };
-const ZERO: Totals = { spend: 0, sales: 0, value: 0, impressions: 0, clicks: 0, plays3s: 0, thruplays: 0, p25: 0, p50: 0, p75: 0, p100: 0 };
+export type Totals = { spend: number; sales: number; value: number; impressions: number; reach: number; clicks: number; plays3s: number; thruplays: number; p25: number; p50: number; p75: number; p100: number };
+const ZERO: Totals = { spend: 0, sales: 0, value: 0, impressions: 0, reach: 0, clicks: 0, plays3s: 0, thruplays: 0, p25: 0, p50: 0, p75: 0, p100: 0 };
 export function sum(rows: MetaDay[], from?: string, to?: string): Totals {
   const t = { ...ZERO };
   for (const r of rows) {
     if ((from && r.day < from) || (to && r.day > to)) continue;
-    t.spend += r.spend; t.sales += r.purchases; t.value += r.purchaseValue; t.impressions += r.impressions; t.clicks += r.linkClicks;
+    t.spend += r.spend; t.sales += r.purchases; t.value += r.purchaseValue; t.impressions += r.impressions; t.reach += r.reach; t.clicks += r.linkClicks;
     t.plays3s += r.plays3s; t.thruplays += r.thruplays; t.p25 += r.p25; t.p50 += r.p50; t.p75 += r.p75; t.p100 += r.p100;
   }
   return t;

@@ -6,7 +6,7 @@ import type { MapConcept, MapVariation } from "@/lib/map-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
-async function allRows<T>(what: string, page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+export async function allRows<T>(what: string, page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await page(from, from + 999);

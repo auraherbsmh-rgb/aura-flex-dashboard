@@ -349,3 +349,25 @@ export async function tagTestimonial(input: TestimonialInput): Promise<TaskState
   revalidatePath("/", "layout");
   return { ...done("Edit task created. Assign it to an editor."), taskId: data as string };
 }
+
+/** Tag an old ad (founders): an old-named ad set → avatar, awareness, angle, format, concept tag. Meta is not changed. */
+export async function tagOldAd(base: string, avatarId: string, awareness: string, angleId: string, formatId: string, tag: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders tag old ads.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("tag_old_ad", { p_base: base, p_avatar: avatarId || null, p_awareness: awareness, p_angle: angleId || null, p_format: formatId || null, p_tag: toConceptTag(tag) });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Tagged. Its results now show under that cell, angle and format in Live ads.");
+}
+
+/** Pause in Meta answer (founders): "Done, paused in Meta" or "Not now" + why. The next pull checks the ad. */
+export async function answerPause(adId: string, flag: string, answer: "paused" | "not_now", reason: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders answer KILL items.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("answer_pause", { p_ad: adId, p_flag: flag, p_answer: answer, p_reason: reason.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(answer === "paused" ? "Noted. The next Meta pull checks it is paused." : "Noted with your reason.");
+}

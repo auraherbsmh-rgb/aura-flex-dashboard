@@ -16,7 +16,7 @@ const W = windows(NOW);
 
 const ad = (adId: string, name: string, status = "ACTIVE", campaignId = "abo"): MetaAd => ({ adId, name, campaignId, adsetId: `as-${adId}`, status, createdTime: null });
 const D = (adId: string, dayStr: string, spend: number, purchases = 0, value = purchases * 23): MetaDay => ({
-  adId, day: dayStr, spend, purchases, purchaseValue: value, impressions: 1000, linkClicks: 20, plays3s: 300, thruplays: 90, p25: 200, p50: 120, p75: 80, p100: 40,
+  adId, day: dayStr, spend, purchases, purchaseValue: value, impressions: 1000, reach: 700, linkClicks: 20, plays3s: 300, thruplays: 90, p25: 200, p50: 120, p75: 80, p100: 40,
 });
 const days = (from: string, n: number) => Array.from({ length: n }, (_, i) => new Date(Date.parse(`${from}T12:00:00Z`) + i * 864e5).toISOString().slice(0, 10));
 

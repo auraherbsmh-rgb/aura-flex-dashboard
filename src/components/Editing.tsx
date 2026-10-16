@@ -53,6 +53,7 @@ export function EditBoard({
   selectedId,
   editors,
   initialEd,
+  initialView = "queue",
   forFounder,
   views,
   isEditorId,
@@ -69,6 +70,7 @@ export function EditBoard({
   selectedId: string | null;
   editors: [string, string][];
   initialEd: string | null;
+  initialView?: "queue" | "pipeline" | "testimonials";
   forFounder: boolean;
   /** Every video of the queue, ready to open instantly. */
   views: Record<string, EditView>;
@@ -84,7 +86,13 @@ export function EditBoard({
   testimonials?: { rows: TestimonialRow[]; videos: Record<string, TestimonialVideo>; pickers: Pickers };
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
-  const [view, setView] = useState<"queue" | "pipeline" | "testimonials">("queue");
+  const [view, setViewState] = useState<"queue" | "pipeline" | "testimonials">(initialView);
+  const setView = (v: "queue" | "pipeline" | "testimonials") => {
+    setViewState(v);
+    const q = new URLSearchParams(window.location.search);
+    if (v === "queue") q.delete("view"); else q.set("view", v);
+    window.history.replaceState(null, "", `/editing${q.size ? `?${q}` : ""}`);
+  };
   const [sel, setSel] = useState<string | null>(selectedId);
   const open = (taskId: string) => {
     setSel(taskId);

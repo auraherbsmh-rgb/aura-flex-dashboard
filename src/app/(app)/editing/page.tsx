@@ -14,7 +14,7 @@ import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, 
 
 export const metadata = { title: "Editing · Aura Flex" };
 
-type Search = { task?: string; ed?: string };
+type Search = { task?: string; ed?: string; view?: string };
 
 function greeting(now: number, name: string) {
   const h = new Date(now + 36e5).getUTCHours();
@@ -148,6 +148,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         selectedId={selectedId}
         editors={edList}
         initialEd={ed}
+        initialView={founder && sp.view === "testimonials" ? "testimonials" : founder && sp.view === "pipeline" ? "pipeline" : "queue"}
         forFounder={founder}
         createTask={ctx && pickers ? <span style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}><TestimonialButton pickers={pickers} editors={editors} /><CreateTaskButton ctx={ctx} pickers={pickers} /></span> : undefined}
         pipelineRows={pipelineRows}

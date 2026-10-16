@@ -319,7 +319,7 @@ export function buildVideoPipeline(
       due,
       late,
       // Testimonials have no Copywriting task: before assignment their place is the ASSIGN item on Home.
-      href: p?.assignedAt ? `/editing?task=${t.id}#edit-view` : testimonial ? "/home" : `/copywriting?task=${t.id}#task-view`,
+      href: p?.assignedAt ? `/editing?task=${t.id}#edit-view` : testimonial ? "/editing?view=testimonials" : `/copywriting?task=${t.id}#task-view`,
       dueSort: p?.editDue ?? d.shootOn ?? t.dueOn,
       action: p?.assignedAt ? null : i === 2 ? "assign" : "footage",
       sinceMs: since,
