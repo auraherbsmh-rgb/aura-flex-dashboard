@@ -7,6 +7,7 @@ import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
 import type { NeedGroup, NeedItem } from "@/lib/needs";
 import { PauseInMeta, TagOldAd } from "./OldAd";
+import { WinnerModal } from "./Winner";
 import type { EditorLoad, ProdCard, Production } from "@/lib/tasks-shared";
 import { AssignButton, FootageButton, LaunchButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
@@ -182,7 +183,10 @@ export function NeedsMe({
   allGroups,
   pickers,
   tagPickers,
+  createCtx,
 }: {
+  /** WINNER pop-up shows the angle's current core message; ALERT opens Create task. */
+  createCtx?: CreateTaskContext | null;
   /** Tag an old ad (UNMAPPED): every approved format, statics included. */
   tagPickers?: Pickers;
   groups: NeedGroup[];
@@ -222,6 +226,7 @@ export function NeedsMe({
       {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
       {assign && <AssignButton key={assign.card.taskId} startOpen card={assign.card} editors={editors} current={assign.current} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={setDoneMsg} />}
       {meta?.kill && <PauseInMeta key={meta.key} adId={meta.kill.adId} name={meta.kill.name} flag={meta.kill.flag} reason={meta.kill.reason} note={meta.kill.recheck} who={meta.type === "COVERING" ? "Founder 1 · covering Founder 2’s KILL item" : "Founder 2 · KILL item · act in Meta"} onClose={() => setMeta(null)} onDone={setDoneMsg} />}
+      {meta?.winner && <WinnerModal key={meta.key} w={meta.winner} current={createCtx?.angles.find((a) => a.id === meta.winner!.angleId)?.coreMessage ?? null} who={meta.type === "COVERING" ? "Founder 2 · covering Founder 1’s WINNER item" : "Founder 1 · WINNER item"} onClose={() => setMeta(null)} onDone={setDoneMsg} />}
       {meta?.unmapped && tagPickers && <TagOldAd key={meta.key} base={meta.unmapped.base} example={meta.unmapped.example} guess={meta.unmapped.formatGuess} pickers={tagPickers} onClose={() => setMeta(null)} onDone={setDoneMsg} />}
       {groups.length === 0 && <div className="info">{showAll ? "Nothing needs either founder right now." : "Nothing needs you right now."}</div>}
       {groups.map((g) => (
@@ -236,7 +241,12 @@ export function NeedsMe({
                   <div className="need-sub">{it.sub}</div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
-                {it.kill ? (
+                {it.winner ? (
+                  <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setMeta(it)}>Core message</button>
+                ) : it.alert && createCtx && pickers ? (
+                  <CreateTaskButton ctx={createCtx} pickers={pickers} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} label="Create successor"
+                    prefill={{ proposalId: null, avatarId: it.alert.avatarId ?? "", awareness: it.alert.awareness, angleId: it.alert.angleId, formatId: null, reference: it.alert.reference ?? it.alert.face, label: `successor · ${it.alert.avatarCode} × ${shortAwareness(it.alert.awareness)} · ${it.alert.angle}` }} />
+                ) : it.kill ? (
                   <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setMeta(it)}>Pause in Meta</button>
                 ) : it.unmapped ? (
                   tagPickers ? <button type="button" className="btn b-primary" onClick={() => setMeta(it)}>Tag</button> : null

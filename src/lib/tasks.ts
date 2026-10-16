@@ -1,7 +1,8 @@
+import type { State as MetaState } from "./meta-shared";
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ConceptResult, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
 import type { MapConcept, MapVariation } from "@/lib/map-shared";
 export * from "@/lib/tasks-shared";
 
@@ -440,23 +441,40 @@ export async function getAllTestimonials(): Promise<TestimonialRow[]> {
 }
 
 /** Every concept for the map (team-wide, names and states only) + the map start date (Settings). */
-export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null }> {
+/** Meta results the viewer may read (RLS: founders all, a copywriter her own concepts). */
+export async function getResults(): Promise<Record<string, ConceptResult>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("concept_results").select("task_id, state, state_since, ever_won, cpa7, line, sales7, spend7, best_v, live, variations, seen_state, winner_noted_at");
+  const out: Record<string, ConceptResult> = {};
+  for (const r of data ?? []) {
+    out[r.task_id as string] = {
+      taskId: r.task_id as string, state: r.state as ConceptResult["state"], stateSince: r.state_since as string, everWon: !!r.ever_won,
+      cpa7: r.cpa7 === null ? null : Number(r.cpa7), line: Number(r.line), sales7: r.sales7 as number, spend7: Number(r.spend7), bestV: r.best_v as number | null,
+      live: !!r.live, variations: (r.variations ?? []) as ConceptResult["variations"], seenState: r.seen_state as string | null, winnerNotedAt: r.winner_noted_at as string | null,
+    };
+  }
+  return out;
+}
+
+export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null; results: Record<string, ConceptResult> }> {
   const supabase = await createClient();
   type R = {
     task_id: string; avatar_id: string; avatar_code: string; awareness: string; angle_id: string; angle_label: string; angle_code: string; angle_track: string | null;
     format_label: string; format_code: string; origin: string; status: string; copywriter: string | null; created_at: string; face: string | null;
     generate: boolean; vo: boolean; launched_at: string | null; live_at: string | null; hold_at: string | null; variations: MapVariation[] | null;
+    result_state: MetaState | null; ever_won: boolean;
   };
-  const [rows, start] = await Promise.all([
-    supabase.rpc("map_concepts"),
+  const [rows, start, results] = await Promise.all([
+    supabase.rpc("map_concepts2"),
     supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle(),
+    getResults(),
   ]);
   if (rows.error) throw new Error("Could not read the map. Reload the page.");
   const concepts = ((rows.data ?? []) as R[]).map((r) => ({
     taskId: r.task_id, avatarId: r.avatar_id, avatarCode: r.avatar_code, awareness: r.awareness, angleId: r.angle_id, angle: r.angle_label,
     angleCode: r.angle_code, track: r.angle_track, format: r.format_label, formatCode: r.format_code, origin: r.origin, status: r.status,
     copywriter: r.copywriter, createdAt: r.created_at, face: r.face, generate: r.generate, vo: r.vo, launchedAt: r.launched_at, liveAt: r.live_at,
-    holdAt: r.hold_at, variations: r.variations ?? [],
+    holdAt: r.hold_at, variations: r.variations ?? [], resultState: r.result_state, everWon: r.ever_won,
   }));
-  return { concepts, start: (start.data?.value as string | null) ?? null };
+  return { concepts, start: (start.data?.value as string | null) ?? null, results };
 }

@@ -1,17 +1,23 @@
 /**
  * Library (handoff §7, artboard "Library"): every concept whose details were confirmed (scripts handed to production,
  * and testimonials), with its record: face, main argument, offer, who made it, days per step, hooks, links.
- * Results (won / lost / paused, CPA, script parts) come with Meta (phase 3).
+ * Results (state, best CPA vs line, per-hook CPA and script parts) come from concept_results (daily Meta pull).
  */
 import type { EditRound } from "./editing-shared";
-import { isHeld, type Production, type ScriptDetails, type TaskRow } from "./tasks-shared";
+import { isHeld, type ConceptResult, type Production, type ScriptDetails, type TaskRow } from "./tasks-shared";
 
-export type LibState = "production" | "hold" | "testing";
+export type LibState = "production" | "hold" | "testing" | "won" | "deteriorating" | "fading" | "recovering" | "lost";
 export const LIB_STATE: Record<LibState, { word: string; tone: string }> = {
   production: { word: "IN PRODUCTION", tone: "t-grey" },
   hold: { word: "ON HOLD", tone: "t-hold" },
   testing: { word: "TESTING", tone: "t-amber" },
+  won: { word: "WON", tone: "t-green" },
+  deteriorating: { word: "DETERIORATING", tone: "t-orange" },
+  fading: { word: "FADING", tone: "t-red" },
+  recovering: { word: "RECOVERING", tone: "t-blue" },
+  lost: { word: "LOST", tone: "t-grey" },
 };
+export const LIB_STATE_ORDER: LibState[] = ["won", "deteriorating", "fading", "recovering", "testing", "production", "hold", "lost"];
 export const STEP_NAMES = ["Writing", "Review", "Details", "Agency", "Editing", "Launch"] as const;
 
 export type LibHook = { v: number; type: string; line: string; headline: string | null; name: string };
@@ -41,6 +47,8 @@ export type LibRow = {
   hooks: LibHook[];
   looms: LibLink[];
   links: LibLink[];
+  /** Meta result when the viewer may see it (founders all, a copywriter her own). */
+  result: ConceptResult | null;
 };
 
 const d = (from: string | null | undefined, to: string | number | null | undefined) =>
@@ -54,6 +62,7 @@ export function buildLibrary(
   productions: Record<string, Production>,
   editRounds: Map<string, EditRound[]>,
   now: number,
+  results: Record<string, ConceptResult> = {},
 ): LibRow[] {
   const out: LibRow[] = [];
   for (const t of tasks) {
@@ -109,7 +118,8 @@ export function buildLibrary(
       startedAt: t.createdAt,
       approvedAt: testimonial ? t.createdAt : approvedAt,
       launchedAt: launched,
-      state: launched ? "testing" : isHeld(p) ? "hold" : "production",
+      state: results[t.id] ? results[t.id].state : launched ? "testing" : isHeld(p) ? "hold" : "production",
+      result: results[t.id] ?? null,
       days: days.map(r1),
       done: !!launched,
       hooks: det.ads.map((a) => ({ v: a.v, type: a.hookType, line: a.hookLine, headline: a.headline, name: a.adName })),
@@ -120,12 +130,12 @@ export function buildLibrary(
   return out.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
-export type LibFilter = { q: string; avatar: string; awareness: string; angle: string; format: string; hook: string; arg: string; state: string };
-export const NO_FILTER: LibFilter = { q: "", avatar: "", awareness: "", angle: "", format: "", hook: "", arg: "", state: "" };
+export type LibFilter = { q: string; avatar: string; awareness: string; angle: string; format: string; hook: string; arg: string; state: string; sort: "" | "cpa" | "days" };
+export const NO_FILTER: LibFilter = { q: "", avatar: "", awareness: "", angle: "", format: "", hook: "", arg: "", state: "", sort: "" };
 
 export function filterLibrary(rows: LibRow[], f: LibFilter): LibRow[] {
   const q = f.q.trim().toLowerCase();
-  return rows.filter((r) =>
+  const out = rows.filter((r) =>
     (!f.avatar || r.avatarCode === f.avatar) &&
     (!f.awareness || r.awareness === f.awareness) &&
     (!f.angle || r.angleId === f.angle) &&
@@ -135,4 +145,8 @@ export function filterLibrary(rows: LibRow[], f: LibFilter): LibRow[] {
     (!f.state || r.state === f.state) &&
     (!q || [r.name, r.angle, ...r.hooks.flatMap((h) => [h.line, h.headline ?? ""])].some((s) => s.toLowerCase().includes(q))),
   );
+  // Newest first by default; or best CPA (no CPA last) / most total days.
+  if (f.sort === "cpa") return [...out].sort((a, b) => (a.result?.cpa7 ?? Infinity) - (b.result?.cpa7 ?? Infinity));
+  if (f.sort === "days") return [...out].sort((a, b) => b.days.reduce((x, y) => x + y, 0) - a.days.reduce((x, y) => x + y, 0));
+  return out;
 }

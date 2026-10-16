@@ -371,3 +371,22 @@ export async function answerPause(adId: string, flag: string, answer: "paused" |
   revalidatePath("/", "layout");
   return done(answer === "paused" ? "Noted. The next Meta pull checks it is paused." : "Noted with your reason.");
 }
+
+/** The copywriter opened her RESULT item: it stays seen until the concept's state changes again. No revalidation (instant). */
+export async function seeResult(taskId: string): Promise<TaskState> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("see_result", { p_task: taskId });
+  if (error) return fail(plain(error));
+  return done("seen");
+}
+
+/** Winner · core message (Founder 1, WINNER item): saved on the angle; it fills KEEP in every future task in that angle. */
+export async function saveWinner(taskId: string, message: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders confirm winners.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_winner", { p_task: taskId, p_message: message.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Saved. Every new task in this angle starts with this core message in KEEP.");
+}

@@ -141,3 +141,59 @@ test("KILL items: kill line ad → Founder 2 first, answers hide until the next 
   assert.ok(!g1.flatMap((g) => g.items).some((i) => i.kill), "Founder 1 covers only after 48h");
   assert.ok(g1.flatMap((g) => g.items).some((i) => i.type === "UNMAPPED"));
 });
+
+test("Meta 5: concept results, map cells with results, RESULT inbox, winners and successors", async () => {
+  const { buildLive, conceptResultRows } = await import("../src/lib/live-shared");
+  const { buildMap } = await import("../src/lib/map-shared");
+  const { inboxLine } = await import("../src/lib/tasks-shared");
+  const { successorNeeds, winRate, winnersToNote } = await import("../src/lib/home-shared");
+  // A won concept (V1 won, V2 testing): its CPA is the won variation's.
+  const base = "UGC_FSB_Problem-Aware_Knee-Prayer_Sami";
+  const ads = [ad("1", `${base}_V1`), ad("2", `${base}_V2`)];
+  const daily = [...days("2026-10-05", 11).map((x) => D("1", x, 10, 3)), ...days("2026-10-13", 3).map((x) => D("2", x, 3, 0))];
+  const generated = new Map([[`${base}_v1`.toLowerCase(), { taskId: "t1", v: 1 }], [`${base}_v2`.toLowerCase(), { taskId: "t1", v: 2 }]]);
+  const model = buildLive({ ads, daily, scope: [{ campaignId: "abo", kind: "ABO", track: "knee" }], budgets: [], generated, old: new Map(), concepts: new Map(), money: SEP, now: NOW });
+  const rows = conceptResultRows(model.states);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].state, "won");
+  assert.equal(rows[0].best_v, 1);
+  assert.ok(Math.abs((rows[0].cpa7 ?? 0) - 3.333) < 0.01);
+  assert.equal(rows[0].ever_won, true);
+  assert.equal(rows[0].variations.length, 2);
+
+  // Map: a won concept + one in production → green box "WON", the dots show both; test + writing stay neutral.
+  const C = (id: string, extra: Record<string, unknown>) => ({
+    taskId: id, avatarId: "a", avatarCode: "FSB", awareness: "Problem-Aware", angleId: "g", angle: "Knee-Prayer", angleCode: "Knee-Prayer", track: "knee",
+    format: "UGC", formatCode: "UGC", origin: "manual", status: "details_done", copywriter: "C1", createdAt: "2026-10-01T10:00:00Z", face: "Sami",
+    generate: false, vo: false, launchedAt: null, liveAt: null, holdAt: null, variations: [], ...extra,
+  });
+  const cell = (cs: ReturnType<typeof C>[]) => buildMap(cs as never, [{ id: "a", code: "FSB", label: "FSB" }])[0].cells[0];
+  const won = cell([C("1", { resultState: "won", launchedAt: "2026-10-05T10:00:00Z" }), C("2", {}), C("3", { resultState: "won", launchedAt: "2026-10-05T10:00:00Z" })]);
+  assert.equal(won.state, "won");
+  assert.equal(won.mixed, false);
+  assert.equal(won.word, "WON ×2");
+  assert.equal(won.counts.production, 1);
+  const neutral = cell([C("1", { launchedAt: "2026-10-05T10:00:00Z" }), C("2", { status: "writing" })]);
+  assert.equal(neutral.mixed, true);
+  assert.equal(neutral.word, "2 CONCEPTS");
+  assert.equal(cell([C("1", { resultState: "testing", launchedAt: "x" })]).word, "TEST");
+
+  // Inbox: a new verdict is a RESULT item on top for the copywriter until seen; founders see the state only.
+  const t = { id: "t1", status: "details_done", dueOn: "2026-10-10", createdAt: "2026-10-01T10:00:00Z", copywriter: "C1", copywriterId: "c1", avatarCode: "FSB", awareness: "Problem-Aware", angleId: "g", angle: "Knee-Prayer", angleCode: "Knee-Prayer", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: null, origin: "manual", changeFacts: null, rounds: [] };
+  const res = { taskId: "t1", state: "won" as const, stateSince: "2026-10-15T05:00:00Z", everWon: true, cpa7: 3.33, line: 4.18, sales7: 21, spend7: 70, bestV: 1, live: true, variations: [], seenState: null, winnerNotedAt: null };
+  assert.equal(inboxLine(t, false, NOW, res).tag, "RESULT · WON");
+  assert.equal(inboxLine(t, false, NOW, res).rank, 0);
+  assert.equal(inboxLine(t, false, NOW, { ...res, seenState: "won" }).tag, "WON");
+  assert.equal(inboxLine(t, true, NOW, res).tag, "WON");
+  assert.equal(inboxLine(t, false, NOW, { ...res, state: "testing" }).tag, "LIVE · TESTING");
+
+  // Home: win rate, WINNER to note, fading winner with / without a successor.
+  const lost = { ...t, id: "t2" };
+  const results = { t1: res, t2: { ...res, taskId: "t2", state: "lost" as const, everWon: false } };
+  assert.deepEqual(winRate([t, lost], results, NOW), { won: 1, settled: 2, pct: 50 });
+  assert.equal(winnersToNote([t], results, new Map([["t1", "Sami"]]), new Map([["t1", [{ v: 1, type: "Storytelling", line: "I could not pray" }]]]))[0].hook?.line, "I could not pray");
+  const fading = { t1: { ...res, state: "fading" as const } };
+  assert.equal(successorNeeds([t], fading, new Map()).length, 1);
+  const succ = { ...t, id: "t3", status: "writing", createdAt: "2026-10-14T10:00:00Z" };
+  assert.equal(successorNeeds([t, succ], fading, new Map()).length, 0, "a newer task in the same cell and angle is the successor");
+});

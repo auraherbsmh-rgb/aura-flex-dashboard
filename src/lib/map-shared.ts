@@ -1,7 +1,7 @@
 /**
  * The map (handoff §7, Copywriting artboard "Map"): rows = avatars (Settings → Lists), columns = the 4 awareness levels.
- * Counts are concepts (one script / testimonial = one concept). Before Meta (phase 3) a concept is Writing, In production
- * or Testing (launched, no verdict yet); won / lost / fading arrive with the Meta results.
+ * Counts are concepts (one script / testimonial = one concept): Writing, In production, then once launched its Meta state
+ * (daily pull → concept_results): Won · Deteriorating · Fading · Recovering · Testing · Lost.
  * Only concepts created on or after the map start date (Settings) count (founder decision Oct 16: old random tests stay out).
  */
 
@@ -31,12 +31,30 @@ export type MapConcept = {
   liveAt: string | null;
   holdAt: string | null;
   variations: MapVariation[];
+  /** Meta state from the daily pull (null = no Meta data yet). */
+  resultState?: "won" | "deteriorating" | "fading" | "recovering" | "testing" | "lost" | null;
+  everWon?: boolean;
 };
 
-export type ConceptState = "test" | "production" | "writing";
-export const STATE_WORD: Record<ConceptState, string> = { test: "TESTING", production: "IN PRODUCTION", writing: "WRITING" };
+export type ConceptState = "won" | "deteriorating" | "fading" | "recovering" | "test" | "production" | "writing" | "lost";
+/** Best first (handoff §7 cell order: Winning > Deteriorating > Fading > Recovering > Testing > … > Lost > Empty). */
+export const STATE_ORDER: ConceptState[] = ["won", "deteriorating", "fading", "recovering", "test", "production", "writing", "lost"];
+/** States that are a Meta result: a cell holding one takes its colour even when mixed (founder decision Oct 16). */
+export const RESULT_STATES = new Set<ConceptState>(["won", "deteriorating", "fading", "recovering", "lost"]);
+export const STATE_WORD: Record<ConceptState, string> = {
+  won: "WON", deteriorating: "DETERIORATING", fading: "FADING", recovering: "RECOVERING", test: "TESTING", production: "IN PRODUCTION", writing: "WRITING", lost: "LOST",
+};
+/** Short words for the map cells (handoff §7: RECOVER · TEST · WRITING). */
+export const CELL_WORD: Record<ConceptState, string> = {
+  won: "WON", deteriorating: "DETERIOR.", fading: "FADING", recovering: "RECOVER", test: "TEST", production: "IN PROD", writing: "WRITING", lost: "LOST",
+};
+export const STATE_PLAIN: Record<ConceptState, string> = {
+  won: "won", deteriorating: "deteriorating", fading: "fading", recovering: "recovering", test: "testing", production: "in prod", writing: "writing", lost: "lost",
+};
+export const zeroCounts = (): Record<ConceptState, number> => ({ won: 0, deteriorating: 0, fading: 0, recovering: 0, test: 0, production: 0, writing: 0, lost: 0 });
 
 export function conceptState(c: MapConcept): ConceptState {
+  if (c.resultState) return c.resultState === "testing" ? "test" : c.resultState;
   if (c.launchedAt || c.liveAt) return "test";
   if (c.status === "details_done") return "production";
   return "writing";
@@ -46,8 +64,9 @@ export type MapCell = {
   avatarId: string;
   avatarCode: string;
   awareness: string;
+  /** The best state in the cell (its box colour), or empty. */
   state: ConceptState | "empty";
-  /** More than one state in the cell: the box stays neutral and the coloured dots show each state. */
+  /** More than one state and none of them a Meta result: the box stays neutral; the coloured dots show each state. */
   mixed: boolean;
   word: string;
   line: string;
@@ -64,7 +83,6 @@ export function mapConcepts(all: MapConcept[], track: "knee" | "hips", start: st
   return all.filter((c) => (!start || tunisDay(c.createdAt) >= start) && (!c.track || c.track === "both" || c.track === track));
 }
 
-const plural = (n: number, one: string, many = `${one}`) => `${n} ${n === 1 ? one : many}`;
 
 export function buildMap(concepts: MapConcept[], avatars: { id: string; code: string | null; label: string }[]): MapRow[] {
   return avatars.map((a) => ({
@@ -73,20 +91,17 @@ export function buildMap(concepts: MapConcept[], avatars: { id: string; code: st
     label: a.label,
     cells: LEVELS.map((lvl) => {
       const list = concepts.filter((c) => c.avatarId === a.id && c.awareness === lvl);
-      const counts: Record<ConceptState, number> = { test: 0, production: 0, writing: 0 };
+      const counts = zeroCounts();
       for (const c of list) counts[conceptState(c)]++;
-      const state: MapCell["state"] = counts.test ? "test" : counts.production ? "production" : counts.writing ? "writing" : "empty";
-      const parts = [
-        counts.test ? plural(counts.test, "testing") : "",
-        counts.production ? `${counts.production} in production` : "",
-        counts.writing ? `${counts.writing} writing` : "",
-      ].filter(Boolean);
+      const present = STATE_ORDER.filter((st) => counts[st] > 0);
+      const state = (present.length ? present[0] : "empty") as MapCell["state"];
+      const several = present.length > 1;
+      const mixed = several && !present.some((st) => RESULT_STATES.has(st));
+      const parts = present.map((st) => `${counts[st]} ${STATE_PLAIN[st]}`);
       return {
-        avatarId: a.id, avatarCode: a.code ?? a.label, awareness: lvl, state,
-        mixed: [counts.test, counts.production, counts.writing].filter((n) => n > 0).length > 1,
-        word: state === "empty" ? "EMPTY"
-          : [counts.test, counts.production, counts.writing].filter((n) => n > 0).length > 1 ? `${list.length} CONCEPTS`
-          : state === "test" ? "TEST" : state === "production" ? "IN PROD" : "WRITING",
+        avatarId: a.id, avatarCode: a.code ?? a.label, awareness: lvl, state, mixed,
+        // State word + ×N (handoff §7); a neutral mixed cell says how many concepts it holds.
+        word: state === "empty" ? "EMPTY" : mixed ? `${list.length} CONCEPTS` : `${CELL_WORD[state]}${counts[state] > 1 ? ` ×${counts[state]}` : ""}`,
         line: parts.length ? parts.join(" · ") : "+ Propose a test",
         counts, concepts: list,
       };
@@ -100,7 +115,7 @@ export type AngleGroup = { angleId: string; angle: string; angleCode: string; co
 export function groupByAngle(concepts: MapConcept[]): AngleGroup[] {
   const by = new Map<string, AngleGroup>();
   for (const c of concepts) {
-    const g = by.get(c.angleId) ?? { angleId: c.angleId, angle: c.angle, angleCode: c.angleCode, concepts: [], counts: { test: 0, production: 0, writing: 0 } };
+    const g = by.get(c.angleId) ?? { angleId: c.angleId, angle: c.angle, angleCode: c.angleCode, concepts: [], counts: zeroCounts() };
     g.concepts.push(c);
     g.counts[conceptState(c)]++;
     by.set(c.angleId, g);

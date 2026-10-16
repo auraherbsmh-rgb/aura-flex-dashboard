@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { BlockedItem, Pace, SpeedSplit, WaitingLaunch } from "@/lib/home-shared";
+import type { BlockedItem, Pace, SpeedSplit, WaitingLaunch, WinRate } from "@/lib/home-shared";
 
 /** Founder Home header (artboards): date block · greeting · counts · Start with the most urgent. */
 export function HomeHero({ day, weekday, month, greeting, name, total, late, oldest }: {
@@ -74,13 +74,13 @@ function MetaTile({ label, what }: { label: string; what: string }) {
     <div className="card home-tile">
       <div className="lbl">{label}</div>
       <div className="home-big home-muted">—</div>
-      <span className="tag t-grey" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />COMES WITH META · PHASE 3</span>
+      <span className="tag t-grey" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />WAITS FOR THE FIRST META PULL</span>
       <div className="unit">{what}</div>
     </div>
   );
 }
 
-export type F1Numbers = { scripts: Pace };
+export type F1Numbers = { scripts: Pace; winRate?: WinRate | null; successorCells?: number | null };
 export type F2Numbers = { videos: Pace; speed: SpeedSplit; waiting: WaitingLaunch[] };
 
 function Blocked({ items }: { items: BlockedItem[] }) {
@@ -125,8 +125,22 @@ export function FounderNumbers({ initial, f1, f2, blocked1, blocked2, children }
         {who === "f1" ? (
           <>
             <PaceTile label="Scripts approved · this week" p={f1.scripts} />
-            <MetaTile label="Won / settled · 3 months" what="Win rate of the concepts that reached a verdict." />
-            <MetaTile label="Cells needing a successor" what="Cells whose winner is fading or deteriorating." />
+            {f1.winRate ? (
+              <div className="card home-tile">
+                <div className="lbl">Won / settled · 3 months</div>
+                <div className="home-big">{f1.winRate.won}<small> / {f1.winRate.settled}</small></div>
+                <span className={`tag ${f1.winRate.pct === null ? "t-grey" : "t-green"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{f1.winRate.pct === null ? "NO VERDICT YET" : `${f1.winRate.pct}% WIN RATE`}</span>
+                <div className="unit">Concepts created in the last 90 days that reached a verdict (won or lost), and how many won.</div>
+              </div>
+            ) : <MetaTile label="Won / settled · 3 months" what="Win rate of the concepts that reached a verdict." />}
+            {f1.successorCells !== undefined && f1.successorCells !== null ? (
+              <div className="card home-tile">
+                <div className="lbl">Cells needing a successor</div>
+                <div className="home-big">{f1.successorCells}<small> cell{f1.successorCells === 1 ? "" : "s"}</small></div>
+                <span className={`tag ${f1.successorCells ? "t-red" : "t-green"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{f1.successorCells ? "ALERT IN NEEDS ME" : "ALL COVERED"}</span>
+                <div className="unit">A winner fading or deteriorating with no newer task in its cell and angle.</div>
+              </div>
+            ) : <MetaTile label="Cells needing a successor" what="Cells whose winner is fading or deteriorating." />}
           </>
         ) : (
           <>

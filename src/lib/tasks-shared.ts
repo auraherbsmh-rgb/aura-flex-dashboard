@@ -112,7 +112,13 @@ export function stepNow(status: string): number {
 export type InboxLine = { tag: string; tone: string; title: string; sub: string; rank: number };
 
 /** One inbox line per task: what it needs now, most urgent first (rank). */
-export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now()): InboxLine {
+const RESULT_WORD: Record<ConceptResult["state"], { word: string; tone: string }> = {
+  won: { word: "WON", tone: "t-green" }, deteriorating: { word: "DETERIORATING", tone: "t-orange" }, fading: { word: "FADING", tone: "t-red" },
+  recovering: { word: "RECOVERING", tone: "t-blue" }, testing: { word: "LIVE · TESTING", tone: "t-amber" }, lost: { word: "LOST", tone: "t-grey" },
+};
+const usd = (n: number | null) => (n === null ? "no sale yet" : `$${n.toFixed(2)}`);
+
+export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now(), result?: ConceptResult | null): InboxLine {
   const today = tunisDate(0, now);
   const tomorrow = tunisDate(1, now);
   const cell = `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.angle}`;
@@ -135,6 +141,13 @@ export function inboxLine(t: TaskRow, forFounder: boolean, now = Date.now()): In
   }
   // Approved: the copywriter still has to fill the Script details, so it sits near the top of her inbox.
   if (t.status === "approved") return { tag: "FILL DETAILS", tone: "t-amber", title: cell, sub: `Script approved · fill the script details${who}`, rank: forFounder ? 5 : 1 };
+  // Live with a Meta result: a new verdict is a RESULT item at the top of her inbox until she opens it (handoff §4).
+  if (result) {
+    const w = RESULT_WORD[result.state];
+    const cpa = `7d CPA ${usd(result.cpa7)} vs line $${result.line.toFixed(2)}`;
+    if (!forFounder && result.state !== "testing" && result.state !== result.seenState) return { tag: `RESULT · ${w.word}`, tone: w.tone, title: cell, sub: `${t.format} · ${cpa} · open to see each hook`, rank: 0 };
+    return { tag: w.word, tone: w.tone, title: cell, sub: `${t.format} · ${cpa}${who}`, rank: 7 };
+  }
   return { tag: "IN PRODUCTION", tone: "t-grey", title: cell, sub: `${t.format} · details done${who}`, rank: 6 };
 }
 
@@ -266,3 +279,11 @@ export function suggestEditor(list: EditorLoad[], generate: boolean): string | n
 
 /** Fewest ad variations to confirm: AI / 3D videos need 1 (decision Oct 16), filmed videos 5. Max 6 for all. */
 export const minVariations = (formatCode: string) => (formatCode === "AI" ? 1 : 5);
+
+/** A concept's Meta result (concept_results, written by the daily pull). Founders read all; a copywriter her own. */
+export type ConceptResult = {
+  taskId: string; state: "won" | "deteriorating" | "fading" | "recovering" | "testing" | "lost"; stateSince: string; everWon: boolean;
+  cpa7: number | null; line: number; sales7: number; spend7: number; bestV: number | null; live: boolean;
+  variations: { v: number | null; state: string; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean }[];
+  seenState: string | null; winnerNotedAt: string | null;
+};

@@ -4,13 +4,26 @@ import { useState } from "react";
 import { ProposeButton } from "./Proposals";
 import { CreateTaskButton } from "./Tasks";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
-import { LEVEL_SHORT, STATE_WORD, buildMap, conceptState, groupByAngle, mapConcepts, mix, type MapCell, type MapConcept } from "@/lib/map-shared";
+import { LEVEL_SHORT, STATE_ORDER, STATE_PLAIN, STATE_WORD, buildMap, conceptState, groupByAngle, mapConcepts, mix, zeroCounts, type ConceptState, type MapCell, type MapConcept } from "@/lib/map-shared";
+import type { ConceptResult } from "@/lib/tasks-shared";
 import type { Pickers } from "@/lib/proposals-shared";
 
-export type MapData = { concepts: MapConcept[]; start: string | null; avatars: { id: string; code: string | null; label: string }[] };
+export type MapData = {
+  concepts: MapConcept[]; start: string | null; avatars: { id: string; code: string | null; label: string }[];
+  /** Meta results the viewer may see (founders: all; a copywriter: her own concepts). */
+  results?: Record<string, ConceptResult>;
+};
 export type CellKey = { avatarId: string; awareness: string };
 
-const CELL_CLASS: Record<MapCell["state"], string> = { test: "s-test", production: "s-prod", writing: "s-writing", empty: "s-empty" };
+const CELL_CLASS: Record<MapCell["state"], string> = {
+  won: "s-won", deteriorating: "s-det", fading: "s-fading", recovering: "s-recover", test: "s-test", production: "s-prod", writing: "s-writing", lost: "s-lost", empty: "s-empty",
+};
+const DOT: Record<ConceptState, string> = {
+  won: "d-won", deteriorating: "d-det", fading: "d-fading", recovering: "d-recover", test: "d-test", production: "d-prod", writing: "d-writing", lost: "d-lost",
+};
+const TAG: Record<ConceptState, string> = {
+  won: "t-green", deteriorating: "t-orange", fading: "t-red", recovering: "t-blue", test: "t-amber", production: "t-grey", writing: "t-writing", lost: "t-grey",
+};
 
 /** Knee | Hips switch + the avatar × awareness grid (Copywriting artboard "Map"). Click a cell → its cell view. */
 export function MapGrid({ data, track, setTrack, selected, onPick, big = false, pickers, createCtx }: {
@@ -68,9 +81,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
                     <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{createCtx ? "+ Create a task" : c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : (
                       // Each count with its own colour dot, so a cell holding several states shows them all.
                       <>
-                        {c.counts.test > 0 && <span className="cl"><i className="d-test" aria-hidden="true" />{c.counts.test} testing</span>}
-                        {c.counts.production > 0 && <span className="cl"><i className="d-prod" aria-hidden="true" />{c.counts.production} in prod</span>}
-                        {c.counts.writing > 0 && <span className="cl"><i className="d-writing" aria-hidden="true" />{c.counts.writing} writing</span>}
+                        {STATE_ORDER.filter((st) => c.counts[st] > 0).map((st) => <span key={st} className="cl"><i className={DOT[st]} aria-hidden="true" />{c.counts[st]} {STATE_PLAIN[st]}</span>)}
                       </>
                     )}</span>
                   </button>
@@ -82,29 +93,38 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
         {rows.length === 0 && <div className="info">No avatar yet. Add them in Settings → Lists.</div>}
       </div>
       <div className="map-legend">
-        <span className="part s-test">TEST</span><span className="part s-prod">IN PROD</span><span className="part s-writing">WRITING</span><span className="part s-empty">EMPTY</span>
-        <span className="part s-meta">WIN · FADING · LOST → WITH META</span>
+        <span className="part s-won">WON</span><span className="part s-det">DETERIOR.</span><span className="part s-fading">FADING</span><span className="part s-recover">RECOVER</span>
+        <span className="part s-test">TEST</span><span className="part s-prod">IN PROD</span><span className="part s-writing">WRITING</span><span className="part s-lost">LOST</span><span className="part s-empty">EMPTY</span>
       </div>
       <div className="unit">
-        Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written.
-        {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to {createCtx ? "create a task" : "propose a test"}. Won, fading and lost come with the Meta results.
+        Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. The box takes the best state in the cell, ×N = how many concepts are in it; the dots show every state. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written. Won, fading, lost… come from the daily Meta pull.
+        {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to {createCtx ? "create a task" : "propose a test"}.
       </div>
     </section>
   );
 }
 
-/** One tag per state present: yellow testing · grey in production · white writing. */
-function StateChips({ counts }: { counts: Record<"test" | "production" | "writing", number> }) {
+const pctOf = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
+/** One CPA per line (handoff §7): red over the concept's own line, green under, yellow while testing. */
+function CpaBox({ cpa, line, testing, label }: { cpa: number | null; line: number; testing: boolean; label?: string }) {
+  const tone = testing || cpa === null ? "bx-y" : cpa > line ? "bx-r" : "bx-g";
   return (
-    <span className="state-chips">
-      {counts.test > 0 && <span className="tag t-amber"><i aria-hidden="true" />{counts.test} TESTING</span>}
-      {counts.production > 0 && <span className="tag t-grey"><i aria-hidden="true" />{counts.production} IN PROD</span>}
-      {counts.writing > 0 && <span className="tag t-writing"><i aria-hidden="true" />{counts.writing} WRITING</span>}
+    <span className="mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+      {label && <span className="unit">{label} </span>}
+      <span className={`bx ${tone}`}>{cpa === null ? "no sale" : `$${cpa.toFixed(2)}`}</span>
+      <span className="unit"> / {line.toFixed(2)}</span>
     </span>
   );
 }
 
-const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-writing" };
+/** One tag per state present, best first. */
+function StateChips({ counts }: { counts: Record<ConceptState, number> }) {
+  return (
+    <span className="state-chips">
+      {STATE_ORDER.filter((st) => counts[st] > 0).map((st) => <span key={st} className={`tag ${TAG[st]}`}><i aria-hidden="true" />{counts[st]} {st === "production" ? "IN PROD" : STATE_WORD[st]}</span>)}
+    </span>
+  );
+}
 
 /** Cell view (handoff §7): grouped by angle → concepts → ad variations. Results (CPA, script parts) come with Meta. */
 export function CellView({ data, cell, track, pickers, onBack, backLabel, createCtx }: {
@@ -121,7 +141,7 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel, create
   const groups = groupByAngle(concepts);
   const [open, setOpen] = useState<Record<string, boolean>>(() => (groups[0] ? { [groups[0].angleId]: true } : {}));
   const [openC, setOpenC] = useState<Record<string, boolean>>({});
-  const counts = { test: 0, production: 0, writing: 0 };
+  const counts = zeroCounts();
   for (const c of concepts) counts[conceptState(c)]++;
   const title = `${avatar?.code ?? "?"} × ${cell.awareness}`;
   return (
@@ -132,7 +152,7 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel, create
           <h2 id="h-cell" style={{ margin: "8px 0 6px", fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>{title}</h2>
           <div className="unit" style={{ fontSize: 14 }}>
             {groups.length} angle{groups.length === 1 ? "" : "s"} · {concepts.length} concept{concepts.length === 1 ? "" : "s"}
-            {counts.test ? ` · ${counts.test} testing` : ""}{counts.production ? ` · ${counts.production} in production` : ""}{counts.writing ? ` · ${counts.writing} writing` : ""}
+            {STATE_ORDER.filter((st) => counts[st] > 0).map((st) => ` · ${counts[st]} ${STATE_PLAIN[st]}`).join("")}
           </div>
         </div>
         {onBack && <button type="button" className="btn b-ghost" onClick={onBack}>{backLabel ?? "← Back"}</button>}
@@ -164,6 +184,7 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel, create
               <div className="cv-concepts">
                 {g.concepts.map((c) => {
                   const st = conceptState(c);
+                  const res = data.results?.[c.taskId];
                   const co = !!openC[c.taskId];
                   const kind = c.origin === "testimonial" ? "Testimonial" : c.generate ? "AI / 3D" : c.vo ? `${c.format} · VO` : c.format;
                   return (
@@ -174,21 +195,35 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel, create
                           <span className="cv-name">{c.face ?? "No face yet"}</span>
                           <span className="unit"> · {kind} · {c.variations.length} variation{c.variations.length === 1 ? "" : "s"}{c.copywriter ? ` · ${c.copywriter}` : ""}</span>
                         </span>
-                        <span className={`tag ${TAG[st]}`}><i aria-hidden="true" />{c.holdAt && st === "production" ? "ON HOLD" : STATE_WORD[st]}</span>
+                        <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          {res && <CpaBox cpa={res.cpa7} line={res.line} testing={res.state === "testing"} label={res.bestV !== null ? `V${res.bestV}` : undefined} />}
+                          <span className={`tag ${TAG[st]}`}><i aria-hidden="true" />{c.holdAt && st === "production" ? "ON HOLD" : STATE_WORD[st]}</span>
+                        </span>
                       </button>
                       {co && c.variations.length > 0 && (
                         <div className="cv-vars">
-                          {c.variations.map((v) => (
-                            <div className="cv-var" key={v.v}>
-                              <span className="mono" style={{ fontWeight: 600 }}>V{v.v}</span>
-                              <span className="tag t-grey">{v.type ?? "Testimonial"}</span>
-                              <span style={{ minWidth: 0 }}>
-                                <span style={{ display: "block", fontSize: 14 }}>“{v.line}”</span>
-                                <span className="vname">{v.name}</span>
-                              </span>
-                            </div>
-                          ))}
-                          <div className="unit">CPA, opening, hold and clicks per variation come with Meta.</div>
+                          {c.variations.map((v) => {
+                            const r = res?.variations.find((x) => x.v === v.v);
+                            return (
+                              <div className="cv-var" key={v.v}>
+                                <span className="mono" style={{ fontWeight: 600 }}>V{v.v}</span>
+                                <span className="tag t-grey">{v.type ?? "Testimonial"}</span>
+                                <span style={{ minWidth: 0 }}>
+                                  <span style={{ display: "block", fontSize: 14 }}>“{v.line}”</span>
+                                  <span className="vname">{v.name}</span>
+                                  {r && (
+                                    <span className="cv-parts">
+                                      <CpaBox cpa={r.cpa7} line={r.line} testing={r.state === "testing"} label="7d" />
+                                      <span className="unit">{r.sales7} sale{r.sales7 === 1 ? "" : "s"} · ${Math.round(r.spend7)}{r.live ? "" : " · paused"}</span>
+                                      {/* Script parts: signals only, the verdict is CPA vs own line (handoff §7). */}
+                                      <span className="unit">Opening {pctOf(r.hookRate)} · Hold {pctOf(r.hold)} · Clicks {pctOf(r.ctr, 2)}</span>
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {!res && <div className="unit">{c.launchedAt || c.liveAt ? "No Meta results yet: they arrive with the daily pull." : "CPA, opening, hold and clicks per variation arrive once it is live."}</div>}
                         </div>
                       )}
                     </div>

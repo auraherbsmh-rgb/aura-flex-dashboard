@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
 import { AssignButton, FootageButton, HoldButton } from "./Production";
-import { reviewScript, submitScript } from "@/app/tasks/actions";
+import { reviewScript, seeResult, submitScript } from "@/app/tasks/actions";
 import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
 import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type ConceptResult, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
@@ -19,9 +19,15 @@ const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   details_done: { word: "IN PRODUCTION", tone: "t-grey" },
 };
 
+const RESULT_TAG: Record<ConceptResult["state"], { word: string; tone: string }> = {
+  won: { word: "WON", tone: "t-green" }, deteriorating: { word: "DETERIORATING", tone: "t-orange" }, fading: { word: "FADING", tone: "t-red" },
+  recovering: { word: "RECOVERING", tone: "t-blue" }, testing: { word: "LIVE · TESTING", tone: "t-amber" }, lost: { word: "LOST", tone: "t-grey" },
+};
+const pctOf = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
+
 /** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
-export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void }) {
-  const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now) })).sort((a, b) => a.l.rank - b.l.rank || a.t.dueOn.localeCompare(b.t.dueOn));
+export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, results = {} }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void; results?: Record<string, ConceptResult> }) {
+  const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now, results[t.id]) })).sort((a, b) => a.l.rank - b.l.rank || a.t.dueOn.localeCompare(b.t.dueOn));
   if (!lines.length) return <div className="info">{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -61,7 +67,9 @@ export function BoardInbox({
   now,
   action,
   onOpen,
+  results,
 }: {
+  results?: Record<string, ConceptResult>;
   tasks: TaskRow[];
   writers: [string, string][];
   cw: string | null;
@@ -87,7 +95,7 @@ export function BoardInbox({
           <button type="button" className={!cw ? "seg-on" : ""} aria-pressed={!cw} onClick={() => pick(null)}>All</button>
         </div>
       )}
-      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} onOpen={onOpen} />
+      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} onOpen={onOpen} results={results} />
     </section>
   );
 }
@@ -162,8 +170,12 @@ export function CopyBoard({
     for (const [k, v] of Object.entries(patch)) { if (v) q.set(k, v); else q.delete(k); }
     window.history.replaceState(null, "", `/copywriting${q.size ? `?${q}` : ""}`);
   };
+  // Results the copywriter has just opened count as seen at once (the server keeps it for the next load).
+  const [seenNow, setSeenNow] = useState<Record<string, string>>({});
+  const markSeen = useCallback((id: string, state: string) => setSeenNow((m) => ({ ...m, [id]: state })), []);
+  const results: Record<string, ConceptResult> = Object.fromEntries(Object.entries(map?.results ?? {}).map(([id, r]) => [id, seenNow[id] ? { ...r, seenState: seenNow[id] } : r]));
   const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
-  const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now).rank - inboxLine(b, forFounder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
+  const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now, results[a.id]).rank - inboxLine(b, forFounder, now, results[b.id]).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = shown.find((t) => t.id === sel) ?? urgent ?? null;
   const open = (id: string) => {
     setCell(null);
@@ -184,6 +196,7 @@ export function CopyBoard({
           now={now}
           action={action}
           onOpen={open}
+          results={results}
         />
         {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} pickers={proposePickers} createCtx={createCtx} onPick={(k) => {
           setCell(k);
@@ -208,6 +221,8 @@ export function CopyBoard({
             production={data.productions[selected.id]}
             prodCard={data.cards[selected.id]}
             editors={data.editors}
+            result={results[selected.id] ?? null}
+            onSeen={markSeen}
           />
         ) : (
           <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
@@ -229,7 +244,12 @@ export function TaskView({
   production,
   prodCard,
   editors = [],
+  result = null,
+  onSeen,
 }: {
+  /** Meta result (founders, or the copywriter's own concept). */
+  result?: ConceptResult | null;
+  onSeen?: (taskId: string, state: string) => void;
   task: TaskRow;
   history: AngleHistoryRow[];
   line: number | null;
@@ -245,13 +265,22 @@ export function TaskView({
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [pending, setPending] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
+  // Opening a new verdict marks the RESULT item as seen (her own concept only).
+  const unseen = !!result && isOwner && result.state !== "testing" && result.state !== result.seenState;
+  const resultState = result?.state ?? null;
+  useEffect(() => {
+    if (!unseen || !resultState) return;
+    let live = true;
+    seeResult(task.id).then((r) => { if (live && r.ok) onSeen?.(task.id, resultState); });
+    return () => { live = false; };
+  }, [unseen, resultState, task.id, onSeen]);
 
   const last = task.rounds[task.rounds.length - 1];
   const generate = !!details?.generate || task.formatCode === "AI";
   const vo = !generate && !!details?.vo;
   const stage = task.status === "details_done" ? prodStage(generate, production) : null;
   // After hand-off: Shoot (or Generate) until the footage is in (AI / 3D: until assigned), then Edit.
-  const now = production?.liveAt ? 5 : stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
+  const now = result && result.state !== "testing" ? 6 : production?.liveAt || result ? 5 : stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
   const canSend = (isOwner || isFounder) && (task.status === "writing" || task.status === "changes");
   const canReview = isFounder && task.status === "review" && !!last && !last.decision;
   const today = tunisDate(0);
@@ -375,6 +404,28 @@ export function TaskView({
             </li>
           ))}
         </ol>
+        {result && (
+          <div className="tv-result">
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span className={`tag ${RESULT_TAG[result.state].tone}`}><i aria-hidden="true" />{RESULT_TAG[result.state].word}</span>
+              <span className="mono" style={{ fontSize: 13 }}>
+                <span className={`bx ${result.state === "testing" || result.cpa7 === null ? "bx-y" : result.cpa7 > result.line ? "bx-r" : "bx-g"}`}>{result.cpa7 === null ? "no sale" : `$${result.cpa7.toFixed(2)}`}</span>
+                <span className="unit"> / {result.line.toFixed(2)} own line · 7d{result.bestV !== null ? ` · V${result.bestV}` : ""}</span>
+              </span>
+              <span className="unit">{result.sales7} sale{result.sales7 === 1 ? "" : "s"} · ${Math.round(result.spend7)} in 7 days</span>
+            </div>
+            <div className="tv-result-vars">
+              {result.variations.map((v) => (
+                <div key={v.v ?? "?"} className="tv-result-var">
+                  <span className="mono" style={{ fontWeight: 600 }}>V{v.v ?? "?"}</span>
+                  <span className={`bx ${v.state === "testing" || v.cpa7 === null ? "bx-y" : v.cpa7 > v.line ? "bx-r" : "bx-g"}`}>{v.cpa7 === null ? "no sale" : `$${v.cpa7.toFixed(2)}`}</span>
+                  <span className="unit">{v.sales7} sale{v.sales7 === 1 ? "" : "s"}{v.live ? "" : " · paused"} · Opening {pctOf(v.hookRate)} · Hold {pctOf(v.hold)} · Clicks {pctOf(v.ctr, 2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="unit">The verdict is CPA vs the concept&apos;s own line; opening, hold and clicks are signals only. Updated every morning from Meta.</div>
+          </div>
+        )}
         {canReview && (
           <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn b-green" disabled={pending} onClick={() => run(() => reviewScript(task.id, last.round, "approved", "", ""))}>

@@ -10,7 +10,10 @@ const empty: TaskState = {};
 const NEW = "__new__";
 
 export type TaskPrefill = {
-  proposalId: string;
+  /** From an approved proposal; null for a successor (ALERT item). */
+  proposalId: string | null;
+  /** Reference ad, e.g. the fading winner a successor follows. */
+  reference?: string;
   avatarId: string;
   awareness: string;
   angleId: string | null;
@@ -84,11 +87,11 @@ export function CreateTaskButton({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        who={prefill ? `Founder · from an approved proposal · ${prefill.label}` : "Founder · Create task"}
+        who={prefill ? (prefill.proposalId ? `Founder · from an approved proposal · ${prefill.label}` : `Founder · ${prefill.label}`) : "Founder · Create task"}
         title="New script task"
       >
         <form key={openedAt ?? 0} onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {prefill && <input type="hidden" name="proposal_id" value={prefill.proposalId} />}
+          {prefill?.proposalId && <input type="hidden" name="proposal_id" value={prefill.proposalId} />}
           <div className="row2">
             <label className="field">
               <span className="lbl">Avatar</span>
@@ -144,7 +147,7 @@ export function CreateTaskButton({
             </label>
             <label className="field">
               <span className="lbl">Reference ad · optional</span>
-              <input className="inp" name="reference" maxLength={500} placeholder="ad name or link" />
+              <input className="inp" name="reference" maxLength={500} placeholder="ad name or link" defaultValue={prefill?.reference ?? ""} />
             </label>
           </div>
 

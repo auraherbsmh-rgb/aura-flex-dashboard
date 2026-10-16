@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
 import type { KillNeed, Unmapped, UnmappedNeed } from "@/lib/live-shared";
+import type { SuccessorNeed, WinnerToNote } from "@/lib/home-shared";
 import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow, type TestimonialLite } from "@/lib/tasks-shared";
 
 /**
@@ -13,7 +14,7 @@ import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Produc
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "OVERDUE" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "KILL" | "UNMAPPED" | "COVERING";
+  type: "DECIDE" | "REVIEW" | "OVERDUE" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "KILL" | "UNMAPPED" | "WINNER" | "ALERT" | "COVERING";
   tagTone: "violet" | "blue" | "orange" | "green" | "grey" | "red" | "amber";
   title: string;
   sub: string;
@@ -30,6 +31,9 @@ export type NeedItem = {
   /** KILL items open the Pause in Meta pop-up; UNMAPPED items open Tag an old ad. */
   kill?: KillNeed;
   unmapped?: Unmapped;
+  /** WINNER opens Winner · core message; ALERT opens Create task for the successor. */
+  winner?: WinnerToNote;
+  alert?: SuccessorNeed & { avatarId: string | null };
 };
 
 export type ProdNeeds = {
@@ -48,6 +52,9 @@ export type ProdNeeds = {
   /** From the daily Meta pull (Live ads): KILL (Founder 2, Founder 1 covers after 48h) and UNMAPPED (both founders). */
   kills?: KillNeed[];
   unmapped?: UnmappedNeed[];
+  /** From concept results: WINNER (core message to write) and ALERT (winner fading with no successor), Founder 1's. */
+  winners?: WinnerToNote[];
+  successors?: (SuccessorNeed & { avatarId: string | null })[];
 };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
@@ -215,6 +222,24 @@ export function buildNeeds(
     } else if (viewer.role === "founder_1" && age.hours >= cover) {
       items.push({ key: k.key, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's kill, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, kill: k });
     }
+  }
+  // WINNER (Founder 1; Founder 2 covers after 48h): a concept won → write its core message, which fills KEEP in that angle.
+  for (const w of prod?.winners ?? []) {
+    const cover = prod?.coverHours ?? 48;
+    const age = ageLabel(w.since, now, cover);
+    const title = `Winner · ${w.face} · ${w.cell} · ${w.angle}`;
+    const sub = `7d CPA ${w.result.cpa7 === null ? "—" : `$${w.result.cpa7.toFixed(2)}`} vs line $${w.result.line.toFixed(2)} · write the core message`;
+    if (viewer.role === "founder_1") items.push({ key: `w-${w.taskId}`, type: "WINNER", tagTone: "green", title, sub, age: age.text, ageTone: age.hours >= cover ? "red" : "amber", hours: age.hours, winner: w });
+    else if (viewer.role === "founder_2" && age.hours >= cover) items.push({ key: `w-${w.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 1's winner, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, winner: w });
+  }
+  // ALERT (Founder 1; Founder 2 covers after 48h): a winner deteriorating or fading with no successor in its cell and angle.
+  for (const a of prod?.successors ?? []) {
+    const cover = prod?.coverHours ?? 48;
+    const age = ageLabel(a.since, now, cover);
+    const title = `${a.state === "fading" ? "Fading" : "Deteriorating"} winner · ${a.face} · ${a.avatarCode} × ${shortAwareness(a.awareness)} · ${a.angle}`;
+    const sub = "No successor in this cell and angle yet · create one";
+    if (viewer.role === "founder_1") items.push({ key: `a-${a.taskId}`, type: "ALERT", tagTone: a.state === "fading" ? "red" : "orange", title, sub, age: age.text, ageTone: a.state === "fading" || age.hours >= cover ? "red" : "amber", hours: age.hours, alert: a });
+    else if (viewer.role === "founder_2" && age.hours >= cover) items.push({ key: `a-${a.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 1's alert, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, alert: a });
   }
   // UNMAPPED: a live ad in scope with an old or unknown name: either founder tags it.
   for (const u of prod?.unmapped ?? []) {

@@ -52,7 +52,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   // Board extras for every task (testimonials too: the Library lists them), the map, and edit versions (Library looms / days).
   const [extras, mapData, editRounds] = await Promise.all([getBoardExtras(everyTask), getMapData(), getEditRounds()]);
-  const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now);
+  const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now, mapData.results);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   return (

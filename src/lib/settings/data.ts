@@ -1,32 +1,8 @@
 import { metaStatus } from "@/lib/meta/pull";
 import { createClient } from "@/lib/supabase/server";
-import type { MoneyInputs } from "@/lib/money";
 
-export type MoneyRow = {
-  id: string;
-  month: string;
-  status: "provisional" | "final";
-  business_line_usd: number;
-  roas_line: number;
-  aov_band_low_usd: number;
-  aov_band_high_usd: number;
-  exchange_rate: number;
-  fixed_costs_tnd: number;
-  kill_table_usd: number[];
-  bottle_cost_tnd: number;
-  delivery_cost_tnd: number;
-  fixed_per_order_tnd: number;
-  bridge_factor: number;
-  door_rate_1b: number;
-  door_rate_2b: number;
-  door_rate_3b: number;
-  door_rate_avg: number;
-  price_1b_tnd: number;
-  price_2b_tnd: number;
-  price_3b_tnd: number;
-  ritual_on: string | null;
-  next_ritual_on: string | null;
-};
+export type { MoneyRow } from "@/lib/money";
+import type { MoneyRow } from "@/lib/money";
 
 export type Rule = { key: string; grp: "copywriting" | "editing" | "live"; label: string; value: number | null; unit: string; sort: number };
 export type Flag = { key: string; enabled: boolean; label: string };
@@ -55,27 +31,7 @@ export type Person = {
 };
 export type Level = { name_and_rule: string; bonus_tnd: number | null };
 
-export function toMoneyInputs(r: MoneyRow): MoneyInputs {
-  const n = Number;
-  return {
-    businessLineUsd: n(r.business_line_usd),
-    aovBandLowUsd: n(r.aov_band_low_usd),
-    aovBandHighUsd: n(r.aov_band_high_usd),
-    exchangeRate: n(r.exchange_rate),
-    killTableUsd: r.kill_table_usd.map(n),
-    bottleCostTnd: n(r.bottle_cost_tnd),
-    deliveryCostTnd: n(r.delivery_cost_tnd),
-    fixedPerOrderTnd: n(r.fixed_per_order_tnd),
-    bridgeFactor: n(r.bridge_factor),
-    doorRate1b: n(r.door_rate_1b),
-    doorRate2b: n(r.door_rate_2b),
-    doorRate3b: n(r.door_rate_3b),
-    doorRateAvg: n(r.door_rate_avg),
-    price1bTnd: n(r.price_1b_tnd),
-    price2bTnd: n(r.price_2b_tnd),
-    price3bTnd: n(r.price_3b_tnd),
-  };
-}
+export { toMoneyInputs } from "@/lib/money";
 
 /** The money row in force: the latest closed month. */
 export async function getCurrentMoney(): Promise<MoneyRow | null> {

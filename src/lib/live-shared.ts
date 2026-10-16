@@ -229,3 +229,34 @@ export function unmappedNeeds(unmapped: Unmapped[], firstSeen: Map<string, strin
     return { key: `u-${u.base}`, u, sinceMs: seen.length ? Math.min(...seen) : now };
   });
 }
+
+/* ───────────── Concept results (Meta 5): what the map, Library, inbox and Home read ───────────── */
+
+export type VariationResultRow = { v: number | null; state: State; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean };
+export type ConceptResultRow = {
+  task_id: string; state: State; ever_won: boolean; cpa7: number | null; line: number; sales7: number; spend7: number;
+  best_v: number | null; variations: VariationResultRow[]; live: boolean;
+};
+
+/**
+ * One row per dashboard concept (task) that Meta has data for. The concept's CPA is the CPA of the variation carrying its
+ * state (handoff §7 "CPA display"); every variation keeps its own 7d CPA for the opened view.
+ */
+export function conceptResultRows(states: Map<string, { state: State; cpa7: number | null; line: number; vars: VariationResult[] }>): ConceptResultRow[] {
+  const out: ConceptResultRow[] = [];
+  for (const [key, s] of states) {
+    if (!key.startsWith("t:")) continue;
+    const live = s.vars.some((r) => r.live);
+    const judged = live ? s.vars.filter((r) => r.live) : s.vars;
+    const carrier = judged.filter((r) => r.state === s.state).sort((a, b) => (a.cpa7 ?? Infinity) - (b.cpa7 ?? Infinity) || b.t7.sales - a.t7.sales)[0] ?? judged[0];
+    out.push({
+      task_id: key.slice(2), state: s.state, ever_won: s.vars.some((r) => r.everWon),
+      cpa7: carrier?.cpa7 ?? null, line: carrier?.line ?? s.line,
+      sales7: judged.reduce((n, r) => n + r.t7.sales, 0), spend7: Math.round(judged.reduce((n, r) => n + r.t7.spend, 0) * 100) / 100,
+      best_v: carrier?.v ?? null, live,
+      variations: s.vars.map((r) => ({ v: r.v, state: r.state, cpa7: r.cpa7, sales7: r.t7.sales, spend7: Math.round(r.t7.spend * 100) / 100, line: r.line, hookRate: r.hookRate, hold: r.hold, ctr: r.ctr, live: r.live }))
+        .sort((a, b) => (a.v ?? 99) - (b.v ?? 99)),
+    });
+  }
+  return out;
+}

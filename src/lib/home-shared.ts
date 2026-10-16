@@ -8,7 +8,7 @@
  *  Blocked: read-only, what is stuck on someone else (copywriter, agency, editor) and for how long.
  */
 import type { EditRound, VideoRow } from "./editing-shared";
-import { isHeld, weekStartIso, type Production, type TaskRow } from "./tasks-shared";
+import { isHeld, weekStartIso, type ConceptResult, type Production, type TaskRow } from "./tasks-shared";
 
 export type Pace = { done: number; target: number | null; pct: number | null; tone: "green" | "amber" | "grey"; word: string };
 export type SpeedSplit = { total: number; editing: number; revisions: number; waiting: number; count: number } | null;
@@ -144,4 +144,52 @@ export function buildBlocked(tasks: TaskRow[], videoRows: VideoRow[], now: numbe
   }
   // Late first, then the longest waiting.
   return out.sort((a, b) => Number(b.late) - Number(a.late) || a.since - b.since);
+}
+
+/* ───────────── Meta results on Home (Meta 5) ───────────── */
+
+export type WinRate = { won: number; settled: number; pct: number | null };
+/** Founder 1 · "Won / settled · 3 months": concepts created in the last 90 days that reached a verdict, and how many won. */
+export function winRate(tasks: TaskRow[], results: Record<string, ConceptResult>, now: number): WinRate {
+  const from = now - 90 * 864e5;
+  let won = 0, settled = 0;
+  for (const t of tasks) {
+    const r = results[t.id];
+    if (!r || Date.parse(t.createdAt) < from) continue;
+    if (r.everWon) { won++; settled++; } else if (r.state === "lost") settled++;
+  }
+  return { won, settled, pct: settled ? Math.round((won / settled) * 100) : null };
+}
+
+export type SuccessorNeed = { taskId: string; avatarCode: string; awareness: string; angleId: string; angle: string; state: "deteriorating" | "fading"; since: string; face: string; reference?: string };
+/**
+ * Alerts (handoff §11 "winner Deteriorating / Fading with no successor"): a winner in that state with no newer task in the
+ * same cell and angle. One per cell + angle (the oldest problem first).
+ */
+export function successorNeeds(tasks: TaskRow[], results: Record<string, ConceptResult>, faces: Map<string, string>): SuccessorNeed[] {
+  const out = new Map<string, SuccessorNeed>();
+  for (const t of tasks) {
+    const r = results[t.id];
+    if (!r || (r.state !== "deteriorating" && r.state !== "fading")) continue;
+    const successor = tasks.some((x) => x.id !== t.id && x.status !== "cancelled" && x.avatarCode === t.avatarCode && x.awareness === t.awareness && x.angleId === t.angleId && x.createdAt > t.createdAt && !(results[x.id] && ["lost", "deteriorating", "fading"].includes(results[x.id].state)));
+    if (successor) continue;
+    const key = `${t.avatarCode}|${t.awareness}|${t.angleId}`;
+    const prev = out.get(key);
+    if (!prev || r.stateSince < prev.since) out.set(key, { taskId: t.id, avatarCode: t.avatarCode, awareness: t.awareness, angleId: t.angleId, angle: t.angle, state: r.state, since: r.stateSince, face: faces.get(t.id) ?? t.angle });
+  }
+  return [...out.values()];
+}
+
+export type WinnerToNote = {
+  taskId: string; face: string; cell: string; angle: string; angleId: string; since: string; result: ConceptResult;
+  /** The winning variation's hook (from Script details), when known. */
+  hook: { v: number; type: string | null; line: string } | null;
+};
+/** WINNER items (Founder 1): won concepts whose core message has not been written down yet. */
+export function winnersToNote(tasks: TaskRow[], results: Record<string, ConceptResult>, faces: Map<string, string>, hooks: Map<string, { v: number; type: string | null; line: string }[]> = new Map()): WinnerToNote[] {
+  return tasks.filter((t) => results[t.id]?.everWon && !results[t.id].winnerNotedAt).map((t) => ({
+    taskId: t.id, face: faces.get(t.id) ?? t.angle, cell: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`, angle: t.angle, angleId: t.angleId,
+    since: results[t.id].stateSince, result: results[t.id],
+    hook: (hooks.get(t.id) ?? []).find((h) => h.v === results[t.id].bestV) ?? null,
+  }));
 }

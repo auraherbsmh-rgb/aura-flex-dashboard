@@ -3,7 +3,18 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
 import { CopyName } from "./ScriptDetails";
-import { LIB_STATE, NO_FILTER, STEP_NAMES, filterLibrary, type LibFilter, type LibRow } from "@/lib/library-shared";
+import { LIB_STATE, LIB_STATE_ORDER, NO_FILTER, STEP_NAMES, filterLibrary, type LibFilter, type LibRow } from "@/lib/library-shared";
+
+const pct = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
+/** One CPA vs its own line: red over, green under, yellow while testing. */
+function Cpa({ cpa, line, testing }: { cpa: number | null; line: number; testing: boolean }) {
+  return (
+    <span className="mono" style={{ whiteSpace: "nowrap" }}>
+      <span className={`bx ${testing || cpa === null ? "bx-y" : cpa > line ? "bx-r" : "bx-g"}`}>{cpa === null ? "no sale" : `$${cpa.toFixed(2)}`}</span>
+      <span className="unit"> / {line.toFixed(2)}</span>
+    </span>
+  );
+}
 
 // No red: red means late. The agency wait is yellow (waiting).
 const STEP_COLORS = ["#2C2C2C", "#55564F", "#77776F", "#E0A419", "#8C8C86", "#B9B9B3"];
@@ -49,10 +60,7 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <span className="pill raise"><b>{rows.length}</b>script{rows.length === 1 ? "" : "s"}</span>
-        <span className="pill raise"><b>{count("testing")}</b>testing</span>
-        <span className="pill raise"><b>{count("production")}</b>in production</span>
-        {count("hold") > 0 && <span className="pill raise"><b>{count("hold")}</b>on hold</span>}
-        <span className="pill raise" style={{ color: "#8c8c86" }}>won / lost · with Meta</span>
+        {LIB_STATE_ORDER.filter((st) => count(st) > 0).map((st) => <span key={st} className="pill raise"><b>{count(st)}</b>{LIB_STATE[st].word.toLowerCase()}</span>)}
       </div>
       <div className={`tray lib-filters ${showFilters ? "lib-open" : ""}`}>
         <label className="lib-f lib-q">
@@ -68,7 +76,15 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
         <Sel value={f.format} onChange={(v) => setF({ ...f, format: v })} label="Format" opts={formats.map((x) => ({ id: x, label: x }))} />
         <Sel value={f.hook} onChange={(v) => setF({ ...f, hook: v })} label="Hook type" opts={hookTypes.map((x) => ({ id: x, label: x }))} />
         <Sel value={f.arg} onChange={(v) => setF({ ...f, arg: v })} label="Main argument" opts={mainArguments} />
-        <Sel value={f.state} onChange={(v) => setF({ ...f, state: v })} label="State" opts={(["production", "hold", "testing"] as const).map((s) => ({ id: s, label: LIB_STATE[s].word.toLowerCase().replace(/^./, (c) => c.toUpperCase()) }))} />
+        <Sel value={f.state} onChange={(v) => setF({ ...f, state: v })} label="State" opts={LIB_STATE_ORDER.map((s) => ({ id: s, label: LIB_STATE[s].word.toLowerCase().replace(/^./, (c) => c.toUpperCase()) }))} />
+        <label className="lib-f lib-sort">
+          <span className="lbl">Sort</span>
+          <select className="inp" value={f.sort} onChange={(e) => setF({ ...f, sort: e.target.value as LibFilter["sort"] })}>
+            <option value="">Newest first</option>
+            <option value="cpa">Best CPA</option>
+            <option value="days">Most days</option>
+          </select>
+        </label>
         {active && <button type="button" className="btn b-ghost" style={{ alignSelf: "flex-end" }} onClick={() => setF(NO_FILTER)}>Clear</button>}
       </div>
       <div className="tray pipe lib-table" aria-label="Scripts">
@@ -90,11 +106,11 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
             <span className="lib-c">{r.copywriter}</span>
             <span className="lib-c mono">{fmt(r.approvedAt)} → {r.launchedAt ? fmt(r.launchedAt) : "—"}</span>
             <span><span className={`tag ${LIB_STATE[r.state].tone}`}><i aria-hidden="true" />{LIB_STATE[r.state].word}</span></span>
-            <span className="lib-c mono" style={{ textAlign: "right", color: "#8c8c86" }}>—</span>
+            <span className="lib-c" style={{ textAlign: "right" }}>{r.result ? <Cpa cpa={r.result.cpa7} line={r.result.line} testing={r.result.state === "testing"} /> : <span className="mono" style={{ color: "#8c8c86" }}>—</span>}</span>
           </button>
         ))}
       </div>
-      <div className="unit" style={{ padding: "0 8px" }}>Showing {shown.length} of {rows.length} · click a script to open its record. Results (won, lost, CPA, script parts) come with Meta.</div>
+      <div className="unit" style={{ padding: "0 8px" }}>Showing {shown.length} of {rows.length} · click a script to open its record. Best CPA = the 7d CPA of the variation carrying the concept&apos;s state, vs its own line; results come from the daily Meta pull.</div>
 
       <Modal open={!!rec} onClose={() => setSel(null)} who={rec ? `${rec.cell} · ${rec.angle} · ${rec.format}` : ""} title={rec?.name ?? ""} width={760}>
         {rec && (() => {
@@ -118,17 +134,26 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
               </div>
               <div className="field">
                 <span className="lbl">Hooks · {rec.hooks.length}</span>
-                {rec.hooks.map((h) => (
+                {rec.hooks.map((h) => {
+                  const r = rec.result?.variations.find((x) => x.v === h.v);
+                  return (
                   <div className="lib-hook" key={h.v}>
                     <span className="mono" style={{ fontWeight: 600 }}>V{h.v}</span>
                     <span className="tag t-grey" style={{ justifySelf: "start" }}>{rec.testimonial && (!h.type || h.type === "—") ? "Testimonial" : h.type || "—"}</span>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 14 }}>“{h.line}”{h.headline ? <span className="unit"> · on screen: {h.headline}</span> : null}</span>
                       <span className="copy" style={{ marginTop: 4 }}><span>{h.name}</span><CopyName text={h.name} /></span>
+                      {r && (
+                        <span className="cv-parts">
+                          <Cpa cpa={r.cpa7} line={r.line} testing={r.state === "testing"} />
+                          <span className="unit">{r.sales7} sale{r.sales7 === 1 ? "" : "s"} 7d · Opening {pct(r.hookRate)} · Hold {pct(r.hold)} · Clicks {pct(r.ctr, 2)}</span>
+                        </span>
+                      )}
                     </span>
                   </div>
-                ))}
-                <div className="unit">Opening, hold, clicks and 7-day CPA per hook come with Meta.</div>
+                  );
+                })}
+                {!rec.result && <div className="unit">Opening, hold, clicks and 7-day CPA per hook arrive with the daily Meta pull once it is live.</div>}
               </div>
               {(rec.looms.length > 0 || rec.links.length > 0) && (
                 <div className="lib-links">

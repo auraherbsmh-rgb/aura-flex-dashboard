@@ -1,5 +1,6 @@
 // Server only: reads secrets from the environment. Never import this from a "use client" file.
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { refreshResults } from "./results";
 
 /**
  * Daily Meta pull (phase 3, handoff §12 "daily Meta pull by ad name"). Read-only on Meta: it only GETs.
@@ -150,7 +151,10 @@ export async function runMetaPull(): Promise<{ ok: boolean; message: string }> {
     }
     if (budgets.length) await db.from("meta_budgets").upsert(budgets, { onConflict: "entity_id,day" });
 
-    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}).`, ads.length, rows.length);
+    // 4. Results for the map, Library, copywriter inbox and Home (one row per dashboard concept).
+    const concepts = await refreshResults(db);
+
+    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}); ${concepts} concept result${concepts === 1 ? "" : "s"}.`, ads.length, rows.length);
   } catch (e) {
     return finish(false, e instanceof Error ? e.message.replace(token, "…") : "The pull failed.");
   }

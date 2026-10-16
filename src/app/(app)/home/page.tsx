@@ -10,9 +10,10 @@ import {
 } from "@/lib/tasks";
 import { buildNeeds, getRule, mergeNeeds } from "@/lib/needs";
 import { getLiveData } from "@/lib/meta/live-data";
+import { getMapData } from "@/lib/tasks";
 import { createClient } from "@/lib/supabase/server";
 import { buildVideoPipeline } from "@/lib/editing-shared";
-import { buildBlocked, pace, scriptsApprovedThisWeek, speedSplit, videosApprovedThisWeek, waitingToLaunch } from "@/lib/home-shared";
+import { buildBlocked, pace, scriptsApprovedThisWeek, speedSplit, successorNeeds, videosApprovedThisWeek, waitingToLaunch, winnersToNote, winRate } from "@/lib/home-shared";
 
 export const metadata = { title: "Home · Aura Flex" };
 
@@ -52,14 +53,26 @@ export default async function Page() {
   const now = requestTime();
   const supabase = await createClient();
   // Live ads (daily Meta pull): KILL and UNMAPPED items. Empty until Meta is connected.
-  const [editors, live, formats] = await Promise.all([
+  const mapP = getMapData();
+  const [editors, live, formats, map] = await Promise.all([
     getEditors(productions, tasks),
-    getLiveData(now),
+    getLiveData(now, mapP),
     supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
+    mapP,
   ]);
+  // Meta results (concept_results): WINNER and ALERT items and Founder 1's two Meta numbers.
+  const results = map.results;
+  const faceOf = new Map(map.concepts.filter((c) => c.face).map((c) => [c.taskId, c.face as string]));
+  const hooksOf = new Map(map.concepts.map((c) => [c.taskId, c.variations.map((v) => ({ v: v.v, type: v.type, line: v.line }))]));
+  const avatarIdOf = new Map(pickers.avatars.map((a) => [a.code ?? a.label, a.id]));
+  const winners = winnersToNote(tasks, results, faceOf, hooksOf);
+  // The fading winner's ad set name is the successor's reference ad.
+  const adSetOf = new Map(map.concepts.filter((c) => c.variations.length).map((c) => [c.taskId, c.variations[0].name.replace(/_V\d+$/i, "")]));
+  const successors = successorNeeds(tasks, results, faceOf).map((x) => ({ ...x, avatarId: avatarIdOf.get(x.avatarCode) ?? null, reference: adSetOf.get(x.taskId) ?? x.face }));
+  const hasResults = Object.keys(results).length > 0;
   const cards = prodCards(tasks, details, hooks);
   const tagPickers = { ...pickers, formats: (formats.data ?? []) as { id: string; code: string | null; label: string }[] };
-  const prod = { cards, productions, footageLateDays, assignLateDays, editRounds, launchLateDays, launchNames, testimonials, kills: live.kills, unmapped: live.unmappedItems };
+  const prod = { cards, productions, footageLateDays, assignLateDays, editRounds, launchLateDays, launchNames, testimonials, kills: live.kills, unmapped: live.unmappedItems, winners, successors };
   const groups = buildNeeds(viewer, proposals, hours, now, tasks, reviewHours, prod);
   // "All": what each founder has on their own Home (so Founder 1 can see Founder 2's items, and the reverse).
   const asRole = (role: "founder_1" | "founder_2") => buildNeeds({ ...viewer, role }, proposals, hours, now, tasks, reviewHours, prod);
@@ -89,7 +102,11 @@ export default async function Page() {
     >
       <FounderNumbers
         initial={viewer.role === "founder_2" ? "f2" : "f1"}
-        f1={{ scripts: pace(scriptsApprovedThisWeek(scriptTasks, now), target, now) }}
+        f1={{
+          scripts: pace(scriptsApprovedThisWeek(scriptTasks, now), target, now),
+          winRate: hasResults ? winRate(tasks, results, now) : null,
+          successorCells: hasResults ? new Set(successors.map((x) => `${x.avatarCode}|${x.awareness}`)).size : null,
+        }}
         f2={{ videos: pace(videosApprovedThisWeek(editRounds, now), videoTarget || null, now), speed: speedSplit(tasks, productions, editRounds, now), waiting: waitingToLaunch(tasks, productions, editRounds, faces, hooks, now) }}
         blocked1={buildBlocked(scriptTasks, videoRows, now, true)}
         blocked2={buildBlocked(scriptTasks, videoRows, now, false)}
@@ -98,10 +115,10 @@ export default async function Page() {
           <CreateTaskButton ctx={ctx} pickers={pickers} />
           <TestimonialButton pickers={pickers} editors={editors} />
         </div>
-        <NeedsMe groups={groups} total={total} editors={editors} allGroups={allGroups} pickers={pickers} tagPickers={tagPickers} />
+        <NeedsMe groups={groups} total={total} editors={editors} allGroups={allGroups} pickers={pickers} tagPickers={tagPickers} createCtx={ctx} />
       </FounderNumbers>
       <div className="unit" style={{ padding: "0 8px" }}>
-        {live.hasData ? "Coming next with Meta: won / settled, cells needing a successor, and the ALERT and WINNER items." : live.noMoney ? "KILL and UNMAPPED items need the money numbers: fill Settings → Money." : "KILL and UNMAPPED items arrive with the first Meta pull (Meta not connected yet). Then: won / settled, cells needing a successor, ALERT and WINNER."}
+        {live.hasData ? "KILL, UNMAPPED, WINNER and ALERT items and the two Meta numbers update every morning from the Meta pull." : live.noMoney ? "Meta items (KILL, UNMAPPED, WINNER, ALERT) need the money numbers: fill Settings → Money." : "KILL, UNMAPPED, WINNER and ALERT items and the two Meta numbers arrive with the first Meta pull (Meta not connected yet)."}
       </div>
     </TabPage>
   );
