@@ -22,3 +22,11 @@ language sql stable security definer set search_path to '' as $function$
 $function$;
 revoke execute on function public.script_part_bands() from public, anon;
 grant execute on function public.script_part_bands() to authenticated;
+
+-- Oct 16 (founder OK): bands re-checked on the launch weeks of the account's winners
+-- (VSL_Variation_4 Sep 2025 · BOULBEBA V2 ABO + CBO Mar–Apr 2026 · Standing-Profession UGC V2 + static V1 Mar–May 2026).
+update public.alert_rules set value = 27, unit = '% · winners Oct 16' where key = 'band_hook_low';
+update public.alert_rules set unit = '% · winners Oct 16' where key = 'band_hold_low';
+update public.alert_rules set value = 1.2, label = 'Video clicks (link CTR) healthy from', unit = '% · winners Oct 16' where key = 'band_ctr_video_low';
+update public.alert_rules set label = 'Static clicks (link CTR) healthy from', unit = '% · 1 winner' where key = 'band_ctr_image_low';
+update public.app_flags set enabled = true where key = 'colour_script_parts';

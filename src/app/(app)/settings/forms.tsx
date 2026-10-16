@@ -371,7 +371,7 @@ export function RulesForm({ rules, flags }: { rules: Rule[]; flags: Flag[] }) {
         <Msg state={state} />
         <button className="btn b-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save alert rules"}</button>
       </div>
-      <div className="hint">Emails start once the email sender is set up; until then alerts show in the app only. Opening / hold / clicks bands come from File 3 (Jun–Jul calibration): their colour stays off until they are checked against recent winners.</div>
+      <div className="hint">Emails start once the email sender is set up; until then alerts show in the app only. Opening / hold / clicks bands: checked Oct 16 on the launch weeks of VSL_Variation_4, BOULBEBA V2 and Standing-Profession V2 (+ its static). Clicks = link clicks (File 3’s video band is all clicks).</div>
     </form>
   );
 }
