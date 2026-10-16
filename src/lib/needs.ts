@@ -229,8 +229,10 @@ export function buildNeeds(
   const lateFrom = Math.min(unansweredHours, reviewHours);
   // Founder 2's list puts KILL first (handoff §6): its own group on top.
   const kill = items.filter((i) => i.type === "KILL");
-  const late = items.filter((i) => i.type !== "KILL" && (i.ageTone === "red" || i.hours >= lateFrom));
-  const rest = items.filter((i) => !late.includes(i) && !kill.includes(i));
+  // UNMAPPED: old ads to tag, never "late" (all old ads share the first-pull day): their own group at the bottom.
+  const toTag = items.filter((i) => i.type === "UNMAPPED");
+  const late = items.filter((i) => i.type !== "KILL" && i.type !== "UNMAPPED" && (i.ageTone === "red" || i.hours >= lateFrom));
+  const rest = items.filter((i) => !late.includes(i) && !kill.includes(i) && !toTag.includes(i));
   const week = rest.filter((i) => i.hours >= 24);
   const today = rest.filter((i) => i.hours >= 12 && i.hours < 24);
   const fresh = rest.filter((i) => i.hours < 12);
@@ -240,6 +242,7 @@ export function buildNeeds(
     { name: "TODAY", tone: "amber" as const, items: today },
     { name: "THIS WEEK", tone: "amber" as const, items: week },
     { name: "NEW", tone: "grey" as const, items: fresh },
+    { name: "OLD ADS TO TAG", tone: "grey" as const, items: toTag },
   ].filter((g) => g.items.length > 0);
 }
 
@@ -263,7 +266,7 @@ export function mergeNeeds(f1: NeedGroup[], f2: NeedGroup[]): NeedGroup[] {
   };
   add(f1, "Founder 1");
   add(f2, "Founder 2");
-  const rank = (name: string) => (name.startsWith("KILL") ? -1 : name.startsWith("LATE") ? 0 : name === "TODAY" ? 1 : name === "THIS WEEK" ? 2 : 3);
+  const rank = (name: string) => (name.startsWith("KILL") ? -1 : name.startsWith("LATE") ? 0 : name === "TODAY" ? 1 : name === "THIS WEEK" ? 2 : name.startsWith("OLD ADS") ? 4 : 3);
   return [...new Set(order)]
     .sort((a, b) => rank(a) - rank(b))
     .map((name) => {

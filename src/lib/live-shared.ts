@@ -177,7 +177,10 @@ export function killNeeds(input: {
       if (flag === "kill") {
         // The last day the running total went from under its kill-table spend to over it (a sale raises the limit).
         let spend = 0, sales = 0, over = false;
-        for (const r of rowsOf(v.adIds)) {
+        const krows = rowsOf(v.adIds);
+        // Crossed before the loaded days: count from the first loaded day.
+        if (krows.length) since = pullMs(nextDay(krows[0].day));
+        for (const r of krows) {
           spend += r.spend; sales += r.purchases;
           const now_over = sales < 10 && spend >= m.killTableUsd[sales];
           if (now_over && !over) since = pullMs(nextDay(r.day));

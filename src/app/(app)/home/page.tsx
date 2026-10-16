@@ -70,7 +70,7 @@ export default async function Page() {
   const late = groups.filter((g) => g.name.startsWith("LATE")).reduce((n, g) => n + g.items.length, 0)
     + items.filter((i) => i.type === "KILL" && i.hours >= Math.min(hours, reviewHours)).length;
   // Oldest waiting = the longest wait on the founder (OVERDUE measures the copywriter's lateness, not a wait).
-  const waits = items.filter((i) => i.type !== "OVERDUE");
+  const waits = items.filter((i) => i.type !== "OVERDUE" && i.type !== "UNMAPPED");
   const oldest = waits.length ? waits.reduce((a, b) => (b.hours > a.hours ? b : a)).age : null;
 
   // The three numbers. Scripts target = the copywriters' weekly targets (Settings → People);
