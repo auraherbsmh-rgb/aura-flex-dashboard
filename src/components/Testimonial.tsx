@@ -5,7 +5,13 @@ import { Modal } from "./Modal";
 import { AssignButton } from "./Production";
 import { addTestimonial, tagTestimonial, testimonialNotUsable } from "@/app/tasks/actions";
 import { toConceptTag } from "@/lib/parse";
-import { fmtWhen, type EditorLoad, type ProdCard, type TestimonialLite } from "@/lib/tasks-shared";
+import { fmtWhen, type EditorLoad, type ProdCard, type Production, type TestimonialLite } from "@/lib/tasks-shared";
+
+/** The new task's production as the Assign pop-up needs it (recording in, brief prefilled). */
+export const prodFor = (card: ProdCard, brief: string): Production => ({
+  taskId: card.taskId, footageUrl: null, allHooksShot: true, footageGap: null, footageAt: card.confirmedAt, editorId: null, editorName: null,
+  editDue: null, brief: brief.trim(), reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null,
+});
 import type { Pickers } from "@/lib/proposals-shared";
 
 const AWARENESS = ["Problem-Aware", "Solution-Aware", "Product-Aware", "Most-Aware"];
@@ -24,6 +30,7 @@ export function TestimonialButton({
   className = "add",
   who = "Founder 2 · TESTIMONIAL item",
   onDone,
+  onCreated,
 }: {
   pickers: Pickers;
   editors: EditorLoad[];
@@ -33,6 +40,8 @@ export function TestimonialButton({
   className?: string;
   who?: string;
   onDone?: (msg: string) => void;
+  /** Home items: the parent opens Assign (this row disappears once the item is used). */
+  onCreated?: (card: ProdCard, current: Production) => void;
 }) {
   const blank = () => ({ url: "", note: "", avatarId: "", awareness: "", angleId: "", face: "", brief: "", hooks: 3 });
   const [open, setOpen] = useState(false);
@@ -79,10 +88,12 @@ export function TestimonialButton({
       setOpen(false);
       say(r.ok!);
       if (r.taskId) {
-        setAssign({
+        const card: ProdCard = {
           taskId: r.taskId, face: f.face.trim() || tag, cell: `${avatar?.code ?? "?"} × ${f.awareness.replace("-Aware", "")}`, angle: angle?.label ?? "", format: "UGC · Testimonial",
           copywriter: "a support call", shootOn: null, generate: false, vo: false, testimonial: true, hooks: f.hooks, confirmedAt: new Date().toISOString(),
-        });
+        };
+        if (onCreated) onCreated(card, prodFor(card, f.brief));
+        else setAssign(card);
       }
     });
 
@@ -90,8 +101,8 @@ export function TestimonialButton({
     <>
       <button type="button" className={className} onClick={() => { setF(blank()); setError(""); setReason(""); setRejecting(false); setMsg(""); setOpen(true); }}>{label}</button>
       {msg && !item && <span className="formmsg" role="status" style={{ marginLeft: 10 }}>{msg}</span>}
-      {assign && <AssignButton key={assign.taskId} startOpen card={assign} editors={editors} current={{ taskId: assign.taskId, footageUrl: null, allHooksShot: true, footageGap: null, footageAt: assign.confirmedAt, editorId: null, editorName: null, editDue: null, brief: f.brief.trim(), reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null }} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={say} />}
-      <Modal open={open} onClose={() => setOpen(false)} who={item ? who : "Founder · new testimonial"} title={item ? "Tag this testimonial" : "New testimonial"} width={620}>
+      {assign && <AssignButton key={assign.taskId} startOpen card={assign} editors={editors} current={prodFor(assign, f.brief)} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={say} />}
+      <Modal open={open} onClose={() => setOpen(false)} who={item ? who : "Founder · new testimonial"} title="New testimonial" width={560}>
         {item ? (
           <div className="copy">
             <span>▶ Support call · {fmtWhen(item.addedAt)}{item.note ? ` · ${item.note}` : ""}</span>
@@ -139,7 +150,7 @@ export function TestimonialButton({
             {f.face.trim() && !tag && <span className="formmsg err">Use Latin letters or digits (it goes into ad names).</span>}
           </label>
         </div>
-        <span className="tag t-grey" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />UGC + TESTIMONIAL · SKIPS SCRIPT AND SHOOT</span>
+        <span className="tag t-grey" style={{ alignSelf: "flex-start", whiteSpace: "normal", maxWidth: "100%" }}><i aria-hidden="true" />UGC + TESTIMONIAL · SKIPS SCRIPT AND SHOOT</span>
         <label className="field">
           <span className="lbl">Brief · one text box ●</span>
           <textarea className={`ta ${f.brief.trim().length < 3 ? "fi-miss" : ""}`} rows={3} value={f.brief} maxLength={2000} onChange={(e) => setF({ ...f, brief: e.target.value })} placeholder="Keep her own words; cut to the stairs moment; subtitles." />

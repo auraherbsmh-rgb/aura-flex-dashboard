@@ -7,3 +7,4 @@
 --   tag_testimonial(id|null, url, note, avatar, awareness, angle, face, tag, brief, hooks 1–6) → a UGC task, status details_done,
 --   origin testimonial, script_details confirmed (ad set name UGC_Avatar_Awareness_Angle_Tag, unique), N ad variations
 --   (hook type empty, "Testimonial cut N"), production with the recording as footage + the brief → next step Assign.
+-- Checker round 1 (migration "testimonial_keep_note"): tagging a saved item keeps its note as the task's founder note.

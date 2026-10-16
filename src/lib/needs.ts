@@ -104,6 +104,7 @@ export function buildNeeds(
     }
   }
   // FOOTAGE (from the shoot day) and ASSIGN (footage in, or AI / 3D confirmed): Founder 2's; Founder 1 covers when late.
+  // TESTIMONIAL: a support-call recording waiting to be tagged (Founder 2; Founder 1 covers after 48h).
   for (const tm of prod?.testimonials ?? []) {
     const cover = prod?.coverHours ?? 48;
     const age = ageLabel(tm.addedAt, now, cover);

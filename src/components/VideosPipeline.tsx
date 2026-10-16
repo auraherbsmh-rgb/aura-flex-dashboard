@@ -114,7 +114,7 @@ export function VideosPipeline({
         ))}
       </div>
       <div className="pipe-legend">
-        <span>Black = step done</span><span>Outlined = where it is now, time spent there</span><span>Red = late on that step</span><span>Hatched = skipped (AI / 3D and VO have no shoot)</span><span>Click a row → Footage / VO received, Assign, or the video</span><span>Striped = on hold (no alerts)</span>
+        <span>Black = step done</span><span>Outlined = where it is now, time spent there</span><span>Red = late on that step</span><span>Hatched = skipped (AI / 3D, VO and testimonials have no shoot)</span><span>Click a row → Footage / VO received, Assign, or the video</span><span>Striped = on hold (no alerts)</span>
       </div>
       <div className="unit" style={{ padding: "0 8px" }}>
         Late rules (Settings): footage not received 2 days after the shoot date (VO: 2 days after the details are confirmed) · editing due date passed or round 3 · review waiting over 48 h · launch waiting over 2 days. Videos on hold skip these until resumed. Each also reaches your Home as a Needs-me item.

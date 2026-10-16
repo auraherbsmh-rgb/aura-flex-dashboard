@@ -6,7 +6,7 @@ import { Modal } from "./Modal";
 import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
 import type { NeedGroup } from "@/lib/needs";
-import type { EditorLoad } from "@/lib/tasks-shared";
+import type { EditorLoad, ProdCard, Production } from "@/lib/tasks-shared";
 import { AssignButton, FootageButton, LaunchButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { CreateTaskButton } from "./Tasks";
@@ -184,6 +184,8 @@ export function NeedsMe({
   const [openId, setOpenId] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState("");
   const [showAll, setShowAll] = useState(false);
+  // Assign after tagging a testimonial: held here because the TESTIMONIAL row disappears once it is used.
+  const [assign, setAssign] = useState<{ card: ProdCard; current: Production } | null>(null);
   const groups = showAll && allGroups ? allGroups : mine;
   const total = showAll && allGroups ? allGroups.reduce((n, g) => n + g.items.length, 0) : mineTotal;
   return (
@@ -203,6 +205,7 @@ export function NeedsMe({
         </div>
       </div>
       {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
+      {assign && <AssignButton key={assign.card.taskId} startOpen card={assign.card} editors={editors} current={assign.current} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={setDoneMsg} />}
       {groups.length === 0 && <div className="info">{showAll ? "Nothing needs either founder right now." : "Nothing needs you right now."}</div>}
       {groups.map((g) => (
         <div key={g.name}>
@@ -223,7 +226,7 @@ export function NeedsMe({
                     ? <FootageButton card={it.prod.card} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s FOOTAGE item" : "Founder 2 · FOOTAGE item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                     : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s ASSIGN item" : "Founder 2 · ASSIGN item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                 ) : it.testimonial && pickers ? (
-                  <TestimonialButton item={it.testimonial} pickers={pickers} editors={editors} label="Tag testimonial" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s TESTIMONIAL item" : "Founder 2 · TESTIMONIAL item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                  <TestimonialButton item={it.testimonial} pickers={pickers} editors={editors} label="Tag testimonial" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s TESTIMONIAL item" : "Founder 2 · TESTIMONIAL item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} onCreated={(card, current) => setAssign({ card, current })} />
                 ) : it.href ? (
                   <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
                 ) : it.proposal ? (
