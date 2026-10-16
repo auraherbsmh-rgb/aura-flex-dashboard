@@ -5,7 +5,8 @@ import { Modal } from "./Modal";
 import { CopyName } from "./ScriptDetails";
 import { LIB_STATE, NO_FILTER, STEP_NAMES, filterLibrary, type LibFilter, type LibRow } from "@/lib/library-shared";
 
-const STEP_COLORS = ["#2C2C2C", "#55564F", "#77776F", "#C63421", "#8C8C86", "#B9B9B3"];
+// No red: red means late. The agency wait is yellow (waiting).
+const STEP_COLORS = ["#2C2C2C", "#55564F", "#77776F", "#E0A419", "#8C8C86", "#B9B9B3"];
 const AWARENESS = ["Problem-Aware", "Solution-Aware", "Product-Aware", "Most-Aware"];
 const fmt = (iso: string | null) => (iso ? new Date(Date.parse(iso) + 36e5).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "—");
 
