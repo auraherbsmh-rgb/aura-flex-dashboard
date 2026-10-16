@@ -53,7 +53,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
               const on = selected?.avatarId === c.avatarId && selected.awareness === c.awareness;
               return (
                 <span role="cell" key={c.awareness} style={{ display: "flex" }}>
-                  <button type="button" className={`cell ${CELL_CLASS[c.state]} ${on ? "cell-on" : ""}`} aria-pressed={on}
+                  <button type="button" className={`cell ${c.mixed ? "s-mixed" : CELL_CLASS[c.state]} ${on ? "cell-on" : ""}`} aria-pressed={on}
                     aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? "empty, click to propose a test" : c.line}`} onClick={() => {
                       const k = { avatarId: c.avatarId, awareness: c.awareness };
                       onPick(k);

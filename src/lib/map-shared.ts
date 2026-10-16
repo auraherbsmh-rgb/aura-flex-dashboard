@@ -47,6 +47,8 @@ export type MapCell = {
   avatarCode: string;
   awareness: string;
   state: ConceptState | "empty";
+  /** More than one state in the cell: the box stays neutral and the coloured dots show each state. */
+  mixed: boolean;
   word: string;
   line: string;
   counts: Record<ConceptState, number>;
@@ -81,7 +83,10 @@ export function buildMap(concepts: MapConcept[], avatars: { id: string; code: st
       ].filter(Boolean);
       return {
         avatarId: a.id, avatarCode: a.code ?? a.label, awareness: lvl, state,
-        word: state === "empty" ? "EMPTY" : state === "test" ? "TEST" : state === "production" ? "IN PROD" : "WRITING",
+        mixed: [counts.test, counts.production, counts.writing].filter((n) => n > 0).length > 1,
+        word: state === "empty" ? "EMPTY"
+          : [counts.test, counts.production, counts.writing].filter((n) => n > 0).length > 1 ? `${list.length} CONCEPTS`
+          : state === "test" ? "TEST" : state === "production" ? "IN PROD" : "WRITING",
         line: parts.length ? parts.join(" · ") : "+ Propose a test",
         counts, concepts: list,
       };

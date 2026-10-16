@@ -376,6 +376,8 @@ test("Map: concepts by avatar × awareness, track, start date, states, cell view
   const rows = buildMap(knee, avatars);
   const cell = rows[0].cells[0];
   assert.equal(cell.state, "test");
+  assert.equal(cell.mixed, true);
+  assert.equal(cell.word, "3 CONCEPTS");
   assert.equal(cell.line, "1 testing · 1 in production · 1 writing");
   assert.equal(rows[0].cells[3].word, "WRITING");
   assert.equal(rows[1].cells[0].state, "empty");
