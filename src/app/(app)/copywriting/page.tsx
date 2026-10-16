@@ -58,7 +58,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
           <CopyBoard
             tasks={allTasks}
             writers={writers}
-            initialCw={cw}
             initialSelected={selected?.id ?? null}
             forFounder={founder}
             viewerId={viewer.personId}

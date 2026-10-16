@@ -176,7 +176,7 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
   const supabase = await createClient();
   type D = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; main_argument_id: string | null; offer_bottles: number | null; variations: unknown; ad_set_name: string | null; confirmed_at: string | null };
   type A = { id: string; task_id: string; v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
-  type H = { avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
+  type H = { angle_id: string; task_id: string; avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
   const [money, lists, dets, ads, hists] = await Promise.all([
     supabase.from("money_settings").select("business_line_usd, price_1b_tnd, price_2b_tnd, price_3b_tnd").order("month", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
@@ -186,7 +186,7 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
     allRows("hooks", (a, b) =>
       supabase.from("ad_variations").select("id, task_id, v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("active", true).order("id").range(a, b) as unknown as PromiseLike<{ data: A[] | null; error: unknown }>,
     ),
-    Promise.all(tasks.map((t) => supabase.rpc("angle_history", { p_angle: t.angleId, p_exclude: t.id }).then((r) => [t.id, (r.data ?? []) as H[]] as const))),
+    supabase.rpc("angle_history_many", { p_angles: [...new Set(tasks.map((t) => t.angleId))] }),
   ]);
   if (lists.error) throw new Error("Could not read the lists. Reload the page.");
   const num = (x: unknown) => (x === null || x === undefined ? null : Number(x));
@@ -218,10 +218,14 @@ export async function getBoardExtras(tasks: TaskRow[]): Promise<{
       ads: (adsBy.get(d.task_id) ?? []).sort((x, y) => x.v - y.v),
     });
   }
+  // One call for every angle on the board; each task then skips its own row (max 50 per task, newest first).
+  if (hists.error) throw new Error("Could not read what was tried in each angle. Reload the page.");
+  const byAngle = new Map<string, H[]>();
+  for (const h of (hists.data ?? []) as H[]) byAngle.set(h.angle_id, [...(byAngle.get(h.angle_id) ?? []), h]);
   const history = new Map<string, AngleHistoryRow[]>(
-    hists.map(([id, hs]) => [
-      id,
-      hs.map((h) => ({
+    tasks.map((t) => [
+      t.id,
+      (byAngle.get(t.angleId) ?? []).filter((h) => h.task_id !== t.id).slice(0, 50).map((h) => ({
         cell: `${h.avatar_code} × ${h.awareness.replace("-Aware", "")}`,
         format: h.format_label,
         status: h.status,

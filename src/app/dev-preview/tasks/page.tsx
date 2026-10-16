@@ -65,7 +65,6 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             <CopyBoard
               tasks={tasks}
               writers={[["c1", "Copywriter 1"], ["c2", "Copywriter 2"]]}
-              initialCw={null}
               initialSelected={null}
               forFounder
               viewerId="f1"

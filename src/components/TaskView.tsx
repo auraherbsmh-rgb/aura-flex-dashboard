@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { startTransition, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
 import { AssignButton, FootageButton } from "./Production";
@@ -107,7 +108,6 @@ export type BoardData = {
 export function CopyBoard({
   tasks,
   writers,
-  initialCw,
   initialSelected,
   forFounder,
   viewerId,
@@ -118,7 +118,6 @@ export function CopyBoard({
 }: {
   tasks: TaskRow[];
   writers: [string, string][];
-  initialCw: string | null;
   initialSelected: string | null;
   forFounder: boolean;
   viewerId: string;
@@ -127,8 +126,20 @@ export function CopyBoard({
   side: React.ReactNode;
   data: BoardData;
 }) {
-  const [cw, setCw] = useState<string | null>(initialCw);
-  const [sel, setSel] = useState<string | null>(initialSelected);
+  // Instant: the choice lives in state and is written to the address. A navigation to this page with another
+  // ?task / ?cw (e.g. a Pipeline row) changes the address, and the board follows it ("previous value" pattern).
+  const params = useSearchParams();
+  const urlTask = params.get("task");
+  const rawCw = params.get("cw");
+  const urlCw = rawCw && writers.some(([id]) => id === rawCw) ? rawCw : null;
+  const [sel, setSel] = useState<string | null>(urlTask ?? initialSelected);
+  const [cw, setCw] = useState<string | null>(urlCw);
+  const [seen, setSeen] = useState({ task: urlTask, cw: urlCw });
+  if (seen.task !== urlTask || seen.cw !== urlCw) {
+    setSeen({ task: urlTask, cw: urlCw });
+    if (urlTask && urlTask !== seen.task) setSel(urlTask);
+    if (urlCw !== seen.cw) setCw(urlCw);
+  }
   const setAddress = (patch: Record<string, string | null>) => {
     const q = new URLSearchParams(window.location.search);
     for (const [k, v] of Object.entries(patch)) { if (v) q.set(k, v); else q.delete(k); }
