@@ -4,21 +4,28 @@ import { CreateTaskButton } from "@/components/Tasks";
 import { BoardInbox, TaskView } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
-import { getCreateTaskContext, getTaskExtras, getTasks, inboxLine, requestTime } from "@/lib/tasks";
+import { getCreateTaskContext, getDetailsLite, getTaskExtras, getTasks, inboxLine, requestTime, weekStartIso } from "@/lib/tasks";
+import { getRule } from "@/lib/needs";
+import { buildPipeline } from "@/lib/pipeline-shared";
+import { CopyViews, type CopyView } from "@/components/CopyViews";
+import { ScriptsPipeline } from "@/components/Pipeline";
 
 export const metadata = { title: "Copywriting · Aura Flex" };
 
-type Search = { task?: string; cw?: string };
+type Search = { task?: string; cw?: string; view?: string };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
   const viewer = await requireTab("copywriting");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
   const sp = await searchParams;
-  const [pickers, proposals, allTasks, ctx] = await Promise.all([
+  const [pickers, proposals, allTasks, ctx, detailsLite, reviewHours, detailsDays] = await Promise.all([
     getPickers(),
     getProposals(),
     getTasks(),
     founder ? getCreateTaskContext() : Promise.resolve(null),
+    getDetailsLite(),
+    getRule("review_waiting_hours", 48),
+    getRule("details_not_filled_days", 1),
   ]);
 
   // Founders switch between copywriters (Copywriter 1 · 2 · All); a copywriter only ever has her own tasks.
@@ -36,9 +43,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const extras = selected ? await getTaskExtras(selected) : null;
+  const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now });
+  const initialView: CopyView = sp.view === "pipeline" || sp.view === "library" ? sp.view : "board";
 
   return (
     <TabPage tab="copywriting" title="Copywriting">
+      <CopyViews
+        key={`${initialView}-${sp.task ?? ""}`}
+        initial={initialView}
+        pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} />}
+        library={<NotBuiltYet phase="phase 2" what="The Library (every script, searchable, with its results) comes after the production screens." />}
+        board={
       <div className="board">
         <aside className="board-side">
           <BoardInbox
@@ -80,6 +95,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
           )}
         </div>
       </div>
+        }
+      />
     </TabPage>
   );
 }

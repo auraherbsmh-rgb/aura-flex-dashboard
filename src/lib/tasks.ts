@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { DetailsLite } from "@/lib/pipeline-shared";
 import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
@@ -159,4 +160,14 @@ export async function getTaskExtras(task: TaskRow): Promise<{
     month: new Date(h.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "Africa/Tunis" }),
   }));
   return { history, line: num(m?.business_line_usd), details, pickers };
+}
+
+/** Script details of the tasks the viewer may see (face, shoot, confirmed), for the Scripts pipeline. */
+export async function getDetailsLite(): Promise<DetailsLite[]> {
+  const supabase = await createClient();
+  type R = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; confirmed_at: string | null };
+  const rows = await allRows("script details", (a, b) =>
+    supabase.from("script_details").select("task_id, face, shoot_on, generate, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
+  );
+  return rows.map((r) => ({ taskId: r.task_id, face: r.face, shootOn: r.shoot_on, generate: r.generate, confirmedAt: r.confirmed_at }));
 }

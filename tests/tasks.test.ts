@@ -89,3 +89,32 @@ test("Script details: what blocks Confirm", () => {
   assert.deepEqual(missingDetails({ ...ok, shootOn: "" }, "Sami"), ["shoot date (or AI / 3D)"]);
   assert.deepEqual(missingDetails({ ...ok, variations: [v, { ...v, hookTypeId: "" }] }, ""), ["face name", "3 more variations", "V2 hook type"]);
 });
+
+import { buildPipeline } from "../src/lib/pipeline-shared";
+
+test("Scripts pipeline: steps, late rules, handed to production", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const base = { ...t0, createdAt: "2026-10-14T10:00:00Z" };
+  const sent = { round: 1, scriptUrl: "https://x.y", submittedAt: "2026-10-13T08:00:00Z", submittedBy: "C1", decision: null, loom: null, note: null, decidedBy: null, decidedAt: null };
+  const tasks = [
+    { ...base, id: "w", status: "writing", dueOn: "2026-10-20" },
+    { ...base, id: "wl", status: "writing", dueOn: "2026-10-14" },
+    { ...base, id: "r", status: "review", rounds: [sent] }, // 74h in review → late
+    { ...base, id: "a", status: "approved", rounds: [{ ...sent, decision: "approved" as const, decidedAt: "2026-10-16T08:00:00Z" }] },
+    { ...base, id: "d", status: "details_done" },
+  ];
+  const p = buildPipeline(tasks, [{ taskId: "d", face: "Sami", shootOn: "2026-10-17", generate: false, confirmedAt: "2026-10-15T09:00:00Z" }], {
+    forFounder: true, reviewHours: 48, detailsDays: 1, weekStart: "2026-10-11T23:00:00.000Z", now,
+  });
+  const by = new Map(p.rows.map((r) => [r.id, r]));
+  assert.equal(p.rows.length, 4);
+  assert.deepEqual(by.get("w")!.steps, ["now", "todo", "todo", "todo", "todo"]);
+  assert.equal(by.get("wl")!.late, true);
+  assert.equal(by.get("wl")!.due, "late 2 d");
+  assert.deepEqual(by.get("r")!.steps, ["done", "late", "todo", "todo", "todo"]);
+  assert.equal(by.get("r")!.waitingOn, "You");
+  assert.deepEqual(by.get("a")!.steps, ["done", "done", "skip", "done", "now"]);
+  assert.equal(by.get("a")!.nowLabel, "2h");
+  assert.ok(p.rows[0].late && p.rows[1].late, "late first");
+  assert.deepEqual(p.handed.map((h) => h.label), ["SAMI · SHOOT SAT"]);
+});

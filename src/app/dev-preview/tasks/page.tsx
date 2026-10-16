@@ -5,6 +5,8 @@ import { CreateTaskButton } from "@/components/Tasks";
 import { Inbox, TaskView } from "@/components/TaskView";
 import { buildNeeds } from "@/lib/needs";
 import { NeedsMe } from "@/components/Proposals";
+import { ScriptsPipeline } from "@/components/Pipeline";
+import { buildPipeline } from "@/lib/pipeline-shared";
 import type { Pickers, Proposal } from "@/lib/proposals-shared";
 import type { CreateTaskContext, TaskRow } from "@/lib/tasks-shared";
 
@@ -59,6 +61,13 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       <div className="slab">
         <div className="band"><AppHeader viewer={v1} active="copywriting" /><h1 className="h1" style={{ marginTop: 28 }}>Copywriting</h1></div>
         <div className="body">
+          {view === "pipeline" && (
+            <ScriptsPipeline
+              forFounder
+              writers={[["c1", "Copywriter 1"], ["c2", "Copywriter 2"]]}
+              data={buildPipeline(tasks.map((t) => ({ ...t, createdAt: "2026-10-14T09:00:00Z" })), [{ taskId: "t7", face: "Sami", shootOn: "2026-10-17", generate: false, confirmedAt: "2026-10-15T12:00:00Z" }], { forFounder: true, reviewHours: 48, detailsDays: 1, weekStart: "2026-10-11T23:00:00.000Z", now: Date.parse("2026-10-16T09:00:00Z") })}
+            />
+          )}
           <NeedsMe groups={needs} total={needs.reduce((n, g) => n + g.items.length, 0)} />
           <div className="board">
             <aside className="board-side">
