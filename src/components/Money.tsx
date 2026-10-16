@@ -53,7 +53,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         </div>
       )}
       {!shipperMissing && shipperNote && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}>{shipperNote}</div>}
-      {isMonth && closed!.noMeta && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}><b>No Meta purchases pulled for {closed!.label}.</b> Profit uses Shipper leads and ad spend; CPA, tracking and the leak finder wait for Meta.</div>}
+      {isMonth && closed!.noMeta && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}><b>No Meta data pulled for {closed!.label}.</b> Without ad spend there is no profit: profit, the waterfall, CPA, tracking and the leak finder wait for Meta. Gross sales, orders and stock come from Shipper.</div>}
       {!hasMeta && <div className="info">No Meta results yet: the numbers fill in after the first Meta pull.</div>}
 
       <section className="money-row3">
@@ -62,7 +62,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             <div className="lbl">{isMonth ? `Profit after all costs · ${closed!.label}` : "Profit after all costs · estimate"}</div>
             <span className={`tag ${ZONE_TAG[zone][0]}`}><i aria-hidden="true" />{ZONE_TAG[zone][1]}</span>
           </div>
-          <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>
+          {isMonth && closed!.noMeta ? <div className="money-big money-muted">—</div> : <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>}
           <div className="unit">
             {isMonth ? "" : "Meta purchases × line − spend · "}CPA {cpa === null ? "—" : `$${cpa.toFixed(2)}`} vs line ${lineNow.toFixed(2)}{overPct !== null ? ` · ${Math.abs(overPct)}% ${overPct >= 0 ? "over" : "under"}` : ""}
           </div>
@@ -75,7 +75,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         <div className="card money-tile">
           <div className="lbl">{isMonth ? `Change vs ${closed!.prevLabel}` : "Change vs last week"}</div>
           {isMonth ? (
-            closed!.prevProfit === null ? <><div className="money-big money-muted">—</div><div className="unit">{closed!.prevLabel} not in the Shipper data</div></> : (
+            closed!.noMeta ? <><div className="money-big money-muted">—</div><div className="unit">waits for Meta</div></> : closed!.prevProfit === null ? <><div className="money-big money-muted">—</div><div className="unit">{closed!.prevLabel} not in the Shipper data</div></> : (
               <>
                 <div className="money-big" style={{ color: closed!.profit - closed!.prevProfit < 0 ? "#A1241A" : "#135F33" }}>{signed(closed!.profit - closed!.prevProfit)}</div>
                 <div className="unit">{signed(closed!.prevProfit)} → {signed(closed!.profit)} TND{(() => {
@@ -129,7 +129,9 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
 
       <Trend points={view.trend} />
 
-      {closed ? (
+      {closed?.noMeta ? (
+        <section className="card" style={{ padding: "22px 24px" }}><h3 style={{ margin: 0 }}>Where every dinar goes · {closed.label}</h3><div className="info" style={{ marginTop: 10 }}>Waits for Meta: ad spend for {closed.label} isn&apos;t pulled.</div></section>
+      ) : closed ? (
         <section className="card" style={{ padding: "22px 24px" }} aria-labelledby="h-wf">
           <div className="money-head"><h3 id="h-wf">Where every dinar goes · {closed.label}{isMonth ? "" : " (last closed)"}</h3><span className="lbl">Delivered sales only · TND</span></div>
           <div className="wf wf-head"><span /><span className="lbl">0 · TND left after each cost</span><span className="lbl" style={{ textAlign: "right" }}>TND</span><span className="lbl" style={{ textAlign: "right" }}>of gross</span></div>
@@ -219,20 +221,25 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
 /** Profit trend · last 12 weeks: curve over zero, green / red areas, settling weeks dashed, last value labelled, two status words. */
 function Trend({ points }: { points: TrendPoint[] }) {
   if (!points.length) return null;
-  const vals = points.map((p) => p.profit);
+  // Weeks with no Meta data have no profit: left out of the line and the status words.
+  const have = points.map((p, i) => ({ p, i })).filter(({ p }) => !p.missing);
+  const missingN = points.length - have.length;
+  const vals = have.map(({ p }) => p.profit);
   const max = Math.max(1000, ...vals.map(Math.abs));
   const W = 1000, H = 220, pad = 10;
   const x = (i: number) => ((i + 0.5) * W) / points.length; // centred under each date label
   const y = (v: number) => H / 2 - (v / max) * (H / 2 - pad);
-  const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
+  const seg = (xs: { p: TrendPoint; i: number }[]) => xs.map(({ p, i }, k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
+  const path = seg(have);
   const tick = Math.round(max / 2 / 100) * 100 || 500;
-  const area = `${path} L${x(points.length - 1)},${H / 2} L${x(0)},${H / 2} Z`;
-  const firstSettling = points.findIndex((p) => p.settling);
+  const area = have.length ? `${path} L${x(have[have.length - 1].i)},${H / 2} L${x(have[0].i)},${H / 2} Z` : "";
+  const firstSettling = have.findIndex(({ p }) => p.settling);
   let loss = 0; for (let i = vals.length - 1; i >= 0 && vals[i] < 0; i--) loss++;
   let gain = 0; for (let i = vals.length - 1; i >= 0 && vals[i] >= 0; i--) gain++;
   let up = 0; for (let i = vals.length - 1; i > 0 && vals[i] > vals[i - 1]; i--) up++;
   let down = 0; for (let i = vals.length - 1; i > 0 && vals[i] < vals[i - 1]; i--) down++;
-  const last = points[points.length - 1];
+  if (!have.length) return <section className="card" style={{ padding: "22px 24px" }}><h3 style={{ margin: 0 }}>Profit trend · last 12 weeks</h3><div className="info" style={{ marginTop: 10 }}>Waits for Meta: no week has ad spend pulled yet.</div></section>;
+  const last = have[have.length - 1].p;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   return (
     <section className="card" style={{ padding: "22px 24px" }} aria-labelledby="h-trend">
@@ -247,7 +254,7 @@ function Trend({ points }: { points: TrendPoint[] }) {
       <div className="trend-ticks" aria-hidden="true">{[tick, 0, -tick].map((t) => <span key={t} style={{ top: `${(y(t) / H) * 100}%` }}>{t > 0 ? "+" : t < 0 ? "−" : ""}{Math.abs(t).toLocaleString("en-US")}</span>)}</div>
       <div style={{ minWidth: 0 }}>
       <div style={{ position: "relative" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="trend-svg" role="img" aria-label={`Weekly profit: ${points.map((p) => `${fmt(p.monday)} ${Math.round(p.profit)} TND${p.settling ? " (settling)" : ""}`).join(", ")}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="trend-svg" role="img" aria-label={`Weekly profit: ${points.map((p) => `${fmt(p.monday)} ${p.missing ? "no Meta data" : `${Math.round(p.profit)} TND${p.settling ? " (settling)" : ""}`}`).join(", ")}`}>
         <defs>
           <clipPath id="tr-up"><rect x="0" y="0" width={W} height={H / 2} /></clipPath>
           <clipPath id="tr-down"><rect x="0" y={H / 2} width={W} height={H / 2} /></clipPath>
@@ -256,8 +263,8 @@ function Trend({ points }: { points: TrendPoint[] }) {
         <path d={area} fill="rgba(214,59,39,0.16)" clipPath="url(#tr-down)" />
         <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#B9B9B3" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         {/* Solid up to the last settled week; dashed from there into the settling weeks. */}
-        {firstSettling !== 0 && <path d={(firstSettling > 0 ? points.slice(0, firstSettling) : points).map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />}
-        {firstSettling >= 0 && <path d={points.slice(Math.max(0, firstSettling - 1)).map((p, i) => `${i ? "L" : "M"}${x(i + Math.max(0, firstSettling - 1)).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
+        {firstSettling !== 0 && <path d={seg(firstSettling > 0 ? have.slice(0, firstSettling) : have)} fill="none" stroke="#111" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />}
+        {firstSettling >= 0 && <path d={seg(have.slice(Math.max(0, firstSettling - 1)))} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
         
       </svg>
       <span className="trend-end" style={{ top: `${(y(last.profit) / H) * 100}%` }}>{signed(last.profit)}{last.settling ? " · settling" : ""}</span>
@@ -266,7 +273,7 @@ function Trend({ points }: { points: TrendPoint[] }) {
       </div>
       </div>
       <div className="unit" style={{ marginTop: 6 }}>
-        Last week {signed(last.profit)} TND{last.settling ? " · settling" : ""}. Green area = profit · red area = loss · dashed = estimate while delivery settles (Meta purchases × line − spend) · weeks by order date.
+        {have[have.length - 1].i === points.length - 1 ? "Last week" : "Latest week with Meta data"} {signed(last.profit)} TND{last.settling ? " · settling" : ""}. Green area = profit · red area = loss · dashed = estimate while delivery settles (Meta purchases × line − spend) · weeks by order date.{missingN ? ` ${missingN} week${missingN > 1 ? "s" : ""} without Meta data left out.` : ""}
       </div>
     </section>
   );

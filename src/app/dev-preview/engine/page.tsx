@@ -39,7 +39,7 @@ export default function Preview() {
     }
   }
   const base = { now, tasks, lib, results, editRounds, launchedAt, log, marginUsd: 6.0, rate: 3.35, hasMeta: true,
-    cost: { copywriters: 3000, copywriterPerScript: 0, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" },
+    cost: { copywriters: 3000, copywriterPerScript: {}, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" },
     winnersMoney: new Map(Object.keys(results).map((id) => [id, { sales: 60, spendUsd: 190 }])) };
   return (
     <main className="page"><div className="slab"><div className="body">

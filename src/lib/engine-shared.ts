@@ -8,7 +8,7 @@ import type { ConceptResult, TaskRow } from "./tasks-shared";
 import type { EditRound } from "./editing-shared";
 
 export type StateLog = { taskId: string; state: string; live?: boolean; at: string };
-export type CostParts = { copywriters: number; copywriterPerScript: number; agency: number; strategist: number; editingPerVideo: number; copywritersNote: string };
+export type CostParts = { copywriters: number; copywriterPerScript: Record<string, number>; agency: number; strategist: number; editingPerVideo: number; copywritersNote: string };
 export type PeriodKey = "4w" | "3m";
 
 const ALIVE = new Set(["won", "deteriorating", "recovering"]);
@@ -60,7 +60,13 @@ export function buildEngine(input: {
   const monthStart = Date.parse(`${new Date(now + 36e5).toISOString().slice(0, 7)}-01T00:00:00+01:00`);
   const born = Object.values(results).filter((r) => r.wonAt && Date.parse(r.wonAt) >= monthStart).length;
   const everWon = new Set(Object.values(results).filter((r) => r.everWon).map((r) => r.taskId));
-  const fadedIds = (since: number) => new Set(log.filter((e) => everWon.has(e.taskId) && (e.state === "fading" || e.state === "lost" || e.live === false) && Date.parse(e.at) >= since).map((e) => e.taskId));
+  // Faded or lost in the window = an ever-won concept whose latest log row in the window is fading, lost or paused
+  // (a winner paused and turned back on, or recovered, does not count).
+  const fadedIds = (since: number) => {
+    const latest = new Map<string, StateLog>();
+    for (const e of log) if (everWon.has(e.taskId) && Date.parse(e.at) >= since && Date.parse(e.at) <= now) latest.set(e.taskId, e);
+    return new Set([...latest.values()].filter((e) => e.state === "fading" || e.state === "lost" || e.live === false).map((e) => e.taskId));
+  };
   const faded = fadedIds(monthStart).size;
 
   // Settled in the period: won (first win in the period) or lost (verdict in the period).
@@ -152,8 +158,8 @@ export function buildEngine(input: {
 
   // 5. Engine cost and return (per month; the period's videos approved × pay per video).
   const videos = produced.length / months;
-  const scriptsPerMonth = approvals.length / months;
-  const cwMonth = cost.copywriters + cost.copywriterPerScript * scriptsPerMonth;
+  // Per-script pay: each copywriter's own rate × that copywriter's approvals in the period, per month.
+  const cwMonth = cost.copywriters + approvals.reduce((n, { t }) => n + (cost.copywriterPerScript[t.copywriterId] ?? 0), 0) / months;
   const monthCost = cwMonth + cost.agency + cost.strategist + cost.editingPerVideo * videos;
   const periodCost = monthCost * months;
   const winnersInPeriod = Object.values(results).filter((r) => inP(r.wonAt, from, to)).length;

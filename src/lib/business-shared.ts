@@ -157,9 +157,9 @@ export type ClosedMonth = {
   aov: number; waterfall: Waterfall[]; leaks: LeakRow[] | null; leakTotal: number | null; leakWhy: string | null; tracking: number | null; lineStatus: string;
   fixed: number; estimatedDelivered: number; noMeta: boolean;
 };
-export type TrendNote = { noMetaWeeks: number };
 export type WeekView = { label: string; profit: number; prevProfit: number; zone: ReturnType<typeof lineZone>; cpa: number | null; metaOrders: number; dmOrders: number | null; grossSoFar: number | null; pace: number | null; monthLabel: string; closedLabel: string };
-export type TrendPoint = { monday: string; profit: number; settling: boolean };
+/** missing = no Meta rows for that week (not pulled): no profit can be computed without ad spend. */
+export type TrendPoint = { monday: string; profit: number; settling: boolean; missing?: boolean };
 export type MoneyView = { closed: ClosedMonth | null; week: WeekView; trend: TrendPoint[]; hasShipper: boolean };
 export type MonthBase = { month: string; status: string; base: MoneyBase };
 
@@ -298,7 +298,7 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
       metaOrders: meta.purchases, dmOrders: f.dmLeads, gross, grossPrev: pPrev ? delivered(pPrev) * (fPrev.delivered ? fPrev.revenue / fPrev.delivered : 0) : null,
       delivered: dEst, open: f.open + f.pending, provisional, aov, waterfall, leaks, leakTotal, leakWhy,
       tracking: f.webLeads ? meta.purchases / f.webLeads : null, lineStatus: mb.status,
-      fixed: mb.base.fixedCostsTnd, estimatedDelivered: Math.max(0, dEst - f.delivered), noMeta: meta.purchases === 0,
+      fixed: mb.base.fixedCostsTnd, estimatedDelivered: Math.max(0, dEst - f.delivered), noMeta: meta.purchases === 0 && meta.spendUsd === 0,
     };
   }
 
@@ -327,6 +327,7 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
     const meta = metaFor(metaDays, mon, to);
     const b = baseFor(bases, mon.slice(0, 7)).base;
     const settling = !hasShipper || Date.parse(`${to}T12:00:00Z`) > now - 21 * 864e5;
+    if (meta.purchases === 0 && meta.spendUsd === 0) return { monday: mon, profit: 0, settling, missing: true };
     if (settling) return { monday: mon, profit: estimateProfit(meta, b), settling: true };
     const f = funnel(orders.filter((o) => inWeek(o, mon)), b);
     const fixedWeek = (b.fixedCostsTnd / daysIn(mon.slice(0, 7))) * 7;

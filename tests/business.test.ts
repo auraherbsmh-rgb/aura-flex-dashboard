@@ -65,13 +65,19 @@ test("Business: buildMoney — settled month = books, provisional month estimate
   assert.ok(Math.abs(c.leakTotal! - (c.profit - c.prevProfit!)) < 1e-6);
   assert.equal(v.trend.length, 12);
   assert.equal(v.week.closedLabel, "September");
+  // No Meta rows pulled for September: no profit without ad spend; weeks without Meta are marked missing.
+  const noMeta = buildMoney({ orders, metaDays: metaDays.filter((d) => d.day < "2026-09-01"), bases, now });
+  assert.equal(noMeta.closed!.noMeta, true);
+  assert.equal(noMeta.closed!.leaks, null);
+  assert.ok(noMeta.trend.filter((p) => p.monday >= "2026-09-01").every((p) => p.missing), "September and later weeks have no Meta data");
+  assert.ok(noMeta.trend.some((p) => !p.missing));
 });
 
 test("Engine: buildEngine — chain counts, win rate, pace, bottleneck and cost", async () => {
   const { buildEngine } = await import("../src/lib/engine-shared");
   const now = Date.parse("2026-10-16T09:00:00Z");
   const iso = (d: number) => new Date(now - d * 864e5).toISOString();
-  const mk = (id: string, created: number, sub: number, appr: number) => ({ id, createdAt: iso(created), rounds: [{ round: 1, submittedAt: iso(sub), decision: "approved", decidedAt: iso(appr) }] }) as unknown as import("../src/lib/tasks-shared").TaskRow;
+  const mk = (id: string, created: number, sub: number, appr: number) => ({ id, copywriterId: id === "a" ? "cw1" : "cw2", createdAt: iso(created), rounds: [{ round: 1, submittedAt: iso(sub), decision: "approved", decidedAt: iso(appr) }] }) as unknown as import("../src/lib/tasks-shared").TaskRow;
   const tasks = [mk("a", 20, 17, 16), mk("b", 15, 12, 10), mk("c", 40, 37, 36)];
   const editRounds = new Map([["a", [{ decision: "approved", decidedAt: iso(8) }]], ["c", [{ decision: "approved", decidedAt: iso(25) }]]]) as unknown as Map<string, import("../src/lib/editing-shared").EditRound[]>;
   const launchedAt = new Map<string, string | null>([["a", iso(7)], ["c", iso(24)]]);
@@ -80,7 +86,7 @@ test("Engine: buildEngine — chain counts, win rate, pace, bottleneck and cost"
   const results = { a: r("a", "won", true, 3), c: r("c", "lost", false, 20) };
   const log = [{ taskId: "a", state: "won", at: iso(3) }, { taskId: "c", state: "lost", at: iso(20) }];
   const e = buildEngine({ period: "4w", now, tasks, lib, results, editRounds, launchedAt, log, marginUsd: 4.18, rate: 3.35, hasMeta: true,
-    cost: { copywriters: 3000, copywriterPerScript: 0, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" }, winnersMoney: new Map([["a", { sales: 50, spendUsd: 150 }]]) });
+    cost: { copywriters: 3000, copywriterPerScript: {}, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" }, winnersMoney: new Map([["a", { sales: 50, spendUsd: 150 }]]) });
   assert.deepEqual(e.chain.map((s) => s.n), [2, 2, 2, 2, 1], "created a,b · approved a,b · produced a,c · launched a,c · won a");
   assert.deepEqual(e.won, { won: 1, settled: 2, testing: 0 });
   assert.equal(e.alive, 1);
@@ -98,8 +104,14 @@ test("Engine: buildEngine — chain counts, win rate, pace, bottleneck and cost"
   // A winner paused in Meta leaves "alive" and counts as faded.
   const paused = buildEngine({ period: "4w", now, tasks, lib, results: { ...results, a: { ...results.a, live: false } }, editRounds, launchedAt,
     log: [{ taskId: "a", state: "won", at: iso(10) }, ...log, { taskId: "a", state: "won", live: false, at: iso(1) }], marginUsd: 4.18, rate: 3.35, hasMeta: true,
-    cost: { copywriters: 3000, copywriterPerScript: 0, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" }, winnersMoney: new Map() });
+    cost: { copywriters: 3000, copywriterPerScript: {}, agency: 4000, strategist: 1500, editingPerVideo: 100, copywritersNote: "" }, winnersMoney: new Map() });
   assert.equal(paused.alive, 0);
   assert.equal(paused.aliveLine[10].n, 1, "alive a week ago");
   assert.equal(paused.cost.winnersProfit, 0, "Meta connected, no winner money = 0, not blank");
+  assert.equal(paused.faded, 1, "paused this month = faded");
+  const resumed = buildEngine({ period: "4w", now, tasks, lib, results, editRounds, launchedAt,
+    log: [{ taskId: "a", state: "won", at: iso(10) }, ...log, { taskId: "a", state: "won", live: false, at: iso(2) }, { taskId: "a", state: "won", live: true, at: iso(1) }], marginUsd: 4.18, rate: 3.35, hasMeta: true,
+    cost: { copywriters: 0, copywriterPerScript: { cw1: 50 }, agency: 0, strategist: 0, editingPerVideo: 0, copywritersNote: "" }, winnersMoney: new Map() });
+  assert.equal(resumed.faded, 0, "paused then turned back on = not faded");
+  assert.equal(resumed.cost.month, Math.round((50 * 1) / (28 / 30.4)), "per-script pay × that copywriter's approvals only");
 });
