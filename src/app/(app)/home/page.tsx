@@ -97,7 +97,7 @@ export default async function Page() {
   const target = ctx.copywriters.reduce((n, c) => n + (c.target ?? 0), 0) || null;
   const scriptTasks = tasks.filter((t) => t.origin !== "testimonial");
   const faces = new Map(details.map((d) => [d.taskId, d.face ?? ""]).filter(([, f]) => f) as [string, string][]);
-  const videoRows = buildVideoPipeline(tasks, productions, editRounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert });
+  const videoRows = buildVideoPipeline(tasks, productions, editRounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert, prio: map.prio });
   const clock = tunisClock(now);
 
   mark("computed");

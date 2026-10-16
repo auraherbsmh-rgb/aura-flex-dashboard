@@ -2,7 +2,7 @@
  * Editing tab (handoff §8, Editing artboard): the editor's queue, her open task and her three private tiles.
  * Pure functions, safe for server and browser.
  */
-import { fmtDay, isHeld, tunisDate, type Production, type TaskRow } from "./tasks-shared";
+import { fmtDay, isHeld, prioLabel, prioPos, tunisDate, type Prio, type Production, type TaskRow } from "./tasks-shared";
 
 export type EditRound = {
   round: number;
@@ -58,6 +58,8 @@ export type QueueItem = {
   dueOn: string;
   /** On hold (founders): no alerts, sorted last. */
   hold: boolean;
+  /** Place in the production order (1e6 = not in it). */
+  pos: number;
 };
 
 export type EditCard = { face: string; cell: string; angle: string; format: string; generate: boolean; vo?: boolean };
@@ -71,8 +73,9 @@ export function buildQueue(
   productions: Map<string, Production>,
   rounds: Map<string, EditRound[]>,
   cards: Map<string, EditCard>,
-  opts: { now: number; notStartedDays: number; roundAlert: number },
+  opts: { now: number; notStartedDays: number; roundAlert: number; prio?: Record<string, Prio> },
 ): QueueItem[] {
+  const prio = opts.prio ?? {};
   const today = tunisDate(0, opts.now);
   const tomorrow = tunisDate(1, opts.now);
   const out: QueueItem[] = [];
@@ -109,6 +112,7 @@ export function buildQueue(
       : state === "approved" ? `Approved ${last?.decidedAt ? fmtDay(last.decidedAt.slice(0, 10)) : ""} · counted for payment`
       : state === "ready" ? (t.origin === "testimonial" ? "Testimonial · recording ready" : c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO recording in" : "Footage in Drive"} since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
       : t.origin === "successor" ? "Successor for a fading winner" : "Editing";
+    const order = prio[t.id] && state !== "approved" ? `${prioLabel(prio[t.id])} · ` : "";
     out.push({
       taskId: t.id,
       editorId: p.editorId ?? "",
@@ -117,7 +121,7 @@ export function buildQueue(
       // Launched and Live stand out from Approved at a glance (founder request Oct 16).
       tone: hold ? "t-hold" : state === "approved" && p.liveAt ? "t-live" : state === "approved" && p.launchedAt ? "t-launched" : tag.tone,
       title: `${c.face} · ${c.cell} · ${c.format}`,
-      sub: hold ? `On hold since ${fmtDay(p.holdAt!.slice(0, 10))}${p.holdReason ? ` · ${p.holdReason}` : ""}` : sub,
+      sub: hold ? `On hold since ${fmtDay(p.holdAt!.slice(0, 10))}${p.holdReason ? ` · ${p.holdReason}` : ""}` : order + sub,
       due: hold || state === "approved" || state === "submitted" ? "" : `due ${fmtDay(due).split(" ").slice(0, 1).join("")}`,
       alert,
       alertTone,
@@ -127,10 +131,12 @@ export function buildQueue(
       successor: t.origin === "successor",
       dueOn: due,
       hold,
+      pos: prioPos(prio[t.id]),
     });
   }
-  // On hold sorts last (after approved), so what can move today stays on top.
-  return out.sort((a, b) => Number(a.hold) - Number(b.hold) || Number(b.successor && !b.dim) - Number(a.successor && !a.dim) || a.rank - b.rank || a.dueOn.localeCompare(b.dueOn));
+  // On hold sorts last (after approved), so what can move today stays on top. Work still to do follows the production
+  // order (#1 first, the same order Founder 2 and the copywriters see); approved / launched / live after it.
+  return out.sort((a, b) => Number(a.hold) - Number(b.hold) || Number(a.dim) - Number(b.dim) || (a.dim ? 0 : a.pos - b.pos) || a.rank - b.rank || a.dueOn.localeCompare(b.dueOn));
 }
 
 export type EditorStats = {
@@ -209,6 +215,8 @@ export type VideoRow = {
   sinceMs: number;
   /** On hold (founders): not late, sorted last, reason shown. */
   hold: { since: string; reason: string | null } | null;
+  /** Place in the production order (1e6 = not in it). */
+  pos: number;
 };
 
 /** "Oct 6" for a timestamp, as a Tunisia calendar day. */
@@ -230,9 +238,10 @@ export function buildVideoPipeline(
   productions: Map<string, Production>,
   rounds: Map<string, EditRound[]>,
   details: Map<string, { shootOn: string | null; generate: boolean; vo?: boolean; face: string | null; confirmedAt: string | null }>,
-  opts: { now: number; footageLateDays: number; assignLateDays: number; reviewHours: number; launchLateDays: number; roundAlert: number },
+  opts: { now: number; footageLateDays: number; assignLateDays: number; reviewHours: number; launchLateDays: number; roundAlert: number; prio?: Record<string, Prio> },
 ): VideoRow[] {
   const { now } = opts;
+  const prio = opts.prio ?? {};
   const today = tunisDate(0, now);
   const rows: VideoRow[] = [];
   for (const t of tasks) {
@@ -310,7 +319,7 @@ export function buildVideoPipeline(
       editorId: p?.editorId ?? null,
       name: d.face ?? t.angle,
       meta: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.format}${p?.editorName ? ` · ${p.editorName}` : ""}`,
-      origin: testimonial ? "testimonial · support call" : `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${monthDay(scriptOk.decidedAt)}` : ""}`,
+      origin: `${prio[t.id] ? `${prioLabel(prio[t.id])} · ` : ""}${testimonial ? "testimonial · support call" : `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${monthDay(scriptOk.decidedAt)}` : ""}`}`,
       steps,
       nowLabel: label ?? ago(since, now),
       waitingOn,
@@ -324,7 +333,9 @@ export function buildVideoPipeline(
       action: p?.assignedAt ? null : i === 2 ? "assign" : "footage",
       sinceMs: since,
       hold,
+      pos: prioPos(prio[t.id]),
     });
   }
-  return rows.sort((a, b) => Number(!!a.hold) - Number(!!b.hold) || Number(b.late) - Number(a.late) || Number(b.waitingOn === "You") - Number(a.waitingOn === "You") || a.dueSort.localeCompare(b.dueSort));
+  // The production order (#1 first); on hold last. Late rows stay red wherever they sit.
+  return rows.sort((a, b) => Number(!!a.hold) - Number(!!b.hold) || a.pos - b.pos || Number(b.late) - Number(a.late) || Number(b.waitingOn === "You") - Number(a.waitingOn === "You") || a.dueSort.localeCompare(b.dueSort));
 }

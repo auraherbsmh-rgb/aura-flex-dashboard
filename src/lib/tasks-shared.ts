@@ -260,6 +260,13 @@ export type TestimonialRow = TestimonialLite & {
 export type ProdStage = "shoot" | "assign" | "editing";
 /** Where a confirmed script stands: waiting for footage (shoot), ready to assign, or with an editor. */
 /** On hold and not launched yet: late alerts and Home items pause, the editor can't send versions. */
+/** Production order (one order for everyone, DB function production_priority): position and why. */
+export type Prio = { pos: number; grp: 1 | 2 | 3 | 4; pinned: boolean };
+export const prioLabel = (p: Prio | undefined) =>
+  !p ? "" : `#${p.pos} · ${p.pinned ? "moved to top" : p.grp === 1 ? "successor" : p.grp === 2 ? "winning cell" : p.grp === 4 ? "testimonial" : "new test"}`;
+/** Sort key: in the order first (by position), the rest after. */
+export const prioPos = (p: Prio | undefined) => p?.pos ?? 1e6;
+
 export const isHeld = (p: Production | undefined | null) => !!p?.holdAt && !p.launchedAt;
 
 export function prodStage(generate: boolean, p: Production | undefined): ProdStage {

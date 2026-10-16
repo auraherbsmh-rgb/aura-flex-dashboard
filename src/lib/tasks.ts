@@ -2,7 +2,7 @@ import type { State as MetaState } from "./meta-shared";
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type Bands, type ConceptResult, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type Bands, type ConceptResult, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type Prio, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
 import type { MapConcept, MapVariation } from "@/lib/map-shared";
 export * from "@/lib/tasks-shared";
 
@@ -467,7 +467,15 @@ export async function getBands(): Promise<Bands | null> {
   return { on: !!d.on, hook: n(d.hook), hold: n(d.hold), ctrVideo: n(d.ctrVideo), ctrImage: n(d.ctrImage), minImpressions: n(d.minImpressions) };
 }
 
-export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null; results: Record<string, ConceptResult>; bands: Bands | null }> {
+/** Production order for scripts in production (not launched, not on hold). */
+export async function getPriority(): Promise<Record<string, Prio>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("production_priority");
+  if (error) return {};
+  return Object.fromEntries(((data ?? []) as { task_id: string; pos: number; grp: 1 | 2 | 3 | 4; pinned: boolean }[]).map((r) => [r.task_id, { pos: r.pos, grp: r.grp, pinned: r.pinned }]));
+}
+
+export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null; results: Record<string, ConceptResult>; bands: Bands | null; prio: Record<string, Prio> }> {
   const supabase = await createClient();
   type R = {
     task_id: string; avatar_id: string; avatar_code: string; awareness: string; angle_id: string; angle_label: string; angle_code: string; angle_track: string | null;
@@ -475,11 +483,12 @@ export async function getMapData(): Promise<{ concepts: MapConcept[]; start: str
     generate: boolean; vo: boolean; launched_at: string | null; live_at: string | null; hold_at: string | null; variations: MapVariation[] | null;
     result_state: MetaState | null; ever_won: boolean;
   };
-  const [rows, start, results, bands] = await Promise.all([
+  const [rows, start, results, bands, prio] = await Promise.all([
     supabase.rpc("map_concepts2"),
     supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle(),
     getResults(),
     getBands(),
+    getPriority(),
   ]);
   if (rows.error) throw new Error("Could not read the map. Reload the page.");
   const concepts = ((rows.data ?? []) as R[]).map((r) => ({
@@ -488,5 +497,5 @@ export async function getMapData(): Promise<{ concepts: MapConcept[]; start: str
     copywriter: r.copywriter, createdAt: r.created_at, face: r.face, generate: r.generate, vo: r.vo, launchedAt: r.launched_at, liveAt: r.live_at,
     holdAt: r.hold_at, variations: r.variations ?? [], resultState: r.result_state, everWon: r.ever_won,
   }));
-  return { concepts, start: (start.data?.value as string | null) ?? null, results, bands };
+  return { concepts, start: (start.data?.value as string | null) ?? null, results, bands, prio };
 }

@@ -4,13 +4,13 @@ import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
-import { AssignButton, HoldButton, LaunchButton } from "./Production";
+import { AssignButton, HoldButton, LaunchButton, PinButton } from "./Production";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
 import { VideosPipeline } from "./VideosPipeline";
 import { TestimonialsList, type TestimonialVideo } from "./TestimonialsList";
 import type { Pickers } from "@/lib/proposals-shared";
-import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type Prio, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
 
 /** The three private tiles (Editing artboard) + the 3D tile for the AI / 3D editor. */
 export function EditorTiles({ s, showAi }: { s: EditorStats; showAi: boolean }) {
@@ -174,7 +174,7 @@ export function EditQueue({
     <section className="tray ed-queue" aria-labelledby="h-queue">
       <div className="ed-qhead">
         <h2 id="h-queue">{forFounder ? "Queue" : "My queue"}</h2>
-        <span className="lbl">Successors first</span>
+        <span className="lbl">In production order</span>
       </div>
       {forFounder && editors.length > 0 && (
         <div className="recess wseg" role="group" aria-label="Editor" style={{ alignSelf: "flex-start" }}>
@@ -225,6 +225,8 @@ export type EditView = {
   editorName: string;
   card?: ProdCard;
   names?: LaunchNames;
+  /** Place in the production order. */
+  prio?: Prio;
 };
 
 /** Open task (right): steps, what she works from, Founder 2's changes, brief, hooks to deliver, Drive link + Submit vN. */
@@ -402,6 +404,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
       )}
       {isFounder && v.card && (v.state !== "approved" || !p.launchedAt) && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {v.state !== "approved" && !p.holdAt && <PinButton taskId={v.taskId} pinned={!!v.prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
           <HoldButton taskId={v.taskId} face={v.title} current={p} onDone={(m) => setMsg({ ok: m })} />
           {v.state !== "approved" && <AssignButton card={v.card} editors={editors} current={p} who="Founder · Assign" label="Change assignment" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />}
         </div>

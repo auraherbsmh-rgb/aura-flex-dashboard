@@ -5,12 +5,12 @@ import { startTransition, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
-import { AssignButton, FootageButton, HoldButton } from "./Production";
+import { AssignButton, FootageButton, HoldButton, PinButton } from "./Production";
 import { reviewScript, seeResult, submitScript } from "@/app/tasks/actions";
 import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
 import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
 import { Parts } from "./Parts";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type Bands, type ConceptResult, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type Bands, type ConceptResult, type CreateTaskContext, type DetailsPickers, type EditorLoad, type Prio, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage, prioLabel, prioPos } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
@@ -26,8 +26,9 @@ const RESULT_TAG: Record<ConceptResult["state"], { word: string; tone: string }>
 };
 
 /** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
-export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, results = {} }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void; results?: Record<string, ConceptResult> }) {
-  const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now, results[t.id]) })).sort((a, b) => a.l.rank - b.l.rank || a.t.dueOn.localeCompare(b.t.dueOn));
+export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, results = {}, prio = {} }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void; results?: Record<string, ConceptResult>; prio?: Record<string, Prio> }) {
+  // Scripts in production follow the production order (#1 first).
+  const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now, results[t.id]) })).sort((a, b) => a.l.rank - b.l.rank || prioPos(prio[a.t.id]) - prioPos(prio[b.t.id]) || a.t.dueOn.localeCompare(b.t.dueOn));
   if (!lines.length) return <div className="info">{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -48,7 +49,7 @@ export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, resul
           <span><span className={`tag ${l.tone}`}><i aria-hidden="true" />{l.tag}</span></span>
           <span style={{ minWidth: 0 }}>
             <span className="inrow-title">{l.title}</span>
-            <span className="inrow-sub">{l.sub}</span>
+            <span className="inrow-sub">{l.tag === "IN PRODUCTION" && prio[t.id] ? `${prioLabel(prio[t.id])} · ` : ""}{l.sub}</span>
           </span>
         </Link>
       ))}
@@ -68,8 +69,10 @@ export function BoardInbox({
   action,
   onOpen,
   results,
+  prio,
 }: {
   results?: Record<string, ConceptResult>;
+  prio?: Record<string, Prio>;
   tasks: TaskRow[];
   writers: [string, string][];
   cw: string | null;
@@ -95,7 +98,7 @@ export function BoardInbox({
           <button type="button" className={!cw ? "seg-on" : ""} aria-pressed={!cw} onClick={() => pick(null)}>All</button>
         </div>
       )}
-      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} onOpen={onOpen} results={results} />
+      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} onOpen={onOpen} results={results} prio={prio} />
     </section>
   );
 }
@@ -200,6 +203,7 @@ export function CopyBoard({
           action={action}
           onOpen={open}
           results={results}
+          prio={map?.prio}
         />
         {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} pickers={proposePickers} createCtx={createCtx} onPick={(k) => {
           setCell(k);
@@ -227,6 +231,7 @@ export function CopyBoard({
             result={results[selected.id] ?? null}
             onSeen={chosen === selected.id ? markSeen : undefined}
             bands={map?.bands ?? null}
+            prio={map?.prio?.[selected.id]}
           />
         ) : (
           <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
@@ -251,8 +256,11 @@ export function TaskView({
   result = null,
   onSeen,
   bands = null,
+  prio,
 }: {
   bands?: Bands | null;
+  /** This script's place in the production order. */
+  prio?: Prio;
   /** Meta result (founders, or the copywriter's own concept). */
   result?: ConceptResult | null;
   onSeen?: (taskId: string, state: string) => void;
@@ -502,8 +510,9 @@ export function TaskView({
               <div style={{ minWidth: 0 }}>
                 {production?.holdAt
                   ? <><span className="tag t-hold"><i aria-hidden="true" />ON HOLD</span><div style={{ fontSize: 14, marginTop: 6 }}>Since {fmtWhen(production.holdAt)}{production.holdReason ? ` · ${production.holdReason}` : ""} · no late alerts, the editor can&rsquo;t send a version</div></>
-                  : <span className="unit">Another script should go first? Put this one on hold.</span>}
+                  : <span className="unit">{prio ? <><b style={{ color: "var(--ink)" }}>Production order {prioLabel(prio)}</b> · </> : null}Should another script go first? Move this one to the top, or put it on hold.</span>}
               </div>
+              {isFounder && !production?.holdAt && <PinButton taskId={task.id} pinned={!!prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
               {isFounder && <HoldButton taskId={task.id} face={details?.face ?? task.angle} current={production} onDone={(m) => setMsg({ ok: m })} />}
             </div>
           )}

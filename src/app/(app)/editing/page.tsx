@@ -7,7 +7,7 @@ import { EditBoard, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getAllTestimonials, getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
+  getAllTestimonials, getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getPriority, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import type { ProdCard, Production } from "@/lib/tasks-shared";
 import type { TestimonialVideo } from "@/components/TestimonialsList";
@@ -35,6 +35,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     founder ? getLaunchNames() : Promise.resolve(undefined),
     founder ? Promise.all([getCreateTaskContext(), getPickers(), getAllTestimonials()]) : Promise.resolve(null),
     getAllHooks(),
+    getPriority(),
   ]);
   const [tasks, details, productions, rounds, hookCounts, pay, notStartedDays, roundAlert, footageLateDays, reviewHours, launchLateDays] = await Promise.all([
     getTasks(),
@@ -50,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("launch_waiting_days", 2),
   ]);
   mark("data 2");
-  const [editors, [launchNames, founderBits, allHooks]] = await Promise.all([founder ? getEditors(productions, tasks) : Promise.resolve([]), early]);
+  const [editors, [launchNames, founderBits, allHooks, prio]] = await Promise.all([founder ? getEditors(productions, tasks) : Promise.resolve([]), early]);
   mark("data 3");
   const pcards = prodCards(tasks, details, hookCounts);
   const cards = new Map<string, EditCard>(
@@ -60,7 +61,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   // An editor only ever has her own edits (row-level security); founders pick Editor A · B · All.
   const edList: [string, string][] = editors.map((e) => [e.id, e.name]);
   const ed = founder && sp.ed && edList.some(([id]) => id === sp.ed) ? sp.ed : null;
-  const queueAll = buildQueue(tasks, productions, rounds, cards, { now, notStartedDays, roundAlert });
+  const queueAll = buildQueue(tasks, productions, rounds, cards, { now, notStartedDays, roundAlert, prio });
   const mine = isEditor ? queueAll.filter((q) => q.editorId === viewer.personId) : queueAll;
   const visible = ed ? mine.filter((q) => q.editorId === ed) : mine;
 
@@ -110,11 +111,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       editorName: p.editorName ?? "Editor",
       card: pcards.get(q.taskId),
       names: launchNames?.get(q.taskId),
+      prio: prio[q.taskId],
     };
   }
 
   // Rows not with an editor yet open Footage received / Assign right in the pipeline.
-  const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert }) : undefined;
+  const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert, prio }) : undefined;
   const pipeCards: Record<string, ProdCard> = {};
   const pipeCurrent: Record<string, Production> = {};
   for (const r of pipelineRows ?? []) {

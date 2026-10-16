@@ -189,6 +189,10 @@ test("Editing: state, queue order and alerts, private tiles", () => {
   assert.equal(q[0].alert, "Round 3");
   assert.match(q[1].alert ?? "", /Footage ready 4 days, not started/);
   assert.equal(q[3].dim, true);
+  // Production order: #1 first among the work still to do, whatever its state; approved stays last.
+  const qo = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio: { sb: { pos: 1, grp: 1, pinned: false }, rd: { pos: 2, grp: 3, pinned: false }, ch: { pos: 3, grp: 3, pinned: false } } });
+  assert.deepEqual(qo.map((x) => x.taskId), ["sb", "rd", "ch", "ok"]);
+  assert.match(qo[0].sub, /^#1 · successor · /);
 
   const s = editorStats("eb", prods, rounds, cards, { perVideo: 100, rate3d: null }, now);
   assert.equal(s.approvedMonth, 1);

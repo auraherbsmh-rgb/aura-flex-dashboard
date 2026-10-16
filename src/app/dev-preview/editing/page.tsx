@@ -32,10 +32,11 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     ["mervet", [R(1, "approved")]],
   ]);
   const cards = new Map(tasks.map((t) => [t.id, { face: t.id[0].toUpperCase() + t.id.slice(1), cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", generate: false }]));
-  const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3 });
+  const prio = Object.fromEntries(tasks.filter((t) => t.id !== "mervet").map((t, i) => [t.id, { pos: i + 1, grp: (i === 0 ? 1 : i === 1 ? 2 : 3) as 1 | 2 | 3, pinned: false }]));
+  const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio });
   const sel = sp.task ?? "hedi";
   const view: EditView = {
-    taskId: sel, title: cards.get(sel)!.face, cellLine: "MSB × Problem · Knee-Broad · UGC",
+    taskId: sel, title: cards.get(sel)!.face, cellLine: "MSB × Problem · Knee-Broad · UGC", prio: prio[sel],
     state: q.find((x) => x.taskId === sel)!.state, rounds: rounds.get(sel) ?? [], production: prods.get(sel)!, scriptUrl: "https://docs.google.com/document/d/x",
     hooks: [1, 2, 3, 4, 5].map((v) => ({ v, type: v % 2 ? "Storytelling" : "Authority", line: `Hook line ${v}`, headline: null, name: `UGC_MSB_Problem-Aware_Knee-Broad_Hedi_V${v}` })),
     generate: false, payPerVideo: 100, editorName: "Editor B",
@@ -57,7 +58,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             initialEd={null}
             forFounder={founder}
             createTask={founder ? <button type="button" className="add">+ Create task</button> : undefined}
-            pipelineRows={(buildVideoPipeline(tasks, prods, rounds, new Map(tasks.map((t) => [t.id, { shootOn: "2026-10-12", generate: false, face: cards.get(t.id)!.face, confirmedAt: "2026-10-11T08:00:00Z" }])), { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 }))}
+            pipelineRows={(buildVideoPipeline(tasks, prods, rounds, new Map(tasks.map((t) => [t.id, { shootOn: "2026-10-12", generate: false, face: cards.get(t.id)!.face, confirmedAt: "2026-10-11T08:00:00Z" }])), { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3, prio }))}
             views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}
             isEditorId={founder ? null : "eb"}
             editorLoads={[{ id: "ea", name: "Editor A", doesAi: true, queue: 1 }, { id: "eb", name: "Editor B", doesAi: false, queue: 4 }]}

@@ -277,6 +277,17 @@ export async function setHold(taskId: string, hold: boolean, reason: string): Pr
   return done(hold ? "On hold. Its late alerts and Home items stop until you resume it." : "Resumed. Alerts and Home items are back.");
 }
 
+/** Move to top / back to automatic order (founders): the production order everyone follows. */
+export async function pinTask(taskId: string, on: boolean): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders change the production order.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("pin_task", { p_task: taskId, p_on: on });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(on ? "Moved to the top of the production order. Everyone sees it first." : "Back to the automatic order.");
+}
+
 /** VO received (founders): the voice recording link + an optional inspiration link for the editor. */
 export async function markVo(taskId: string, url: string, inspiration: string): Promise<TaskState> {
   const v = await getViewer();

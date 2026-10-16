@@ -5,7 +5,7 @@ import { ProposeButton } from "./Proposals";
 import { CreateTaskButton } from "./Tasks";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { LEVEL_SHORT, STATE_ORDER, STATE_PLAIN, STATE_WORD, buildMap, conceptState, groupByAngle, mapConcepts, mix, zeroCounts, type ConceptState, type MapCell, type MapConcept } from "@/lib/map-shared";
-import type { Bands, ConceptResult } from "@/lib/tasks-shared";
+import type { Bands, ConceptResult, Prio } from "@/lib/tasks-shared";
 import { Parts } from "./Parts";
 import type { Pickers } from "@/lib/proposals-shared";
 
@@ -15,6 +15,8 @@ export type MapData = {
   results?: Record<string, ConceptResult>;
   /** Format bands for opening / hold / clicks (Settings → Alerts). */
   bands?: Bands | null;
+  /** Production order (scripts in production): position and why. */
+  prio?: Record<string, Prio>;
 };
 export type CellKey = { avatarId: string; awareness: string };
 
