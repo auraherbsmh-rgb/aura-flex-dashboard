@@ -5,7 +5,7 @@ import { getRule } from "@/lib/needs";
 import { getCurrentMoney, toMoneyInputs } from "@/lib/settings/data";
 import { metaStatus } from "@/lib/meta/pull";
 import { buildLive, killNeeds, unmappedNeeds, type ConceptInfo, type KillNeed, type PauseAnswer, type UnmappedNeed } from "@/lib/live-shared";
-import { JUDGE_DAYS, type Budget, type MetaAd, type MetaDay, type Scope } from "@/lib/meta-shared";
+import { PAGE_DAYS, type Budget, type MetaAd, type MetaDay, type Scope } from "@/lib/meta-shared";
 
 const tunisDay = (ms: number) => new Date(ms + 36e5).toISOString().slice(0, 10);
 
@@ -13,7 +13,7 @@ export type LastPull = { started_at: string; finished_at: string | null; ok: boo
 
 export async function getLiveData(now: number, mapData?: ReturnType<typeof getMapData>) {
   const supabase = await createClient();
-  const since = tunisDay(now - JUDGE_DAYS * 864e5);
+  const since = tunisDay(now - PAGE_DAYS * 864e5);
   type A = { ad_id: string; name: string; campaign_id: string; adset_id: string | null; status: string | null; created_time: string | null; first_seen: string };
   type D = { ad_id: string; day: string; spend: number; purchases: number; purchase_value: number; impressions: number; reach: number; link_clicks: number; plays_3s: number; thruplays: number; p25: number; p50: number; p75: number; p100: number };
   type O = { id: string; base_name: string; awareness: string; tag: string; avatar: { code: string } | null; angle: { label: string; track: string | null } | null; format: { label: string; code: string } | null };
@@ -70,6 +70,16 @@ export async function getLiveData(now: number, mapData?: ReturnType<typeof getMa
   const answers: PauseAnswer[] = (answerRows.data ?? []).map((a) => ({ adId: a.ad_id as string, answer: a.answer as "paused" | "not_now", reason: a.reason as string | null, answeredAt: a.answered_at as string }));
   const money = toMoneyInputs(moneyRow);
   const model = buildLive({ ads, daily, scope, budgets, generated, old, concepts, money, now });
+  // A win older than the page window: the daily results refresh (one year) remembers it — never show it as never won.
+  for (const c of model.live) {
+    const r = c.info.taskId ? map.results[c.info.taskId] : undefined;
+    if (r?.everWon && (c.state === "lost" || c.state === "testing") && r.state !== "testing" && r.state !== "lost") {
+      c.state = r.state;
+      if (c.group !== "attention" && !c.frozen) c.group = r.state === "won" ? "won" : r.state === "recovering" ? "recovering" : "attention";
+    }
+  }
+  const order = { attention: 0, testing: 1, recovering: 2, won: 3 };
+  model.live.sort((a, b) => order[a.group] - order[b.group] || b.spend7 - a.spend7);
   const okPulls = (okPull.data ?? []).map((r) => r.started_at as string);
   const kills = killNeeds({ live: model.live, daily, adNames: new Map(ads.map((a) => [a.adId, a.name])), answers, lastPullAt: okPulls[0] ?? null, prevPullAt: okPulls[1] ?? null, money, now });
   const unmappedItems = unmappedNeeds(model.unmapped, new Map(adsRows.map((a) => [a.ad_id, a.first_seen])), now);

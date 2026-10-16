@@ -231,3 +231,5 @@ export function groupAds(
 /** Days of Meta results loaded to judge a concept (Live ads and the results refresh use the same window, so a win
  * stays visible for a year; older data is not judged). */
 export const JUDGE_DAYS = 400;
+/** Pages (Live ads, Home) read a shorter window for speed; past wins come from concept_results (judged on JUDGE_DAYS). */
+export const PAGE_DAYS = 120;

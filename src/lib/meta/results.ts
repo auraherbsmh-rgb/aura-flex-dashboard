@@ -54,7 +54,9 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
     const p = prev.get(r.task_id);
     const everWon = !!p?.ever_won || r.ever_won;
     // A past win the loaded days no longer show (data older than the window): never judged "never won" — keep its state.
-    const state = p?.ever_won && !r.ever_won && (r.state === "lost" || r.state === "testing") ? (p.state as typeof r.state) : r.state;
+    // A paused old winner that was fading / deteriorating is settled (lost), so it stops raising an ALERT.
+    const kept = p?.ever_won && !r.ever_won && (r.state === "lost" || r.state === "testing") ? (p.state as typeof r.state) : r.state;
+    const state = !r.live && (kept === "fading" || kept === "deteriorating") && kept !== r.state ? "lost" : kept;
     r = { ...r, state };
     return {
       ...r, ever_won: everWon, won_at: p?.won_at ?? (everWon ? stamp : null), updated_at: stamp,
@@ -74,8 +76,9 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
     const stale = [...prev.values()].filter((p) => !matched.has(p.task_id));
     const drop = stale.filter((p) => !p.ever_won && !p.winner_noted_at).map((p) => p.task_id);
     const keep = stale.filter((p) => p.ever_won || p.winner_noted_at).map((p) => p.task_id);
-    if (drop.length) { const { error } = await db.from("concept_results").delete().in("task_id", drop); if (error) throw new Error(error.message); }
-    if (keep.length) { const { error } = await db.from("concept_results").update({ live: false, updated_at: stamp }).in("task_id", keep); if (error) throw new Error(error.message); }
+    // In chunks: every id goes in the request address.
+    for (let i = 0; i < drop.length; i += 100) { const { error } = await db.from("concept_results").delete().in("task_id", drop.slice(i, i + 100)); if (error) throw new Error(error.message); }
+    for (let i = 0; i < keep.length; i += 100) { const { error } = await db.from("concept_results").update({ live: false, updated_at: stamp }).in("task_id", keep.slice(i, i + 100)); if (error) throw new Error(error.message); }
   }
   return rows.length;
 }
