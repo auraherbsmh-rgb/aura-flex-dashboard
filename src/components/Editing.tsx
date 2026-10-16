@@ -169,7 +169,7 @@ export function EditQueue({
             e.preventDefault();
             onOpen(q.taskId);
           }}
-          className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.dim ? "qi-dim" : ""}`}
+          className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.tone === "t-launched" ? "qi-launched" : q.tone === "t-live" ? "qi-live" : q.dim ? "qi-dim" : ""}`}
           aria-current={q.taskId === selectedId ? "true" : undefined}
         >
           <span className="qi-top"><span className={`tag ${q.tone}`}><i aria-hidden="true" />{q.tag}</span><span className="mono unit">{q.due}</span></span>

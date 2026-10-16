@@ -392,7 +392,12 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .qi:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qi-on { border: 2px solid #111; box-shadow: 0 10px 22px rgba(20, 20, 15, 0.14); }
 .qi-dim { opacity: 0.62; box-shadow: none; background: #f3f3f0; }
-.qi-dim:has(.t-launched), .qi-dim:has(.t-live) { opacity: 1; }
+/* Launched and Live cards read at a glance (founder request Oct 16): dark card = launched, green card = live. */
+.qi-launched { background: linear-gradient(180deg, #2a2a28 0%, #161615 100%); color: #fff; border-color: transparent; }
+.qi-launched:hover { color: #fff; }
+.qi-launched .unit, .qi-launched .mono { color: #c9c9c3; }
+.qi-launched .t-launched { background: #fff; color: #111; } .qi-launched .t-launched i { background: #111; }
+.qi-live { background: linear-gradient(180deg, #e6f5ec 0%, #d6efdf 100%); border-color: rgba(31, 142, 76, 0.35); }
 .qi-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .qi-title { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .qi-alert { font-size: 13px; color: #a1241a; display: flex; align-items: center; gap: 6px; }
