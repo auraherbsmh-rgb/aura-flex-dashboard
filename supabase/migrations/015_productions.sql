@@ -9,3 +9,4 @@
 -- Live test (rolled back): assign before footage, no-hooks-no-note, past due, footage after assign, copywriter actions refused;
 --   footage → assign works; copywriter sees her production read-only.
 -- v2 (checker round 1): assign_edit resets assigned_at when the editor changes.
+-- v3 (checker round 2): mark_footage keeps the first footage_at/by on a correction.

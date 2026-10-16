@@ -67,12 +67,12 @@ export function FootageButton({
             <span className="unit">The editor sees this note.</span>
           </label>
         )}
-        <div className="info">The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned.</div>
+        <div className="info">{current?.footageAt ? "Updates the link and note. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned."}</div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
           <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
           <button type="button" className="btn b-primary" disabled={pending || !url.trim() || (!all && gap.trim().length < 2)} onClick={() => run(() => markFootage(card.taskId, url, all, gap))}>
-            {pending ? "Saving…" : "Mark received"}
+            {pending ? "Saving…" : current?.footageAt ? "Save changes" : "Mark received"}
           </button>
         </div>
       </Modal>
