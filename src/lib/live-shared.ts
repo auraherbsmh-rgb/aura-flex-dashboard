@@ -233,9 +233,11 @@ export function unmappedNeeds(unmapped: Unmapped[], firstSeen: Map<string, strin
 /* ───────────── Concept results (Meta 5): what the map, Library, inbox and Home read ───────────── */
 
 export type VariationResultRow = { v: number | null; state: State; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean; impressions7: number };
+/** Sums over the judged days (the scorecard's script parts, retention and focus). */
+export type ResultTotals = { impressions: number; plays3s: number; thruplays: number; clicks: number; p25: number; p50: number; p75: number; p100: number; spend: number; sales: number };
 export type ConceptResultRow = {
   task_id: string; state: State; ever_won: boolean; cpa7: number | null; line: number; sales7: number; spend7: number;
-  best_v: number | null; variations: VariationResultRow[]; live: boolean;
+  best_v: number | null; variations: VariationResultRow[]; live: boolean; totals: ResultTotals;
 };
 
 /**
@@ -254,6 +256,11 @@ export function conceptResultRows(states: Map<string, { state: State; cpa7: numb
       cpa7: carrier?.cpa7 ?? null, line: carrier?.line ?? s.line,
       sales7: judged.reduce((n, r) => n + r.t7.sales, 0), spend7: Math.round(judged.reduce((n, r) => n + r.t7.spend, 0) * 100) / 100,
       best_v: carrier?.v ?? null, live,
+      totals: s.vars.reduce((t, r) => ({
+        impressions: t.impressions + r.life.impressions, plays3s: t.plays3s + r.life.plays3s, thruplays: t.thruplays + r.life.thruplays, clicks: t.clicks + r.life.clicks,
+        p25: t.p25 + r.life.p25, p50: t.p50 + r.life.p50, p75: t.p75 + r.life.p75, p100: t.p100 + r.life.p100,
+        spend: Math.round((t.spend + r.life.spend) * 100) / 100, sales: t.sales + r.life.sales,
+      }), { impressions: 0, plays3s: 0, thruplays: 0, clicks: 0, p25: 0, p50: 0, p75: 0, p100: 0, spend: 0, sales: 0 } as ResultTotals),
       variations: s.vars.map((r) => ({ v: r.v, state: r.state, cpa7: r.cpa7, sales7: r.t7.sales, spend7: Math.round(r.t7.spend * 100) / 100, line: r.line, hookRate: r.hookRate, hold: r.hold, ctr: r.ctr, live: r.live, impressions7: r.t7.impressions }))
         .sort((a, b) => (a.v ?? 99) - (b.v ?? 99)),
     });

@@ -214,3 +214,26 @@ test("Script parts: green in band, red below, — while too early, statics have 
   assert.equal(readPart("hold", 0.4, false, 400, b).text, "—");
   assert.deepEqual(readPart("hook", 0.22, false, 5000, { ...b, on: false }), { text: "22%", tone: "" });
 });
+
+test("Scorecard: win rate by verdict month, still testing, winners live, best / worst from 3 settled, focus", async () => {
+  const { buildScorecard } = await import("../src/lib/scorecard-shared");
+  const T = (id: string, av: string, created: string) => ({ id, status: "details_done", dueOn: "2026-09-20", createdAt: created, copywriter: "C1", copywriterId: "c1", avatarCode: av, awareness: "Problem-Aware", angleId: "g", angle: "Knee-Prayer", angleCode: "Knee-Prayer", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: `https://docs/${id}`, origin: "manual", changeFacts: null, rounds: [] });
+  const tasks = [T("1", "FSB", "2026-09-01T10:00:00Z"), T("2", "FSB", "2026-09-05T10:00:00Z"), T("3", "FSB", "2026-09-10T10:00:00Z"), T("4", "MSP", "2026-10-05T10:00:00Z")];
+  const concepts = tasks.map((t) => ({ taskId: t.id, avatarId: t.avatarCode, avatarCode: t.avatarCode, awareness: t.awareness, angleId: "g", angle: t.angle, angleCode: t.angle, track: "knee", format: "UGC", formatCode: "UGC", origin: "manual", status: "details_done", copywriter: "C1", createdAt: t.createdAt, face: `F${t.id}`, generate: false, vo: false, launchedAt: t.createdAt, liveAt: null, holdAt: null, variations: [{ v: 1, type: "Storytelling", line: `line ${t.id}`, name: `n${t.id}` }] }));
+  const tot = (thru: number) => ({ impressions: 10000, plays3s: 3000, thruplays: thru, clicks: 150, p25: 1000, p50: 600, p75: 300, p100: 100, spend: 50, sales: 12 });
+  const R = (id: string, state: "won" | "lost" | "testing" | "fading", everWon: boolean, since: string, thru = 500) => ({ taskId: id, state, stateSince: since, everWon, cpa7: everWon ? 3 + Number(id) / 10 : 7, line: 4.18, sales7: 10, spend7: 40, bestV: 1, live: state !== "lost", variations: [{ v: 1, state: state === "testing" ? "testing" : everWon ? "won" : "lost", cpa7: 3, sales7: 10, spend7: 40, line: 4.18, hookRate: 0.3, hold: 0.2, ctr: 0.015, live: true }], seenState: null, winnerNotedAt: null, wonAt: everWon ? since : null, totals: tot(thru) });
+  const results = { "1": R("1", "won", true, "2026-09-20T05:00:00Z"), "2": R("2", "lost", false, "2026-09-25T05:00:00Z"), "3": R("3", "fading", true, "2026-10-03T05:00:00Z"), "4": R("4", "testing", false, "2026-10-10T05:00:00Z") };
+  const sc = buildScorecard({ tasks, concepts, results, productions: new Map(), bands: { on: true, hook: 27, hold: 23, ctrVideo: 1.2, ctrImage: 1.5, minImpressions: 1000 }, now: NOW });
+  assert.deepEqual(sc.months.map((m) => [m.label, m.won, m.settled]), [["AUG", 0, 0], ["SEP", 1, 2], ["OCT", 1, 1]]);
+  assert.equal(sc.months[2].improving, true);
+  assert.equal(sc.testing, 1);
+  assert.deepEqual(sc.liveWins.map((w) => w.label), ["F1 · WON", "F3 · FADING"]);
+  const avatar = sc.wl.find((r) => r.dim === "Avatar")!;
+  assert.equal(avatar.best?.label, "FSB");
+  assert.equal(avatar.best?.won, 2);
+  assert.equal(avatar.best?.settled, 3);
+  assert.equal(avatar.worst, null);
+  assert.equal(sc.focus?.part, "Hold", "hold 500 / 3000 = 17% is below 23% in all 3 settled");
+  assert.equal(sc.best[0].taskId, "1");
+  assert.equal(sc.parts[0].inBand, true);
+});

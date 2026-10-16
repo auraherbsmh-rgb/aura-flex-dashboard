@@ -65,3 +65,6 @@ begin
 end $function$;
 revoke execute on function public.mark_successor(uuid) from public, anon;
 grant execute on function public.mark_successor(uuid) to authenticated;
+
+-- results_totals (scorecard): sums over the judged days.
+alter table public.concept_results add column totals jsonb not null default '{}'::jsonb;

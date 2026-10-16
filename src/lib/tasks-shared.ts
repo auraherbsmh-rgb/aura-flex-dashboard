@@ -288,6 +288,8 @@ export type ConceptResult = {
   seenState: string | null; winnerNotedAt: string | null;
   /** First time it won (set once; WINNER items count from it). */
   wonAt: string | null;
+  /** Sums over the judged days: script parts, retention, focus (scorecard). */
+  totals?: { impressions: number; plays3s: number; thruplays: number; clicks: number; p25: number; p50: number; p75: number; p100: number; spend: number; sales: number };
 };
 
 /** Format bands for the script parts (Settings → Alerts, from File 3 §3 / §5), in %: "healthy from". */

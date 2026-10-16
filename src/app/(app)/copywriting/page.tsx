@@ -11,6 +11,8 @@ import { CopyViews } from "@/components/CopyViews";
 import { Library } from "@/components/Library";
 import { buildLibrary } from "@/lib/library-shared";
 import { ScriptsPipeline } from "@/components/Pipeline";
+import { Scorecard } from "@/components/Scorecard";
+import { buildScorecard } from "@/lib/scorecard-shared";
 
 export const metadata = { title: "Copywriting · Aura Flex" };
 
@@ -57,9 +59,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now, mapData.results);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
+  // Scorecards: the copywriter's own; founders get one per copywriter (shown when that copywriter is picked).
+  const scoreFor = (id: string, name: string) => (
+    <Scorecard
+      key={id} personId={id} name={name} forFounder={founder} cwQuery={founder ? `cw=${id}` : ""}
+      data={buildScorecard({ tasks: allTasks.filter((t) => t.copywriterId === id), concepts: mapData.concepts, results: mapData.results, productions, bands: mapData.bands, now })}
+    />
+  );
+  const scorecards: Record<string, React.ReactNode> = founder
+    ? Object.fromEntries(writers.map(([id, name]) => [id, scoreFor(id, name)]))
+    : viewer.role === "copywriter" ? { [viewer.personId]: scoreFor(viewer.personId, viewer.name) } : {};
+
   return (
     <TabPage tab="copywriting" title="Copywriting">
       <CopyViews
+        scorecards={scorecards}
+        selfId={founder ? null : viewer.personId}
+        writerNames={Object.fromEntries(writers)}
         pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} />}
         library={
           <Library
