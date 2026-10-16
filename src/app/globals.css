@@ -701,3 +701,48 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .sc-wl > [role="row"] > [role="cell"] { border-top: 0; padding-top: 4px; }
   .sc-wl .dr { flex-wrap: wrap; white-space: normal; text-align: left; min-height: 44px; }
 }
+
+/* Business · Money (artboard "Business") */
+.money { display: flex; flex-direction: column; gap: 18px; }
+.money h3 { margin: 0; font-size: 18px; font-weight: 600; }
+.money-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.money-row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.money-tile { padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; }
+.money-big { font: 600 44px/1 var(--font); letter-spacing: -0.03em; }
+.money-big small { font-size: 16px; color: #8c8c86; font-weight: 500; }
+.money-muted { color: #b9b9b3; }
+.k-orange { background: radial-gradient(380px 200px at 85% 50%, rgba(217, 115, 27, 0.12) 0%, rgba(217, 115, 27, 0) 70%), linear-gradient(180deg, #ffffff 0%, #fafaf8 100%); border-color: rgba(132, 64, 6, 0.14); }
+.trend-svg { width: 100%; height: 220px; display: block; }
+@media (max-width: 700px) { .trend-svg { height: 160px; } }
+.trend-axis { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); font: 500 11px var(--mono); color: #6b6b66; text-align: center; }
+.wf { display: grid; grid-template-columns: 200px minmax(0, 1fr) 120px 70px; gap: 18px; align-items: center; padding: 10px 0; border-top: 1px solid #ececE8; }
+.wf-head { border-top: 0; padding-bottom: 0; }
+.wtrack { position: relative; height: 34px; }
+.wzero { position: absolute; left: 4%; top: -6px; bottom: -6px; width: 1px; background: #b9b9b3; }
+.wbar { position: absolute; top: 4px; height: 26px; border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 6px rgba(20, 20, 15, 0.12); }
+.wleft { position: absolute; top: 9px; transform: translateX(-100%); padding-right: 6px; font: 500 12px var(--mono); color: #6b6b66; white-space: nowrap; }
+.amt { font: 600 18px var(--mono); text-align: right; white-space: nowrap; }
+.a-red { color: #a1241a; } .a-green { color: #135f33; } .a-grey { color: #77776f; }
+.leak { display: grid; grid-template-columns: minmax(0, 1.2fr) 190px minmax(0, 1.4fr) 110px 110px; gap: 18px; align-items: center; background: linear-gradient(180deg, #fff, #fbfbf9); border: 1px solid rgba(20, 20, 15, 0.05); border-radius: 20px; padding: 14px 14px 14px 22px; box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(20, 20, 15, 0.07), 0 6px 14px rgba(20, 20, 15, 0.06); margin-bottom: 8px; }
+.leak-head { background: transparent; box-shadow: none; border: 0; padding-top: 0; padding-bottom: 0; }
+.leak-grey { background: transparent; box-shadow: none; border: 1px dashed #c9c9c3; }
+.leak-total { display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 18px; align-items: center; padding: 10px 22px 0; }
+.leak-settling { display: flex; flex-direction: column; gap: 8px; padding: 18px 22px; background: #fff; border-radius: 20px; }
+.track { height: 12px; border-radius: 999px; background: #e8e8e4; box-shadow: inset 0 1px 2px rgba(20, 20, 15, 0.12); overflow: hidden; }
+.fill { height: 12px; border-radius: 999px; }
+.f-red { background: linear-gradient(180deg, #e25440, #c63421); } .f-green { background: linear-gradient(180deg, #34a865, #1f8e4c); } .f-grey { background: #b9b9b3; }
+.rate { font: 500 14px var(--mono); color: #55564f; white-space: nowrap; }
+.pline { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; background: #fff; border: 1px solid #ececE8; font-size: 14px; }
+.pline-red { background: #fce4df; border-color: #f3c9c1; color: #7e1c14; }
+.money-foot { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 13px; color: #55564f; padding: 0 8px; align-items: center; }
+@media (max-width: 900px) {
+  .money-row3 { grid-template-columns: minmax(0, 1fr); }
+  .wf { grid-template-columns: minmax(0, 1fr) 90px 50px; }
+  .wf > .wtrack { grid-column: 1 / -1; order: 5; }
+  .leak { grid-template-columns: minmax(0, 1fr) auto; padding: 14px 16px; }
+  .leak > .track { grid-column: 1 / -1; }
+  .leak-head { display: none; }
+  .leak-total { grid-template-columns: minmax(0, 1fr) auto; }
+  .leak-total > :nth-child(2) { grid-column: 1 / -1; order: 3; }
+  .trend-axis span:nth-child(odd) { visibility: hidden; }
+}

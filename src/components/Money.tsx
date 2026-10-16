@@ -1,0 +1,248 @@
+"use client";
+
+import { useState } from "react";
+import { Modal } from "./Modal";
+import type { LeakRow, MoneyView, TrendPoint } from "@/lib/business-shared";
+
+const n0 = (n: number) => Math.round(n).toLocaleString("en-US").replace("-", "−");
+const signed = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+const ZONE_TAG = { green: ["t-green", "UNDER LINE"], orange: ["t-orange", "NEAR LINE"], red: ["t-red", "OVER LINE"], grey: ["t-grey", "NO DATA"] } as const;
+const ZONE_CARD = { green: "k-green", orange: "k-orange", red: "k-red", grey: "" } as const;
+
+export type MoneyProps = {
+  view: MoneyView;
+  line: number;
+  fixed: number;
+  stock: { bottles: number | null; days: number | null; perDay: number; redBelow: number | null };
+  cash: { collected: number; transit: number } | null;
+  shipperMissing: string | null;
+  hasMeta: boolean;
+};
+
+/** Business · Money (artboard "Business"): "Are we making money?" — This week (estimate) | Last closed month (settled). */
+export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta }: MoneyProps) {
+  const closed = view.closed;
+  const [period, setPeriod] = useState<"week" | "month">(closed ? "month" : "week");
+  const [detail, setDetail] = useState<LeakRow | null>(null);
+  const isMonth = period === "month" && !!closed;
+  const w = view.week;
+  const zone = isMonth ? closed!.zone : w.zone;
+  const cpa = isMonth ? closed!.cpa : w.cpa;
+  const overPct = cpa !== null && line ? Math.round(((cpa - line) / line) * 100) : null;
+  return (
+    <section className="money" aria-labelledby="h-money">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h2 id="h-money" style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>Are we making money?</h2>
+          <div className="unit" style={{ marginTop: 6, fontSize: 13 }}>
+            {isMonth ? `${closed!.label}${closed!.open ? `, ${closed!.open} orders still open` : ", settled"} · compared with ${closed!.prevLabel}` : `${w.label} · Meta numbers final, delivery still settling`}
+          </div>
+        </div>
+        <div className="recess wseg" role="group" aria-label="Period">
+          <button type="button" className={!isMonth ? "seg-on" : ""} aria-pressed={!isMonth} onClick={() => setPeriod("week")}>This week · {w.label}</button>
+          <button type="button" className={isMonth ? "seg-on" : ""} aria-pressed={isMonth} disabled={!closed} onClick={() => setPeriod("month")}>Last closed month{closed ? ` · ${closed.label}` : ""}</button>
+        </div>
+      </div>
+
+      {shipperMissing && (
+        <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}>
+          <b>Shipper not connected yet.</b> {shipperMissing} Until then: the week is a Meta estimate; the closed month, gross sales, stock, cash and the leak finder wait for Shipper.
+        </div>
+      )}
+      {!hasMeta && <div className="info">No Meta results yet: the numbers fill in after the first Meta pull.</div>}
+
+      <section className="money-row3">
+        <div className={`card money-tile ${ZONE_CARD[zone]}`}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+            <div className="lbl">{isMonth ? `Profit after all costs · ${closed!.label}` : "Profit after all costs · estimate"}</div>
+            <span className={`tag ${ZONE_TAG[zone][0]}`}><i aria-hidden="true" />{ZONE_TAG[zone][1]}</span>
+          </div>
+          <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>
+          <div className="unit">
+            {isMonth ? "" : "Meta purchases × line − spend · "}CPA {cpa === null ? "—" : `$${cpa.toFixed(2)}`} vs line ${line.toFixed(2)}{overPct !== null ? ` · ${Math.abs(overPct)}% ${overPct >= 0 ? "over" : "under"}` : ""}
+          </div>
+        </div>
+        <div className="card money-tile">
+          <div className="lbl">Orders</div>
+          <div className="money-big">{n0((isMonth ? closed!.metaOrders + closed!.dmOrders : w.metaOrders + (w.dmOrders ?? 0)))}</div>
+          <div className="unit">{n0(isMonth ? closed!.metaOrders : w.metaOrders)} Meta · {isMonth ? `${n0(closed!.dmOrders)} DM / comments` : w.dmOrders === null ? "DM / comments with Shipper" : `${n0(w.dmOrders)} DM / comments`}</div>
+        </div>
+        <div className="card money-tile">
+          <div className="lbl">{isMonth ? `Change vs ${closed!.prevLabel}` : "Change vs last week"}</div>
+          {isMonth ? (
+            closed!.prevProfit === null ? <><div className="money-big money-muted">—</div><div className="unit">{closed!.prevLabel} not in the Shipper data</div></> : (
+              <>
+                <div className="money-big" style={{ color: closed!.profit - closed!.prevProfit < 0 ? "#A1241A" : "#135F33" }}>{signed(closed!.profit - closed!.prevProfit)}</div>
+                <div className="unit">{signed(closed!.prevProfit)} → {signed(closed!.profit)} TND{closed!.leaks ? ` · biggest: ${closed!.leaks[0].name.toLowerCase()}` : ""}</div>
+              </>
+            )
+          ) : (
+            <>
+              <div className="money-big">{signed(w.profit - w.prevProfit)}</div>
+              <div className="unit">Estimate · same formula both weeks</div>
+            </>
+          )}
+        </div>
+      </section>
+      <div className="unit" style={{ padding: "0 8px" }}>Profit color: green = CPA more than 5% under the line · orange = within 5% · red = more than 5% over</div>
+
+      <section className="money-row3">
+        <div className="card money-tile">
+          <div className="lbl">{isMonth ? `Gross sales · ${closed!.label}` : `Gross sales · ${w.monthLabel} so far`}</div>
+          {isMonth ? (
+            <>
+              <div className="money-big">{n0(closed!.gross)} <small>TND</small></div>
+              <div className="unit">{n0(closed!.delivered)} delivered{closed!.grossPrev ? ` · ${closed!.prevLabel} ${n0(closed!.grossPrev)} (${signed(((closed!.gross - closed!.grossPrev) / closed!.grossPrev) * 100)}%)` : ""}</div>
+            </>
+          ) : w.grossSoFar === null ? <><div className="money-big money-muted">—</div><div className="unit">Delivered only · with Shipper</div></> : (
+            <>
+              <div className="money-big">{n0(w.grossSoFar)} <small>TND</small></div>
+              <div className="unit">Delivered only{w.pace ? ` · pace to month end ${n0(w.pace)}` : ""}</div>
+            </>
+          )}
+        </div>
+        <div className="card money-tile">
+          <div className="lbl">Stock · days left</div>
+          <div className={`money-big ${stock.days === null ? "money-muted" : ""}`}>{stock.days === null ? "—" : stock.days} <small>days</small></div>
+          <div className="unit">{stock.bottles === null ? "Bottles at Shipper · with Shipper" : `${n0(stock.bottles)} bottles at Shipper ÷ ${stock.perDay.toFixed(0)} shipped / day`}</div>
+          {stock.redBelow
+            ? <span className={`tag ${stock.days !== null && stock.days < stock.redBelow ? "t-red" : "t-grey"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED BELOW {stock.redBelow} DAYS</span>
+            : <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED LINE TO FILL · SETTINGS</span>}
+        </div>
+        <div className="card money-tile">
+          <div className="lbl">Cash at Shipper</div>
+          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.collected + cash.transit) : "—"} <small>TND</small></div>
+          <div className="unit">{cash ? `Collected, not yet paid ${n0(cash.collected)} · in transit ${n0(cash.transit)}` : "Collected not paid + in transit · with Shipper"}</div>
+        </div>
+      </section>
+
+      <Trend points={view.trend} />
+
+      {closed ? (
+        <section className="card" style={{ padding: "22px 24px" }} aria-labelledby="h-wf">
+          <div className="money-head"><h3 id="h-wf">Where every dinar goes · {closed.label}</h3><span className="lbl">Delivered sales only · TND</span></div>
+          <div className="wf wf-head"><span /><span className="lbl" style={{ paddingLeft: "4%" }}>0</span><span className="lbl" style={{ textAlign: "right" }}>TND</span><span className="lbl" style={{ textAlign: "right" }}>of gross</span></div>
+          {closed.waterfall.map((r, i) => {
+            const g = closed.gross || 1;
+            const pos = (x: number) => `${4 + 92 * Math.max(0, Math.min(1, x / g))}%`;
+            const first = i === 0, last = i === closed.waterfall.length - 1;
+            const from = first ? 0 : last ? Math.min(0, r.amount) : (r.left ?? 0);
+            const to = first ? r.amount : last ? Math.max(0, r.amount) : (r.left ?? 0) - r.amount;
+            const color = first ? "linear-gradient(180deg,#2C2C2C,#111)" : last ? (r.amount < 0 ? "linear-gradient(180deg,#E25440,#C63421)" : "linear-gradient(180deg,#34A865,#1F8E4C)") : "linear-gradient(180deg,#B9B9B3,#9F9F99)";
+            return (
+              <div className="wf" key={r.label}>
+                <div><div style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</div><div className="unit">{r.sub}</div></div>
+                <div className="wtrack" aria-hidden="true">
+                  <span className="wzero" />
+                  <span className="wbar" style={last && r.amount < 0
+                    ? { left: `${4 - Math.min(4, 92 * (-r.amount / g))}%`, width: `${Math.max(0.6, Math.min(4, 92 * (-r.amount / g)))}%`, background: color }
+                    : { left: pos(from), width: `calc(${pos(to)} - ${pos(from)})`, background: color }} />
+                  {!first && !last && r.left !== null && r.left > 0.15 * g && <span className="wleft" style={{ left: pos(r.left) }}>{n0(r.left)} left</span>}
+                </div>
+                <span className={`amt ${last ? (r.amount < 0 ? "a-red" : "a-green") : ""}`}>{first ? n0(r.amount) : r.amount < 0 ? n0(r.amount) : `+${n0(r.amount)}`}</span>
+                <span className="unit" style={{ textAlign: "right" }}>{Math.round(r.pct * 100)}%</span>
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+
+      <section className="tray" style={{ padding: "20px 18px" }} aria-labelledby="h-leaks">
+        <div className="money-head" style={{ padding: "0 6px 12px" }}>
+          <h3 id="h-leaks">Where the money went</h3>
+          <span className="lbl">{isMonth && closed?.leaks ? `vs ${closed.prevLabel} · biggest first` : "closed months only"}</span>
+        </div>
+        {isMonth && closed?.leaks ? (
+          <>
+            <div className="leak leak-head"><span className="lbl">Stage</span><span className="lbl">{closed.prevLabel} → {closed.label}</span><span className="lbl">Size of the gap</span><span className="lbl" style={{ textAlign: "right" }}>TND</span><span /></div>
+            {(() => {
+              const max = Math.max(...closed.leaks.map((l) => Math.abs(l.amount)), 1);
+              return closed.leaks.map((l) => (
+                <div className={`leak ${l.grey ? "leak-grey" : ""}`} key={l.name}>
+                  <div><div style={{ fontSize: 15, fontWeight: 600, color: l.grey ? "#77776F" : undefined }}>{l.name}</div><div className="unit">{l.what}</div></div>
+                  <span className="rate">{l.rate}</span>
+                  <div className="track" aria-hidden="true"><div className={`fill ${l.grey ? "f-grey" : l.amount < 0 ? "f-red" : "f-green"}`} style={{ width: `${Math.max(3, Math.round((Math.abs(l.amount) / max) * 100))}%` }} /></div>
+                  <span className={`amt ${l.grey ? "a-grey" : l.amount < 0 ? "a-red" : "a-green"}`}>{signed(l.amount)}</span>
+                  <span>{l.detail && <button type="button" className="btn b-ghost" onClick={() => setDetail(l)}>Details</button>}</span>
+                </div>
+              ));
+            })()}
+            <div className="leak-total">
+              <span style={{ fontWeight: 600 }}>Total · stages add up exactly</span>
+              <span className="unit">{closed.prevLabel} {signed(closed.prevProfit ?? 0)} → {closed.label} {signed(closed.profit)} TND</span>
+              <span className={`amt ${(closed.leakTotal ?? 0) < 0 ? "a-red" : "a-green"}`}>{signed(closed.leakTotal ?? 0)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="leak-settling">
+            <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{closed ? "SETTLING" : "WAITS FOR SHIPPER"}</span>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{closed ? "This week's orders are still being confirmed and delivered" : "The leak finder needs two months of Shipper orders"}</div>
+            <div className="unit" style={{ fontSize: 13 }}>The leak finder needs settled delivery (2–3 weeks for COD). It runs on closed months; weeks appear here once their orders settle. Nothing is guessed.</div>
+          </div>
+        )}
+      </section>
+
+      <section className="money-foot">
+        {closed?.tracking != null && (
+          <span><span className={`tag ${closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "t-green" : "t-red"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />{closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "DATA OK" : "CHECK TRACKING"}</span>Tracking {closed.tracking.toFixed(3)} · band 0.89–0.95</span>
+        )}
+        <span><b>Editing cost</b> = approved videos × the editor&apos;s pay per video, read from the Editing tab (variable cost) · fixed {n0(fixed)} TND / month from Settings</span>
+        <span>Normal = last closed month · stages switched in fixed order: ad cost → volume → tracking → confirmation → door rate → order value → delivery cost</span>
+      </section>
+
+      {detail?.detail && closed && (
+        <Modal open onClose={() => setDetail(null)} who={`Details · ${closed.prevLabel} → ${closed.label}`} title={`${detail.name} · ${signed(detail.amount)} TND`}>
+          <div style={{ fontSize: 15 }}>{detail.detail.head}</div>
+          {detail.detail.lines.map((p) => <div className={`pline ${p.bad ? "pline-red" : ""}`} key={p.a}><span>{p.a}</span><b className="mono">{p.b}</b></div>)}
+          <div className="info"><b>Where to look:</b> {detail.detail.look}</div>
+        </Modal>
+      )}
+    </section>
+  );
+}
+
+/** Profit trend · last 12 weeks: curve over zero, green / red areas, settling weeks dashed, last value labelled, two status words. */
+function Trend({ points }: { points: TrendPoint[] }) {
+  if (!points.length) return null;
+  const vals = points.map((p) => p.profit);
+  const max = Math.max(1000, ...vals.map(Math.abs));
+  const W = 1000, H = 220, pad = 10;
+  const x = (i: number) => pad + (i * (W - 2 * pad)) / Math.max(1, points.length - 1);
+  const y = (v: number) => H / 2 - (v / max) * (H / 2 - pad);
+  const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
+  const area = `${path} L${x(points.length - 1)},${H / 2} L${x(0)},${H / 2} Z`;
+  const firstSettling = points.findIndex((p) => p.settling);
+  let loss = 0; for (let i = vals.length - 1; i >= 0 && vals[i] < 0; i--) loss++;
+  let gain = 0; for (let i = vals.length - 1; i >= 0 && vals[i] >= 0; i--) gain++;
+  let up = 0; for (let i = vals.length - 1; i > 0 && vals[i] > vals[i - 1]; i--) up++;
+  let down = 0; for (let i = vals.length - 1; i > 0 && vals[i] < vals[i - 1]; i--) down++;
+  const last = points[points.length - 1];
+  const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return (
+    <section className="card" style={{ padding: "22px 24px" }} aria-labelledby="h-trend">
+      <div className="money-head">
+        <div><h3 id="h-trend">Profit trend · last 12 weeks</h3><div className="unit">Are we getting better or worse? Weekly profit after all costs, TND</div></div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {loss > 0 ? <span className="tag t-red"><i aria-hidden="true" />LOSS {loss} WEEK{loss > 1 ? "S" : ""}</span> : <span className="tag t-green"><i aria-hidden="true" />PROFIT {gain} WEEK{gain > 1 ? "S" : ""}</span>}
+          {up > 0 ? <span className="tag t-green"><i aria-hidden="true" />IMPROVING {up} WEEK{up > 1 ? "S" : ""}</span> : down > 0 ? <span className="tag t-red"><i aria-hidden="true" />WORSE {down} WEEK{down > 1 ? "S" : ""}</span> : null}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="trend-svg" role="img" aria-label={`Weekly profit: ${points.map((p) => `${fmt(p.monday)} ${Math.round(p.profit)} TND${p.settling ? " (settling)" : ""}`).join(", ")}`}>
+        <defs>
+          <clipPath id="tr-up"><rect x="0" y="0" width={W} height={H / 2} /></clipPath>
+          <clipPath id="tr-down"><rect x="0" y={H / 2} width={W} height={H / 2} /></clipPath>
+        </defs>
+        <path d={area} fill="rgba(31,142,76,0.18)" clipPath="url(#tr-up)" />
+        <path d={area} fill="rgba(214,59,39,0.16)" clipPath="url(#tr-down)" />
+        <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#B9B9B3" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <path d={firstSettling > 0 ? points.slice(0, firstSettling + 1).map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ") : firstSettling === 0 ? "" : path} fill="none" stroke="#111" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+        {firstSettling >= 0 && <path d={points.slice(Math.max(0, firstSettling - (firstSettling > 0 ? 1 : 0))).map((p, i) => `${i ? "L" : "M"}${x(i + Math.max(0, firstSettling - (firstSettling > 0 ? 1 : 0))).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
+        
+      </svg>
+      <div className="trend-axis">{points.map((p) => <span key={p.monday}>{fmt(p.monday)}</span>)}</div>
+      <div className="unit" style={{ marginTop: 6 }}>
+        Last week {signed(last.profit)} TND{last.settling ? " · settling" : ""}. Green area = profit · red area = loss · dashed = estimate while delivery settles (Meta purchases × line − spend) · weeks by order date.
+      </div>
+    </section>
+  );
+}
