@@ -57,8 +57,9 @@ export default async function Page() {
   const items = groups.flatMap((g) => g.items);
   const total = items.length;
   const late = groups.filter((g) => g.name.startsWith("LATE")).reduce((n, g) => n + g.items.length, 0);
-  const today = groups.find((g) => g.name === "TODAY")?.items.length ?? 0;
-  const oldest = items.length ? items.reduce((a, b) => (b.hours > a.hours ? b : a)).age : null;
+  // Oldest waiting = the longest wait on the founder (OVERDUE measures the copywriter's lateness, not a wait).
+  const waits = items.filter((i) => i.type !== "OVERDUE");
+  const oldest = waits.length ? waits.reduce((a, b) => (b.hours > a.hours ? b : a)).age : null;
 
   // The three numbers. Weekly target = the copywriters' weekly targets (Settings → People); videos follow scripts.
   const target = ctx.copywriters.reduce((n, c) => n + (c.target ?? 0), 0) || null;
@@ -71,7 +72,7 @@ export default async function Page() {
     <TabPage
       tab="home"
       title="Home"
-      hero={<HomeHero {...clock} name={viewer.name} total={total} late={late} today={today} oldest={late ? oldest : null} />}
+      hero={<HomeHero {...clock} name={viewer.name} total={total} late={late} oldest={late ? oldest : null} />}
     >
       <FounderNumbers
         initial={viewer.role === "founder_2" ? "f2" : "f1"}

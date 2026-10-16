@@ -23,7 +23,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       <div className="slab">
         <div className="band">
           <AppHeader viewer={v} active="home" />
-          <HomeHero day="16" weekday="Fri" month="October" greeting="Good afternoon" name={v.name} total={3} late={2} today={0} oldest="50h" />
+          <HomeHero day="16" weekday="Fri" month="October" greeting="Good afternoon" name={v.name} total={3} late={2} oldest="50h" />
         </div>
         <div className="body">
           <FounderNumbers

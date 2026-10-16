@@ -119,7 +119,8 @@ export function buildBlocked(tasks: TaskRow[], videoRows: VideoRow[], now: numbe
     for (const t of tasks) {
       const last = t.rounds[t.rounds.length - 1];
       const cell = `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`;
-      if (t.status === "changes" && last?.decidedAt) {
+      const today = new Date(now + 36e5).toISOString().slice(0, 10);
+      if (t.status === "changes" && last?.decidedAt && t.dueOn >= today) { // past due = OVERDUE in Needs me
         const since = Date.parse(last.decidedAt);
         out.push({ key: `s-${t.id}`, what: `${cell} · ${t.angle} · revision`, who: t.copywriter, since, text: ago(since, now), late: t.dueOn < new Date(now + 36e5).toISOString().slice(0, 10) });
       } else if (t.status === "approved" && last?.decidedAt) {
@@ -134,10 +135,12 @@ export function buildBlocked(tasks: TaskRow[], videoRows: VideoRow[], now: numbe
       out.push({ key: `v-${r.taskId}`, what: `${r.name} · ${r.meta} · on hold${r.hold.reason ? `: ${r.hold.reason}` : ""}`, who: "a founder to resume it", since, text: ago(since, now), late: false });
       continue;
     }
-    if (r.waitingOn === "You") continue; // that is in Needs me
+    // Waiting on Founder 2 (Needs me), or footage after the shoot day (a FOOTAGE item): not Blocked.
+    if (r.waitingOn === "You" || r.waitingWhat === "footage") continue;
     const who = r.waitingOn === "Agency" ? "the agency" : r.waitingName;
-    out.push({ key: `v-${r.taskId}`, what: `${r.name} · ${r.meta} · ${r.waitingWhat}`, who, since: 0, text: r.nowLabel, late: r.late });
+    const ahead = r.waitingWhat.startsWith("shoot");
+    out.push({ key: `v-${r.taskId}`, what: `${r.name} · ${r.meta} · ${r.waitingWhat}`, who, since: ahead ? now : r.sinceMs, text: ahead ? r.nowLabel : ago(r.sinceMs, now), late: r.late });
   }
-  // Late first, then the longest waiting (videos carry their own label; scripts their time).
-  return out.sort((a, b) => Number(b.late) - Number(a.late) || (a.since && b.since ? a.since - b.since : 0));
+  // Late first, then the longest waiting.
+  return out.sort((a, b) => Number(b.late) - Number(a.late) || a.since - b.since);
 }

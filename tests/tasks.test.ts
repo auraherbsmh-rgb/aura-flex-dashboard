@@ -346,8 +346,10 @@ test("Home: pace, scripts this week, speed split, waiting to launch, blocked", (
   assert.equal(w[0].days, 1);
   assert.match(w[0].title, /Mervet/);
 
-  const bl = buildBlocked([t("c", { status: "changes", rounds: [R("changes", "2026-10-13T09:00:00Z")], dueOn: "2026-10-12" })], [], thu, true);
+  const bl = buildBlocked([t("c", { status: "changes", rounds: [R("changes", "2026-10-13T09:00:00Z")], dueOn: "2026-10-17" })], [], thu, true);
   assert.equal(bl.length, 1);
-  assert.equal(bl[0].late, true);
+  assert.equal(bl[0].text, "2 days");
+  // Past due = OVERDUE in Needs me, so not repeated in Blocked.
+  assert.equal(buildBlocked([t("c", { status: "changes", rounds: [R("changes", "2026-10-13T09:00:00Z")], dueOn: "2026-10-12" })], [], thu, true).length, 0);
   assert.equal(buildBlocked(tasks, [], thu, false).length, 0);
 });

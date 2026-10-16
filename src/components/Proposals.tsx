@@ -187,6 +187,8 @@ export function NeedsMe({
   // Assign after tagging a testimonial: held here because the TESTIMONIAL row disappears once it is used.
   const [assign, setAssign] = useState<{ card: ProdCard; current: Production } | null>(null);
   const groups = showAll && allGroups ? allGroups : mine;
+  // "Start with the most urgent" (Home header) opens the founder's own first item, even when All is shown.
+  const mineKeys = new Set(mine.flatMap((g) => g.items.map((i) => i.key)));
   const total = showAll && allGroups ? allGroups.reduce((n, g) => n + g.items.length, 0) : mineTotal;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 18 }} aria-labelledby="h-needs">
@@ -212,7 +214,7 @@ export function NeedsMe({
           <div className={`lane l-${g.tone}`}><i aria-hidden="true" />{g.name}<span style={{ color: "#8c8c86", fontWeight: 500 }}>· {g.items.length}</span></div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {g.items.map((it) => (
-              <div className="need" key={it.key}>
+              <div className="need" key={it.key} data-mine={mineKeys.has(it.key) ? "" : undefined}>
                 <div><span className={`tag t-${it.tagTone}`}><i aria-hidden="true" />{it.type}</span></div>
                 <div style={{ minWidth: 0 }}>
                   <div className="need-title">{it.title}</div>

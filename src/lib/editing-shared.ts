@@ -205,6 +205,8 @@ export type VideoRow = {
   dueSort: string;
   /** Not with an editor yet: the row opens Footage received or Assign right in the pipeline (founder choice Oct 16). */
   action: "footage" | "assign" | null;
+  /** When the current step started (ms), for "how long" on Home → Blocked. */
+  sinceMs: number;
   /** On hold (founders): not late, sorted last, reason shown. */
   hold: { since: string; reason: string | null } | null;
 };
@@ -320,6 +322,7 @@ export function buildVideoPipeline(
       href: p?.assignedAt ? `/editing?task=${t.id}#edit-view` : testimonial ? "/home" : `/copywriting?task=${t.id}#task-view`,
       dueSort: p?.editDue ?? d.shootOn ?? t.dueOn,
       action: p?.assignedAt ? null : i === 2 ? "assign" : "footage",
+      sinceMs: since,
       hold,
     });
   }

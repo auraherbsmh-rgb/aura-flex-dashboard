@@ -5,12 +5,13 @@ import { useState } from "react";
 import type { BlockedItem, Pace, SpeedSplit, WaitingLaunch } from "@/lib/home-shared";
 
 /** Founder Home header (artboards): date block · greeting · counts · Start with the most urgent. */
-export function HomeHero({ day, weekday, month, greeting, name, total, late, today, oldest }: {
-  day: string; weekday: string; month: string; greeting: string; name: string; total: number; late: number; today: number; oldest: string | null;
+export function HomeHero({ day, weekday, month, greeting, name, total, late, oldest }: {
+  day: string; weekday: string; month: string; greeting: string; name: string; total: number; late: number; oldest: string | null;
 }) {
   const start = () => {
     // Opens the first item's action (its pop-up or task), the most urgent one.
-    const btn = document.querySelector<HTMLElement>(".need .btn");
+    // Only the founder's own items (Needs me may be showing All).
+    const btn = [...document.querySelectorAll<HTMLElement>(".need[data-mine] .btn")][0];
     if (!btn) return;
     btn.scrollIntoView({ behavior: "smooth", block: "center" });
     btn.focus({ preventScroll: true });
@@ -28,7 +29,6 @@ export function HomeHero({ day, weekday, month, greeting, name, total, late, tod
         <div className="home-counts">
           <span className="raise home-pill"><b>{total}</b><span>thing{total === 1 ? "" : "s"} need{total === 1 ? "s" : ""} you</span></span>
           {late > 0 && <><span className="home-dot" aria-hidden="true">·</span><span className="home-pill home-pill-red"><i aria-hidden="true" /><b>{late}</b><span>{late === 1 ? "is" : "are"} late</span></span></>}
-          {today > 0 && <><span className="home-dot" aria-hidden="true">·</span><span className="home-soft"><b>{today}</b> due today</span></>}
           {oldest && <><span className="home-dot" aria-hidden="true">·</span><span className="home-soft">oldest waiting <b className="home-red">{oldest}</b></span></>}
         </div>
       </div>

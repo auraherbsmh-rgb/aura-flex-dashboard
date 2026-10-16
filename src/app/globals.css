@@ -499,7 +499,7 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .home-bage { font: 600 13px var(--mono); color: #3a3a36; }
 @media (max-width: 700px) {
   .home-greet { font-size: 30px; }
-  .home-sep { display: none; }
+  .home-sep, .home-dot { display: none; }
   .home-start { width: 100%; justify-content: space-between; }
   .home-tile .ring { width: 96px; height: 96px; }
   .home-tile .ring svg { width: 96px; height: 96px; }
