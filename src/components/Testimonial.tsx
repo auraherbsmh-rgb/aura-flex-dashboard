@@ -7,12 +7,13 @@ import { addTestimonial, tagTestimonial, testimonialNotUsable } from "@/app/task
 import { toConceptTag } from "@/lib/parse";
 import { fmtWhen, type EditorLoad, type ProdCard, type Production, type TestimonialLite } from "@/lib/tasks-shared";
 
+import type { Pickers } from "@/lib/proposals-shared";
+
 /** The new task's production as the Assign pop-up needs it (recording in, brief prefilled). */
 export const prodFor = (card: ProdCard, brief: string): Production => ({
   taskId: card.taskId, footageUrl: null, allHooksShot: true, footageGap: null, footageAt: card.confirmedAt, editorId: null, editorName: null,
   editDue: null, brief: brief.trim(), reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null,
 });
-import type { Pickers } from "@/lib/proposals-shared";
 
 const AWARENESS = ["Problem-Aware", "Solution-Aware", "Product-Aware", "Most-Aware"];
 
