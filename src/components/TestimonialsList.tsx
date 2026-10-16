@@ -7,7 +7,8 @@ import { AssignButton } from "./Production";
 import { fmtWhen, tunisDate, type EditorLoad, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
 import type { Pickers } from "@/lib/proposals-shared";
 
-export type TestimonialVideo = { name: string; where: string; inQueue: boolean };
+/** link = the final videos folder, else the editor's latest version (Drive). */
+export type TestimonialVideo = { name: string; where: string; inQueue: boolean; link: string | null };
 
 type Filter = "all" | "new" | "used" | "not_usable";
 const LABEL: Record<TestimonialRow["status"], { word: string; tone: string }> = {
@@ -81,9 +82,12 @@ export function TestimonialsList({
                 {r.status === "new" && (
                   <TestimonialButton item={{ id: r.id, url: r.url, note: r.note, addedAt: r.addedAt }} pickers={pickers} editors={editors} label="Tag" className="btn b-primary" onDone={setMsg} onCreated={(card, current) => setAssign({ card, current })} />
                 )}
+                {r.status === "used" && v?.link && (
+                  <a className="btn b-ghost" href={v.link} target="_blank" rel="noopener noreferrer" aria-label={`Watch the ${v.name} video (opens a new tab)`}>Watch video ↗</a>
+                )}
                 {r.status === "used" && r.taskId && (
                   v?.inQueue
-                    ? <button type="button" className="btn b-ghost" onClick={() => onOpen(r.taskId!)}>Open video</button>
+                    ? <button type="button" className="btn b-ghost" onClick={() => onOpen(r.taskId!)}>Open task</button>
                     : v?.where === "to assign" ? <Link className="btn b-ghost" href="/home">Assign on Home</Link> : null
                 )}
               </div>

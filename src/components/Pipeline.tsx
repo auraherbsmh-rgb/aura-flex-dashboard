@@ -82,7 +82,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
             <b style={{ color: "var(--ink)" }}>Handed to production this week · {handed.length}</b> · details confirmed, now in production
           </span>
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {handed.map((h) => <Link key={h.id} href={`/copywriting?task=${h.id}#task-view`} prefetch={false} onClick={(e) => openOnBoard(e, h.id, h.copywriterId)} className="pchip">{h.label}</Link>)}
+            {handed.map((h) => <Link key={h.id} href={`/copywriting?task=${h.id}#task-view`} prefetch={false} onClick={(e) => openOnBoard(e, h.id, h.copywriterId)} className="pchip" aria-label={`${h.name}: ${h.stage.toLowerCase()}`}><b>{h.name}</b><span className={`tag ${h.tone}`}><i aria-hidden="true" />{h.stage}</span></Link>)}
           </span>
         </div>
       </div>

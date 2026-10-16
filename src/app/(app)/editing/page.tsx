@@ -124,6 +124,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       name: c?.face ?? "Testimonial",
       where: tasks.find((t) => t.id === r.taskId)?.status === undefined ? "cancelled" : p?.liveAt ? "live" : p?.launchedAt ? "launched" : p?.assignedAt ? `with ${p.editorName ?? "an editor"}` : "to assign",
       inQueue: mine.some((q) => q.taskId === r.taskId),
+      link: p?.finalUrl ?? rounds.get(r.taskId)?.at(-1)?.videoUrl ?? null,
     };
   }
 

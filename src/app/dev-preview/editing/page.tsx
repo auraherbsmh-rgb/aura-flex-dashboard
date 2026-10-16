@@ -69,7 +69,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
                 { id: "u1", url: "https://drive.google.com/b", note: "knee, stairs story", addedAt: "2026-10-12T09:00:00Z", status: "used", reason: null, taskId: "hedi", decidedAt: "2026-10-12T10:00:00Z", decidedBy: "Founder 2" },
                 { id: "n1", url: "https://drive.google.com/c", note: null, addedAt: "2026-10-10T09:00:00Z", status: "not_usable", reason: "sound too low", taskId: null, decidedAt: "2026-10-10T11:00:00Z", decidedBy: "Founder 2" },
               ],
-              videos: { hedi: { name: "Hedi", where: "with Editor B", inQueue: true } },
+              videos: { hedi: { name: "Hedi", where: "with Editor B", inQueue: true, link: "https://drive.google.com/v" } },
               pickers: { avatars: [{ id: "FSB", code: "FSB", label: "FSB" }], angles: [{ id: "kb", code: "Knee-Broad", label: "Knee-Broad" }], formats: [] },
             } : undefined}
           />

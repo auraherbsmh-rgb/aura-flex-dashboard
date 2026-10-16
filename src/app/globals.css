@@ -366,7 +366,9 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .due { font: 600 13px var(--mono); text-align: right; color: #55564f; }
 .due.red { color: #a1241a; }
 .handed { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-radius: 20px; border: 1px dashed #b9b9b3; margin-top: 4px; }
-.pchip { font: 600 11px var(--mono); padding: 0 12px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 999px; background: #efefec; color: #4f504c; white-space: nowrap; text-decoration: none; }
+.pchip { padding: 4px 6px 4px 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 10px; border-radius: 999px; background: linear-gradient(180deg, #fff 0%, #fafaf8 100%); border: 1px solid rgba(20, 20, 15, 0.06); box-shadow: 0 1px 2px rgba(20, 20, 15, 0.07); color: var(--ink); white-space: nowrap; text-decoration: none; font-size: 14px; }
+.pchip b { font-weight: 600; text-transform: capitalize; }
+.pchip:hover { box-shadow: 0 6px 14px rgba(20, 20, 15, 0.1); }
 .pipe-legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: #55564f; padding: 0 8px; }
 @media (max-width: 900px) {
   .pipe-head { display: none; }

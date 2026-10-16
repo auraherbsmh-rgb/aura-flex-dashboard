@@ -118,6 +118,7 @@ test("Scripts pipeline: steps, late rules, handed to production", () => {
   assert.equal(by.get("a")!.nowLabel, "2 h");
   assert.ok(p.rows[0].late && p.rows[1].late, "late first");
   assert.deepEqual(p.handed.map((h) => h.label), ["SAMI · SHOOT SAT"]);
+  assert.equal(p.handed[0].tone, "t-grey");
 });
 
 test("Scripts pipeline: round 2, approved after changes, late changes", () => {

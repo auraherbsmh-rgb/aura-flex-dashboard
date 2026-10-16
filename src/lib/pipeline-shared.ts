@@ -23,7 +23,8 @@ export type PipeRow = {
   late: boolean;
   onFounder: boolean;
 };
-export type HandedChip = { id: string; copywriterId: string; label: string };
+/** A script handed to production this week: its name + a stage tag (colour = meaning), sorted shoot → live. */
+export type HandedChip = { id: string; copywriterId: string; label: string; name: string; stage: string; tone: string; order: number };
 export type Pipeline = { rows: PipeRow[]; handed: HandedChip[] };
 
 export const spent = (fromIso: string, now: number) => {
@@ -125,11 +126,14 @@ export function buildPipeline(
     // Where it is now in production: shoot day, footage in (to assign), or with an editor.
     const p = productions.get(t.id);
     const stage = prodStage(d.generate, p);
-    const where =
-      p?.liveAt ? "LIVE" : p?.launchedAt ? "LAUNCHED" : isHeld(p) ? "ON HOLD" : stage === "editing" ? "EDITING"
-      : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : d.vo ? "VO IN" : "FOOTAGE IN")
-      : d.vo ? "WAITING FOR VO" : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
-    handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });
+    const [where, tone, order]: [string, string, number] =
+      p?.liveAt ? ["LIVE", "t-live", 6] : p?.launchedAt ? ["LAUNCHED", "t-launched", 5] : isHeld(p) ? ["ON HOLD", "t-hold", 7]
+      : stage === "editing" ? ["EDITING", "t-amber", 3]
+      : stage === "assign" ? [d.generate ? "AI / 3D · TO ASSIGN" : d.vo ? "VO IN" : "FOOTAGE IN", "t-grey", 2]
+      : [d.vo ? "WAITING FOR VO" : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT", "t-grey", 1];
+    const name = d.face ?? t.angle;
+    handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${name.toUpperCase()} · ${where}`, name, stage: where, tone, order });
   }
+  handed.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   return { rows, handed };
 }
