@@ -141,6 +141,7 @@ export function EditQueue({
           key={q.taskId}
           href={`/editing?${ed ? `ed=${ed}&` : ""}task=${q.taskId}#edit-view`}
           scroll={false}
+          prefetch={true}
           className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.dim ? "qi-dim" : ""}`}
           aria-current={q.taskId === selectedId ? "true" : undefined}
         >

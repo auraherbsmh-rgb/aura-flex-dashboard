@@ -18,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const viewer = await requireTab("copywriting");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
   const sp = await searchParams;
-  const [pickers, proposals, allTasks, ctx, detailsLite, reviewHours, detailsDays] = await Promise.all([
+  const [pickers, proposals, allTasks, ctx, detailsLite, reviewHours, detailsDays, productions, hooks] = await Promise.all([
     getPickers(),
     getProposals(),
     getTasks(),
@@ -26,8 +26,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getDetailsLite(),
     getRule("review_waiting_hours", 48),
     getRule("details_not_filled_days", 1),
+    getProductions(),
+    getHookCounts(),
   ]);
-  const [productions, hooks] = await Promise.all([getProductions(), getHookCounts()]);
   const editors = founder ? await getEditors(productions, allTasks) : [];
   const cards = prodCards(allTasks, detailsLite, hooks);
 

@@ -34,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("edit_not_started_days", 2),
     getRule("revision_round_alert", 3),
   ]);
-  const editors = founder ? await getEditors(productions, tasks) : [];
+  const [editors, launchNames] = founder ? await Promise.all([getEditors(productions, tasks), getLaunchNames()]) : [[], undefined];
   const pcards = prodCards(tasks, details, hookCounts);
   const cards = new Map<string, EditCard>(
     [...pcards.values()].map((c) => [c.taskId, { face: c.face, cell: c.cell, angle: c.angle, format: c.format, generate: c.generate }]),
@@ -88,7 +88,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       payPerVideo: pay.get(p.editorId ?? "")?.perVideo ?? null,
       editorName: p.editorName ?? "Editor",
       card: pcards.get(selectedId),
-      names: founder ? (await getLaunchNames()).get(selectedId) : undefined,
+      names: launchNames?.get(selectedId),
     };
   }
 

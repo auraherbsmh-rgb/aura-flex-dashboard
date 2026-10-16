@@ -176,12 +176,12 @@ export type ScriptDetails = {
 export type DetailsPickers = { hookTypes: { id: string; label: string }[]; mainArguments: { id: string; label: string }[]; prices: [number | null, number | null, number | null] };
 
 /** What still blocks "Confirm details" (same checks as the database), in plain words. */
-export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "generate" | "mainArgumentId" | "variations">, tag: string): string[] {
+export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "generate" | "mainArgumentId" | "variations">, tag: string, minVars = 5): string[] {
   const miss: string[] = [];
   if (!tag) miss.push("face name");
   if (!d.generate && !d.shootOn) miss.push("shoot date (or AI / 3D)");
   if (!d.mainArgumentId) miss.push("main argument");
-  if (d.variations.length < 5) miss.push(`${5 - d.variations.length} more variation${5 - d.variations.length > 1 ? "s" : ""}`);
+  if (d.variations.length < minVars) miss.push(`${minVars - d.variations.length} more variation${minVars - d.variations.length > 1 ? "s" : ""}`);
   d.variations.forEach((v, i) => {
     if (!v.hookTypeId) miss.push(`V${i + 1} hook type`);
     if (v.hookLine.trim().length < 2) miss.push(`V${i + 1} hook line`);
@@ -240,3 +240,6 @@ export function suggestEditor(list: EditorLoad[], generate: boolean): string | n
   }
   return [...list].sort((a, b) => a.queue - b.queue)[0].id;
 }
+
+/** Fewest ad variations to confirm: AI / 3D videos need 1 (decision Oct 16), filmed videos 5. Max 6 for all. */
+export const minVariations = (formatCode: string) => (formatCode === "AI" ? 1 : 5);

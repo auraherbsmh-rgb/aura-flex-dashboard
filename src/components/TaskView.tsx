@@ -28,6 +28,7 @@ export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: Ta
           key={t.id}
           href={`/copywriting?${query}${query ? "&" : ""}task=${t.id}#task-view`}
           scroll={false}
+          prefetch={true}
           className={`inrow ${t.id === selectedId ? "inrow-on" : ""}`}
           aria-current={t.id === selectedId ? "true" : undefined}
         >
@@ -261,7 +262,7 @@ export function TaskView({
       {task.status === "approved" && (isOwner || isFounder) && (
         <div className="tv-next">
           <div>
-            <b>Script approved.</b> Fill the script details: face, {details?.generate || task.formatCode === "AI" ? "AI / 3D" : "shoot date"}, main argument, and 5–6 hook variations.
+            <b>Script approved.</b> Fill the script details: face, {details?.generate || task.formatCode === "AI" ? "AI / 3D" : "shoot date"}, main argument, and {task.formatCode === "AI" ? "1–6" : "5–6"} hook variations.
             The shoot and the ad names wait until it’s confirmed.
             {details && !details.confirmedAt && <span className="unit"> · Draft saved</span>}
           </div>

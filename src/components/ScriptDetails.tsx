@@ -5,7 +5,7 @@ import { Modal } from "./Modal";
 import { saveScriptDetails } from "@/app/tasks/actions";
 import { toConceptTag } from "@/lib/parse";
 import { shortAwareness } from "@/lib/proposals-shared";
-import { adSetName, missingDetails, type DetailsPickers, type ScriptDetails, type TaskRow, type Variation } from "@/lib/tasks-shared";
+import { adSetName, minVariations, missingDetails, type DetailsPickers, type ScriptDetails, type TaskRow, type Variation } from "@/lib/tasks-shared";
 
 const blank = (): Variation => ({ hookTypeId: "", hookLine: "", headline: "" });
 
@@ -59,7 +59,7 @@ export function ScriptDetailsButton({
     offer: details?.offer ?? null,
     variations: details?.variations.length
       ? details.variations.map((v) => ({ ...v, hookTypeId: known(v.hookTypeId, pickers.hookTypes) }))
-      : [blank(), blank(), blank(), blank(), blank()],
+      : Array.from({ length: minVariations(task.formatCode) }, blank),
   });
   const confirmed = !!details?.confirmedAt;
   const [open, setOpen] = useState(false);
@@ -69,7 +69,8 @@ export function ScriptDetailsButton({
 
   const tag = toConceptTag(d.face);
   const base = adSetName(task, tag);
-  const missing = missingDetails(d, tag);
+  const minVars = minVariations(task.formatCode);
+  const missing = missingDetails(d, tag, minVars);
   const setVar = (i: number, patch: Partial<Variation>) => setD((o) => ({ ...o, variations: o.variations.map((v, j) => (j === i ? { ...v, ...patch } : v)) }));
 
   const openIt = () => { setD(start()); setError(""); setOpen(true); };
@@ -137,7 +138,7 @@ export function ScriptDetailsButton({
         </div>
 
         <div className="field">
-          <span className="lbl">Ad variations · 5 to 6 · same footage, different hook</span>
+          <span className="lbl">Ad variations · {minVars} to 6 · {isAI ? "one per hook" : "same footage, different hook"}</span>
           <div className="tray vtray">
             <div className="vgrid vhead" aria-hidden="true">
               <span className="lbl">Var.</span><span className="lbl">Hook type ●</span><span className="lbl">Hook line ●</span><span className="lbl">On-screen headline</span><span />
@@ -165,7 +166,7 @@ export function ScriptDetailsButton({
               </div>
             ))}
             <button type="button" className="add" disabled={d.variations.length >= 6} onClick={() => setD((o) => ({ ...o, variations: [...o.variations, blank()] }))}>
-              {d.variations.length >= 6 ? "6 variations: the maximum" : "+ Add variation (5–6)"}
+              {d.variations.length >= 6 ? "6 variations: the maximum" : `+ Add variation (${minVars}–6)`}
             </button>
           </div>
         </div>

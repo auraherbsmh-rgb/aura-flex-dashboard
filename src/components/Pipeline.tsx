@@ -40,7 +40,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
         </div>
         {rows.length === 0 && <div className="info">No script in progress.</div>}
         {rows.map((r) => (
-          <Link key={r.id} href={`/copywriting?task=${r.id}#task-view`} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
+          <Link key={r.id} href={`/copywriting?task=${r.id}#task-view`} prefetch={true} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
                 <div className="pipe-name">{r.name}</div>
