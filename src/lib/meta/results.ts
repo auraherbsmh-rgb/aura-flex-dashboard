@@ -2,7 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLive, conceptResultRows } from "@/lib/live-shared";
 import { toMoneyInputs, type MoneyRow } from "@/lib/money";
-import type { Budget, MetaAd, MetaDay, Scope } from "@/lib/meta-shared";
+import { JUDGE_DAYS, type Budget, type MetaAd, type MetaDay, type Scope } from "@/lib/meta-shared";
 
 const tunisDay = (ms: number) => new Date(ms + 36e5).toISOString().slice(0, 10);
 
@@ -18,7 +18,7 @@ async function all<T>(q: (a: number, b: number) => PromiseLike<{ data: T[] | nul
 
 /** Recomputes concept_results. A state change resets state_since (what RESULT, WINNER and ALERT items count from). */
 export async function refreshResults(db: SupabaseClient, now = Date.now()): Promise<number> {
-  const since = tunisDay(now - 75 * 864e5);
+  const since = tunisDay(now - JUDGE_DAYS * 864e5);
   type A = { ad_id: string; name: string; campaign_id: string; adset_id: string | null; status: string | null; created_time: string | null };
   type D = { ad_id: string; day: string; spend: number; purchases: number; purchase_value: number; impressions: number; reach: number; link_clicks: number; plays_3s: number; thruplays: number; p25: number; p50: number; p75: number; p100: number };
   const [adsRows, dailyRows, budgetRows, scopeRows, money, vars, oldRows, existing] = await Promise.all([
@@ -29,7 +29,7 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
     db.from("money_settings").select("*").order("month", { ascending: false }).limit(1).maybeSingle(),
     all<{ task_id: string; v: number; ad_name: string }>((a, b) => db.from("ad_variations").select("task_id, v, ad_name").eq("active", true).order("task_id").range(a, b)),
     db.from("old_concepts").select("id, base_name"),
-    db.from("concept_results").select("task_id, state, ever_won, won_at"),
+    db.from("concept_results").select("task_id, state, ever_won, won_at, winner_noted_at"),
   ]);
   // A failed read must not look like "no data": it would reset every state_since (and the 48h covers).
   for (const r of [budgetRows, scopeRows, money, oldRows, existing]) if (r.error) throw new Error(r.error.message);
@@ -44,14 +44,18 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
   const generated = new Map(vars.map((v) => [v.ad_name.trim().toLowerCase(), { taskId: v.task_id, v: v.v }]));
   const old = new Map(((oldRows.data ?? []) as { id: string; base_name: string }[]).map((o) => [o.base_name, o.id]));
   const model = buildLive({ ads, daily, scope, budgets, generated, old, concepts: new Map(), money: toMoneyInputs(money.data as MoneyRow), now });
-  type Prev = { task_id: string; state: string; ever_won: boolean; won_at: string | null };
+  type Prev = { task_id: string; state: string; ever_won: boolean; won_at: string | null; winner_noted_at: string | null };
   const prev = new Map(((existing.data ?? []) as Prev[]).map((r) => [r.task_id, r]));
   // A concept whose ads have no spend in the loaded days keeps its last result (a win is never forgotten).
   const rows = conceptResultRows(model.states).filter((r) => !(prev.has(r.task_id) && r.variations.every((v) => v.spend7 === 0) && !r.live && quiet(model.states.get(`t:${r.task_id}`))));
   const stamp = new Date(now).toISOString();
-  const payload = rows.map((r) => {
+  const payload = rows.map((row) => {
+    let r = row;
     const p = prev.get(r.task_id);
     const everWon = !!p?.ever_won || r.ever_won;
+    // A past win the loaded days no longer show (data older than the window): never judged "never won" — keep its state.
+    const state = p?.ever_won && !r.ever_won && (r.state === "lost" || r.state === "testing") ? (p.state as typeof r.state) : r.state;
+    r = { ...r, state };
     return {
       ...r, ever_won: everWon, won_at: p?.won_at ?? (everWon ? stamp : null), updated_at: stamp,
       // New state: the clock restarts and the copywriter has a new verdict to see.
@@ -65,8 +69,14 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
   if (same.length) { const { error } = await db.from("concept_results").upsert(same, { onConflict: "task_id" }); if (error) throw new Error(error.message); }
   // Concepts no longer matched to any ad (variations renamed or removed) drop out of the results.
   const matched = new Set([...model.states.keys()].filter((k) => k.startsWith("t:")).map((k) => k.slice(2)));
-  const stale = [...prev.keys()].filter((id) => !matched.has(id));
-  if (stale.length) { const { error } = await db.from("concept_results").delete().in("task_id", stale); if (error) throw new Error(error.message); }
+  // Never on an empty read (no ads or no campaigns would wipe everything), and never a winner: its history stays, not live.
+  if (ads.length && scope.length) {
+    const stale = [...prev.values()].filter((p) => !matched.has(p.task_id));
+    const drop = stale.filter((p) => !p.ever_won && !p.winner_noted_at).map((p) => p.task_id);
+    const keep = stale.filter((p) => p.ever_won || p.winner_noted_at).map((p) => p.task_id);
+    if (drop.length) { const { error } = await db.from("concept_results").delete().in("task_id", drop); if (error) throw new Error(error.message); }
+    if (keep.length) { const { error } = await db.from("concept_results").update({ live: false, updated_at: stamp }).in("task_id", keep); if (error) throw new Error(error.message); }
+  }
   return rows.length;
 }
 

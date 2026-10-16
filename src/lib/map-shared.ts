@@ -97,11 +97,13 @@ export function buildMap(concepts: MapConcept[], avatars: { id: string; code: st
       const metaStates = STATE_ORDER.filter((st) => list.some((c) => c.resultState && conceptState(c) === st));
       const state = (metaStates[0] ?? present[0] ?? "empty") as MapCell["state"];
       const mixed = present.length > 1 && metaStates.length === 0;
+      // ×N: concepts in the box's state (from Meta results when the box comes from them).
+      const n = state === "empty" ? 0 : metaStates.length ? list.filter((c) => c.resultState && conceptState(c) === state).length : counts[state as ConceptState];
       const parts = present.map((st) => `${counts[st]} ${STATE_PLAIN[st]}`);
       return {
         avatarId: a.id, avatarCode: a.code ?? a.label, awareness: lvl, state, mixed,
         // State word + ×N (handoff §7); a neutral mixed cell says how many concepts it holds.
-        word: state === "empty" ? "EMPTY" : mixed ? `${list.length} CONCEPTS` : `${CELL_WORD[state]}${counts[state] > 1 ? ` ×${counts[state]}` : ""}`,
+        word: state === "empty" ? "EMPTY" : mixed ? `${list.length} CONCEPTS` : `${CELL_WORD[state]}${n > 1 ? ` ×${n}` : ""}`,
         line: parts.length ? parts.join(" · ") : "+ Propose a test",
         counts, concepts: list,
       };

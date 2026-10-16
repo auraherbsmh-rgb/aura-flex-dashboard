@@ -84,7 +84,10 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   });
   if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : plain(error));
   // Created from an ALERT item: saved as the fading winner's successor.
-  if (form.get("successor") === "1" && newId) await supabase.rpc("mark_successor", { p_task: newId as string });
+  if (form.get("successor") === "1" && newId) {
+    const mark = await supabase.rpc("mark_successor", { p_task: newId as string });
+    if (mark.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be marked as a successor."); }
+  }
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");
 }

@@ -227,3 +227,7 @@ export function groupAds(
   }
   return groups;
 }
+
+/** Days of Meta results loaded to judge a concept (Live ads and the results refresh use the same window, so a win
+ * stays visible for a year; older data is not judged). */
+export const JUDGE_DAYS = 400;
