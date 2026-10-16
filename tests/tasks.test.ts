@@ -319,3 +319,35 @@ test("Editing queue: approved to launch, then launched, then live, then on hold"
   const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3 });
   assert.deepEqual(q.map((x) => x.taskId), ["toLaunch", "launched", "live", "held"]);
 });
+
+import { buildBlocked, pace, scriptsApprovedThisWeek, speedSplit, waitingToLaunch } from "../src/lib/home-shared";
+
+test("Home: pace, scripts this week, speed split, waiting to launch, blocked", () => {
+  const thu = Date.parse("2026-10-15T10:00:00Z"); // Thursday
+  assert.equal(pace(5, 8, thu).word, "ON PACE · 3 TO GO"); // on pace
+  assert.equal(pace(2, 8, thu).tone, "amber"); // expected floor(8 × 3.46 / 7) = 3
+  assert.equal(pace(8, 8, thu).word, "TARGET MET");
+  assert.equal(pace(2, null, thu).tone, "grey");
+  const R = (decision: "approved" | "changes" | null, decidedAt: string | null) => ({ round: 1, scriptUrl: "x", submittedAt: "2026-10-10T08:00:00Z", submittedBy: "C", decision, loom: null, note: null, decidedBy: null, decidedAt });
+  const t = (id: string, extra: object = {}) => ({ ...t0, id, ...extra });
+  const tasks = [t("a", { rounds: [R("approved", "2026-10-13T09:00:00Z")] }), t("b", { rounds: [R("approved", "2026-10-09T09:00:00Z")] })];
+  assert.equal(scriptsApprovedThisWeek(tasks, thu), 1);
+
+  const P = { taskId: "a", footageUrl: "x", allHooksShot: true, footageGap: null, footageAt: "x", editorId: "e", editorName: "Editor B", editDue: null, brief: null, reference: null,
+    assignedAt: "2026-10-13T12:00:00Z", editStartedAt: "2026-10-14T09:00:00Z", finalUrl: "x", launchedAt: "2026-10-17T09:00:00Z", liveAt: null, liveSource: null };
+  const er = new Map([["a", [
+    { round: 1, videoUrl: "v", submittedAt: "2026-10-15T09:00:00Z", decision: "approved" as const, loom: null, note: null, decidedBy: null, decidedAt: "2026-10-16T09:00:00Z" },
+  ]]]);
+  const sp = speedSplit(tasks, new Map([["a", P]]), er, Date.parse("2026-10-18T09:00:00Z"));
+  assert.deepEqual(sp, { total: 4, editing: 1, revisions: 1, waiting: 2, count: 1 });
+
+  const w = waitingToLaunch(tasks, new Map([["a", { ...P, launchedAt: null }]]), er, new Map([["a", "Mervet"]]), new Map([["a", 5]]), Date.parse("2026-10-17T10:00:00Z"));
+  assert.equal(w.length, 1);
+  assert.equal(w[0].days, 1);
+  assert.match(w[0].title, /Mervet/);
+
+  const bl = buildBlocked([t("c", { status: "changes", rounds: [R("changes", "2026-10-13T09:00:00Z")], dueOn: "2026-10-12" })], [], thu, true);
+  assert.equal(bl.length, 1);
+  assert.equal(bl[0].late, true);
+  assert.equal(buildBlocked(tasks, [], thu, false).length, 0);
+});

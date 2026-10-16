@@ -228,7 +228,7 @@ export function NeedsMe({
                 ) : it.testimonial && pickers ? (
                   <TestimonialButton item={it.testimonial} pickers={pickers} editors={editors} label="Tag testimonial" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s TESTIMONIAL item" : "Founder 2 · TESTIMONIAL item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} onCreated={(card, current) => setAssign({ card, current })} />
                 ) : it.href ? (
-                  <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
+                  <Link href={it.href} className={`btn ${it.type === "COVERING" || it.type === "OVERDUE" ? "b-ghost" : "b-primary"}`}>{it.type === "OVERDUE" ? "See task" : "Open review"}</Link>
                 ) : it.proposal ? (
                   <>
                     <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setOpenId(it.key)}>Approve / Reject</button>

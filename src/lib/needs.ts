@@ -12,8 +12,8 @@ import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Produc
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "COVERING";
-  tagTone: "violet" | "blue" | "orange" | "green" | "grey";
+  type: "DECIDE" | "REVIEW" | "OVERDUE" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "COVERING";
+  tagTone: "violet" | "blue" | "orange" | "green" | "grey" | "red" | "amber";
   title: string;
   sub: string;
   age: string;
@@ -111,7 +111,7 @@ export function buildNeeds(
     const title = "New testimonial · tag it or mark not usable";
     const sub = `Support call${tm.note ? ` · ${tm.note}` : ""}`;
     if (viewer.role === "founder_2") {
-      items.push({ key: `t-${tm.id}`, type: "TESTIMONIAL", tagTone: "grey", title, sub, age: age.text, ageTone: "amber", hours: age.hours, testimonial: tm });
+      items.push({ key: `t-${tm.id}`, type: "TESTIMONIAL", tagTone: "amber", title, sub, age: age.text, ageTone: "amber", hours: age.hours, testimonial: tm });
     } else if (viewer.role === "founder_1" && age.hours >= cover) {
       items.push({ key: `t-${tm.id}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's testimonial, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, testimonial: tm });
     }
@@ -169,6 +169,19 @@ export function buildNeeds(
       items.push({ key: `r-${t.id}`, type: "REVIEW", tagTone: "blue", title, sub: `${cell} · ${t.copywriter} · round ${last.round}`, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, href });
     } else if (viewer.role === "founder_2" && late) {
       items.push({ key: `r-${t.id}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 1's review, waiting over ${reviewHours}h · ${cell} · ${t.copywriter}`, age: age.text, ageTone: "red", hours: age.hours, href });
+    }
+  }
+  // OVERDUE (Founder 1): a script being written or revised past its due date.
+  if (viewer.role === "founder_1") {
+    const today = new Date(now + 36e5).toISOString().slice(0, 10);
+    for (const t of tasks.filter((x) => (x.status === "writing" || x.status === "changes") && x.dueOn < today)) {
+      const late = Math.round((Date.parse(today) - Date.parse(t.dueOn)) / 864e5);
+      const day = new Date(`${t.dueOn}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+      items.push({
+        key: `o-${t.id}`, type: "OVERDUE", tagTone: "red", title: `${t.avatarCode} × ${shortAwareness(t.awareness)} script · ${t.copywriter}`,
+        sub: `${t.angle} · ${t.status === "changes" ? "revision " : ""}was due ${day}`, age: `+${late} DAY${late === 1 ? "" : "S"}`, ageTone: "red",
+        hours: late * 24, href: `/copywriting?task=${t.id}#task-view`,
+      });
     }
   }
   for (const p of proposals.filter((x) => x.status === "waiting")) {
