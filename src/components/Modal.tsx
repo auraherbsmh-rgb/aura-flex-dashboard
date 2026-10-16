@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+
+const noop = () => () => {};
 
 /**
  * Pop-up frame used by every pop-up (handoff §6b, §15): centered, page dimmed and blurred behind,
@@ -56,8 +59,11 @@ export function Modal({
     };
   }, [open]);
 
-  if (!open) return null;
-  return (
+  // Rendered at the end of <body>: a pop-up opened from a card that lifts on hover (transform) would otherwise be
+  // positioned inside that card and jump as the mouse moves.
+  const client = useSyncExternalStore(noop, () => true, () => false);
+  if (!open || !client) return null;
+  return createPortal(
     <div className="veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={card} className="pop" role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
@@ -69,6 +75,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
