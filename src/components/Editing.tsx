@@ -243,7 +243,9 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
             {v.payPerVideo !== null && !isFounder ? ` · ${v.payPerVideo} TND when approved` : ""}
           </div>
         </div>
-        <span className={`tag ${tag.tone}`}><i aria-hidden="true" />{tag.word(v.state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0))}</span>
+        {v.state === "approved" && p.liveAt ? <span className="tag t-live"><i aria-hidden="true" />LIVE</span>
+          : v.state === "approved" && p.launchedAt ? <span className="tag t-launched"><i aria-hidden="true" />LAUNCHED</span>
+          : <span className={`tag ${tag.tone}`}><i aria-hidden="true" />{tag.word(v.state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0))}</span>}
       </div>
 
       {msg.ok && <div className="notice notice-green" role="status">{msg.ok}</div>}

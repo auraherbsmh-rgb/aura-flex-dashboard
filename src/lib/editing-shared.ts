@@ -109,7 +109,8 @@ export function buildQueue(
       editorId: p.editorId ?? "",
       state,
       tag: state === "approved" && p.liveAt ? "LIVE" : state === "approved" && p.launchedAt ? "LAUNCHED" : tag.word(state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0)),
-      tone: tag.tone,
+      // Launched and Live stand out from Approved at a glance (founder request Oct 16).
+      tone: state === "approved" && p.liveAt ? "t-live" : state === "approved" && p.launchedAt ? "t-launched" : tag.tone,
       title: `${c.face} · ${c.cell} · ${c.format}`,
       sub,
       due: state === "approved" || state === "submitted" ? "" : `due ${fmtDay(due).split(" ").slice(0, 1).join("")}`,

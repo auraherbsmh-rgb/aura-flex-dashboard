@@ -107,7 +107,7 @@ export function ScriptDetailsButton({
           <label className="field">
             <span className="lbl">Face · first name ●</span>
             <input className={`inp ${!tag ? "fi-miss" : ""}`} value={d.face} maxLength={60} onChange={(e) => setD({ ...d, face: e.target.value })} placeholder="Sami" />
-            {d.face.trim() && !tag && <span className="formmsg err">Start with a letter and use Latin letters (it goes into ad names).</span>}
+            {d.face.trim() && !tag && <span className="formmsg err">Use Latin letters or digits (it goes into ad names).</span>}
             <span className="unit">The person in the video (creator, actor, doctor, customer). Nobody in it? One word for the idea, e.g. TalkingObjects. Goes into every ad name{tag ? <> as <b>{tag}</b></> : ""}.</span>
           </label>
           <div className="field">

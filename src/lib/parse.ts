@@ -38,9 +38,9 @@ export function toNameCode(label: string): string {
 
 /**
  * Concept tag for ad names (decision Oct 15): the face's first name, or one word for the idea when nobody is
- * in the video. One word, Latin letters, no dashes: "Sami", "talking objects" → "TalkingObjects", "Hédi" → "Hedi".
+ * in the video. One word, Latin letters or digits, no dashes: "Sami", "talking objects" → "TalkingObjects", "Hédi" → "Hedi", "3d".
  */
 export function toConceptTag(name: string): string {
-  const tag = toNameCode(name).replace(/-/g, "").slice(0, 30);
-  return /^[A-Z]/.test(tag) ? tag : ""; // must start with a letter, like the database rule
+  // One word of Latin letters and digits, like the database rule ("3d" allowed, decision Oct 16).
+  return toNameCode(name).replace(/-/g, "").slice(0, 30);
 }
