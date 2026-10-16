@@ -26,7 +26,15 @@ export type NeedItem = {
   prod?: { kind: "footage" | "assign"; card: ProdCard; current?: Production };
 };
 
-export type ProdNeeds = { cards: Map<string, ProdCard>; productions: Map<string, Production>; footageLateDays: number; assignLateDays: number; coverHours?: number };
+export type ProdNeeds = {
+  cards: Map<string, ProdCard>;
+  productions: Map<string, Production>;
+  footageLateDays: number;
+  assignLateDays: number;
+  coverHours?: number;
+  /** Edit versions by task: a version waiting for review is a REVIEW item for Founder 2. */
+  editRounds?: Map<string, { round: number; submittedAt: string; decision: string | null }[]>;
+};
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
 export async function getRule(key: string, fallback: number): Promise<number> {
@@ -45,6 +53,26 @@ export function buildNeeds(
   prod?: ProdNeeds,
 ): NeedGroup[] {
   const items: NeedItem[] = [];
+  // REVIEW (edit): a version waiting for Founder 2; Founder 1 covers after 48h.
+  if (prod?.editRounds) {
+    for (const [taskId, list] of prod.editRounds) {
+      const last = list[list.length - 1];
+      const card = prod.cards.get(taskId);
+      if (!last || last.decision || !card) continue;
+      const cover = prod.coverHours ?? 48;
+      const age = ageLabel(last.submittedAt, now, cover);
+      const late = age.hours >= cover;
+      const editor = prod.productions.get(taskId)?.editorName ?? "editor";
+      const title = `Review edit: ${card.face} v${last.round}`;
+      const sub = `${card.cell} · ${card.format} · ${editor}`;
+      const href = `/editing?task=${taskId}#edit-view`;
+      if (viewer.role === "founder_2") {
+        items.push({ key: `e-${taskId}`, type: "REVIEW", tagTone: "blue", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, href });
+      } else if (viewer.role === "founder_1" && late) {
+        items.push({ key: `e-${taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's review, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, href });
+      }
+    }
+  }
   // FOOTAGE (from the shoot day) and ASSIGN (footage in, or AI / 3D confirmed): Founder 2's; Founder 1 covers when late.
   if (prod) {
     const today = new Date(now + 36e5).toISOString().slice(0, 10);

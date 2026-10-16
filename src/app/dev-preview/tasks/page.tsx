@@ -34,7 +34,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       { id: "c2", name: "Copywriter 2", target: 4, approvedThisWeek: 4, openTasks: 2 },
     ],
   };
-  const base = { createdAt: "", angleId: "g2", angleCode: "Knee-Surgery-Fear", formatCode: "UGC", scriptUrl: null, changeFacts: { used: [{ label: "UGC", count: 2 }], total: 2, untried: ["Doctor video (AUTH)", "VSL", "AI / 3D"] }, rounds: [] };
+  const base = { createdAt: "", origin: "manual", angleId: "g2", angleCode: "Knee-Surgery-Fear", formatCode: "UGC", scriptUrl: null, changeFacts: { used: [{ label: "UGC", count: 2 }], total: 2, untried: ["Doctor video (AUTH)", "VSL", "AI / 3D"] }, rounds: [] };
   const r1 = { round: 1, scriptUrl: "https://docs.google.com/document/d/abc", submittedAt: "2026-10-15T08:00:00Z", submittedBy: "Copywriter 2", decision: null, loom: null, note: null, decidedBy: null, decidedAt: null };
   const tasks: TaskRow[] = [
     { ...base, id: "t2", status: "writing", dueOn: "2026-10-13", copywriter: "Copywriter 2", copywriterId: "c2", avatarCode: "FSS", awareness: "Problem-Aware", angle: "Knee-Surgery-Fear", format: "UGC", keep: "The surgery isn't the only road; your knee can still be helped.", note: "new face, a doctor's voice", reference: null },
@@ -78,7 +78,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             </aside>
             <div className="board-main">
               <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"}
-                production={sel.id === "t7" && sp.prod === "in" ? { taskId: "t7", footageUrl: "https://drive.google.com/x", allHooksShot: false, footageGap: "V5 not shot", footageAt: "2026-10-16T07:00:00Z", editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null } : undefined}
+                production={sel.id === "t7" && sp.prod === "in" ? { taskId: "t7", footageUrl: "https://drive.google.com/x", allHooksShot: false, footageGap: "V5 not shot", footageAt: "2026-10-16T07:00:00Z", editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null } : undefined}
                 prodCard={{ taskId: sel.id, face: "Sami", cell: "FSS × Problem", angle: "Knee-Surgery-Fear", format: "UGC", copywriter: "Copywriter 2", shootOn: "2026-10-17", generate: false, hooks: 5, confirmedAt: "2026-10-15T12:00:00Z" }}
                 editors={[{ id: "ea", name: "Editor A", doesAi: true, queue: 3 }, { id: "eb", name: "Editor B", doesAi: false, queue: 1 }]}
                 details={sel.id === "t7" ? det : sel.id === "t6" ? { ...det, adSetName: null, confirmedAt: null, ads: [], variations: det.variations.slice(0, 2) } : null} detailsPickers={dp} />

@@ -1,0 +1,10 @@
+-- Applied Oct 16, 2026 (screen 9: Editing tab). Summary of live migrations "edit_rounds_and_editor_access",
+-- "assign_edit_v3_editing_aware" and "pay_read_own".
+-- productions.edit_started_at (Ready → Editing). public.edit_rounds: one row per version (v1, v2…) with Founder 2's decision
+--   (approved | changes), optional Loom, one-line note. RLS read: founders, the assigned editor, the task's copywriter. No direct writes.
+-- Editors read script_details and ad_variations of the edits assigned to them (private.edits_task). people_pay: own row readable.
+-- start_edit(task): assigned editor or founder. submit_edit(task, url): not while a version waits or after approval.
+-- review_edit(task, round, decision, loom, note): founders; latest undecided version only; Needs changes = Loom or one line.
+-- assign_edit v3: refuses after approval, and moving to another editor once a version was sent; a new editor resets edit_started_at.
+-- Live test (rolled back): start → v1 → changes (Loom) → v2 → approved; bad link, double send, editor approving, empty changes,
+--   moving the editor after v1, sending after approval all refused; editor sees only her tasks, details, hooks.

@@ -199,3 +199,45 @@ export async function assignEdit(taskId: string, editorId: string, due: string, 
   revalidatePath("/", "layout");
   return done("Assigned. It is in the editor’s queue.");
 }
+
+/** The assigned editor (or a founder) starts editing: Ready → Editing. */
+export async function startEdit(taskId: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (!["founder_1", "founder_2", "editor"].includes(v.role)) return fail("Only the editor starts an edit.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("start_edit", { p_task: taskId });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Started. Founder 2 sees it as Editing.");
+}
+
+/** The editor sends a version (Drive link): v1, v2… */
+export async function submitEdit(taskId: string, url: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (!["founder_1", "founder_2", "editor"].includes(v.role)) return fail("Only the editor sends versions.");
+  const link = url.trim();
+  if (!LINK.test(link)) return fail("Paste the full Drive link (starting with https://).");
+  if (link.length > 1000) return fail("That link is too long.");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("submit_edit", { p_task: taskId, p_url: link });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(`v${data} sent. Founder 2 gets it on Home.`);
+}
+
+/** Founder review of an edit version: Approve, or Needs changes (Loom optional; one line required without a Loom). */
+export async function reviewEdit(taskId: string, round: number, decision: "approved" | "changes", loom: string, note: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders review edits.");
+  const l = loom.trim();
+  const n = note.trim();
+  if (l && !LINK.test(l)) return fail("The Loom link must start with https://.");
+  if (l.length > 1000) return fail("That Loom link is too long.");
+  if (decision === "changes" && !l && !n) return fail("Write one line on what to fix (or add a Loom).");
+  if (n.length > 1000) return fail("Keep the note under 1,000 characters.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("review_edit", { p_task: taskId, p_round: round, p_decision: decision, p_loom: l, p_note: n });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(decision === "approved" ? "Approved. Upload the final to Drive; launching comes next." : "Sent back with your note. It is at the top of the editor’s queue.");
+}

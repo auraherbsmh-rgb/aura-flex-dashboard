@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
+import type { EditRound } from "@/lib/editing-shared";
 import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
@@ -58,7 +59,7 @@ export async function getTasks(): Promise<TaskRow[]> {
   const supabase = await createClient();
   type Row = {
     id: string; status: string; due_on: string; created_at: string; keep_text: string | null; founder_note: string | null;
-    reference: string | null; copywriter_id: string; awareness: string; angle_id: string; script_url: string | null; change_facts: ChangeFacts | Record<string, never>;
+    reference: string | null; copywriter_id: string; awareness: string; angle_id: string; script_url: string | null; origin: string; change_facts: ChangeFacts | Record<string, never>;
     writer: { display_name: string } | null; avatar: { code: string } | null; angle: { label: string; code: string } | null; format: { label: string; code: string } | null;
   };
   type RoundRow = {
@@ -70,7 +71,7 @@ export async function getTasks(): Promise<TaskRow[]> {
       supabase
         .from("tasks")
         .select(
-          "id, status, due_on, created_at, keep_text, founder_note, reference, copywriter_id, awareness, angle_id, script_url, change_facts, " +
+          "id, status, due_on, created_at, keep_text, founder_note, reference, copywriter_id, awareness, angle_id, script_url, change_facts, origin, " +
             "writer:people!tasks_copywriter_id_fkey(display_name), avatar:list_items!tasks_avatar_id_fkey(code), " +
             "angle:list_items!tasks_angle_id_fkey(label, code), format:list_items!tasks_format_id_fkey(label, code)",
         )
@@ -104,7 +105,7 @@ export async function getTasks(): Promise<TaskRow[]> {
       copywriter: r.writer?.display_name ?? "—", copywriterId: r.copywriter_id,
       avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angleId: r.angle_id, angle: r.angle?.label ?? "—", angleCode: r.angle?.code ?? "?",
       format: r.format?.label ?? "—", formatCode: r.format?.code ?? "?",
-      keep: r.keep_text, note: r.founder_note, reference: r.reference, scriptUrl: r.script_url,
+      keep: r.keep_text, note: r.founder_note, reference: r.reference, scriptUrl: r.script_url, origin: r.origin,
       changeFacts: "untried" in (r.change_facts ?? {}) ? (r.change_facts as ChangeFacts) : null,
       rounds: (byTask.get(r.id) ?? []).sort((x, y) => x.round - y.round),
     }))
@@ -178,12 +179,13 @@ export async function getProductions(): Promise<Map<string, Production>> {
   type R = {
     task_id: string; footage_url: string | null; all_hooks_shot: boolean | null; footage_gap: string | null; footage_at: string | null;
     editor_id: string | null; edit_due: string | null; brief: string | null; edit_reference: string | null; assigned_at: string | null;
+    edit_started_at: string | null;
     editor: { display_name: string } | null;
   };
   const rows = await allRows("production", (a, b) =>
     supabase
       .from("productions")
-      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, editor:people!productions_editor_id_fkey(display_name)")
+      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, editor:people!productions_editor_id_fkey(display_name)")
       .order("task_id")
       .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
@@ -193,7 +195,7 @@ export async function getProductions(): Promise<Map<string, Production>> {
       {
         taskId: r.task_id, footageUrl: r.footage_url, allHooksShot: r.all_hooks_shot, footageGap: r.footage_gap, footageAt: r.footage_at,
         editorId: r.editor_id, editorName: r.editor?.display_name ?? (r.editor_id ? "an editor" : null), editDue: r.edit_due,
-        brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at,
+        brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at, editStartedAt: r.edit_started_at,
       },
     ]),
   );
@@ -235,4 +237,51 @@ export async function getHookCounts(): Promise<Map<string, number>> {
   const m = new Map<string, number>();
   for (const r of rows) m.set(r.task_id, (m.get(r.task_id) ?? 0) + 1);
   return m;
+}
+
+/** Edit versions (v1, v2…) the viewer may see, by task, oldest first. */
+export async function getEditRounds(): Promise<Map<string, EditRound[]>> {
+  const supabase = await createClient();
+  type R = {
+    task_id: string; round: number; video_url: string; submitted_at: string; decision: EditRound["decision"]; loom_url: string | null;
+    note: string | null; decided_at: string | null; decider: { display_name: string } | null;
+  };
+  const rows = await allRows("edit versions", (a, b) =>
+    supabase
+      .from("edit_rounds")
+      .select("task_id, round, video_url, submitted_at, decision, loom_url, note, decided_at, decider:people!edit_rounds_decided_by_fkey(display_name)")
+      .order("id")
+      .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
+  );
+  const m = new Map<string, EditRound[]>();
+  for (const r of rows) {
+    const list = m.get(r.task_id) ?? [];
+    list.push({ round: r.round, videoUrl: r.video_url, submittedAt: r.submitted_at, decision: r.decision, loom: r.loom_url, note: r.note, decidedBy: r.decider?.display_name ?? null, decidedAt: r.decided_at });
+    m.set(r.task_id, list);
+  }
+  for (const list of m.values()) list.sort((a, b) => a.round - b.round);
+  return m;
+}
+
+/** Pay rows the viewer may read (founders all; anyone their own): per-video pay and 3D rate by person. */
+export async function getPay(): Promise<Map<string, { perVideo: number | null; rate3d: number | null }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit, rate_3d_tnd");
+  if (error) throw new Error("Could not read pay. Reload the page.");
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x));
+  return new Map((data ?? []).map((p) => [p.person_id as string, { perVideo: p.pay_unit === "per_video" ? num(p.pay_amount_tnd) : null, rate3d: num(p.rate_3d_tnd) }]));
+}
+
+/** Hooks (V#) of one task with their ad names, for the editor's "Hooks to deliver". */
+export async function getHooks(taskId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ad_variations")
+    .select("v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)")
+    .eq("task_id", taskId)
+    .eq("active", true)
+    .order("v");
+  if (error) throw new Error("Could not read the hooks. Reload the page.");
+  type A = { v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
+  return ((data ?? []) as unknown as A[]).map((a) => ({ v: a.v, type: a.hook?.label ?? "—", line: a.hook_line, headline: a.headline, name: a.ad_name }));
 }

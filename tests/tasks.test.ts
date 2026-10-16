@@ -45,7 +45,7 @@ import { inboxLine, stepNow, type TaskRow } from "../src/lib/tasks-shared";
 
 const t0: TaskRow = {
   id: "t", status: "writing", dueOn: "2026-10-20", createdAt: "", copywriter: "C1", copywriterId: "c1", avatarCode: "FSB", awareness: "Problem-Aware",
-  angleId: "g", angle: "Knee-Broad", angleCode: "Knee-Broad", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: null, changeFacts: null, rounds: [],
+  angleId: "g", angle: "Knee-Broad", angleCode: "Knee-Broad", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: null, origin: "manual", changeFacts: null, rounds: [],
 };
 const NOW = Date.parse("2026-10-15T10:00:00Z");
 
@@ -142,7 +142,7 @@ test("Scripts pipeline: round 2, approved after changes, late changes", () => {
 import { prodStage, suggestEditor } from "../src/lib/tasks-shared";
 
 test("production stage and ★ editor", () => {
-  const p = { taskId: "t", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null };
+  const p = { taskId: "t", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null };
   assert.equal(prodStage(false, undefined), "shoot");
   assert.equal(prodStage(true, undefined), "assign");
   assert.equal(prodStage(false, { ...p, footageAt: "2026-10-16T08:00:00Z" }), "assign");
@@ -162,4 +162,35 @@ test("Home All: both founders' items, covering shown once as its own type", () =
   const all = mergeNeeds(f1, f2);
   const flat = all.flatMap((g) => g.items.map((i) => `${g.name}:${i.key}:${i.type}:${i.sub}`));
   assert.deepEqual(flat, ["LATE / OVER 48H:a1:ASSIGN:Founder 2 · s", "LATE / OVER 48H:r1:REVIEW:Founder 1 · s", "NEW:a2:ASSIGN:Founder 2 · s"]);
+});
+
+import { buildQueue, editState, editorStats } from "../src/lib/editing-shared";
+
+test("Editing: state, queue order and alerts, private tiles", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const P = (taskId: string, extra: object = {}) => ({ taskId, footageUrl: "https://d.x", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-20", brief: "b", reference: null, assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, ...extra });
+  const R = (round: number, decision: "approved" | "changes" | null, extra: object = {}) => ({ round, videoUrl: "https://v.x", submittedAt: "2026-10-14T08:00:00Z", decision, loom: null, note: decision === "changes" ? "Cut faster" : null, decidedBy: "F2", decidedAt: decision ? "2026-10-15T08:00:00Z" : null, ...extra });
+  assert.equal(editState(undefined, []), null);
+  assert.equal(editState(P("a"), []), "ready");
+  assert.equal(editState(P("a", { editStartedAt: "x" }), []), "editing");
+  assert.equal(editState(P("a"), [R(1, null)]), "submitted");
+  assert.equal(editState(P("a"), [R(1, "changes")]), "changes");
+  assert.equal(editState(P("a"), [R(1, "changes"), R(2, "approved")]), "approved");
+
+  const tasks = ["rd", "ch", "sb", "ok"].map((id) => ({ ...t0, id, status: "details_done" }));
+  const prods = new Map([["rd", P("rd")], ["ch", P("ch", { editStartedAt: "x" })], ["sb", P("sb")], ["ok", P("ok")]]);
+  const rounds = new Map([["ch", [R(1, "changes"), R(2, "changes")]], ["sb", [R(1, null)]], ["ok", [R(1, "approved")]]]);
+  const cards = new Map(["rd", "ch", "sb", "ok"].map((id) => [id, { face: id, cell: "FSB × Problem", angle: "Knee-Broad", format: "UGC", generate: false }]));
+  const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3 });
+  assert.deepEqual(q.map((x) => x.state), ["changes", "ready", "submitted", "approved"]);
+  assert.equal(q[0].tag, "NEEDS CHANGES · ROUND 3");
+  assert.equal(q[0].alert, "Round 3");
+  assert.match(q[1].alert ?? "", /Footage ready 4 days, not started/);
+  assert.equal(q[3].dim, true);
+
+  const s = editorStats("eb", prods, rounds, cards, { perVideo: 100, rate3d: null }, now);
+  assert.equal(s.approvedMonth, 1);
+  assert.equal(s.onTime, 1);
+  assert.equal(s.onTimeOf, 1);
+  assert.equal(s.avgRounds, 1);
 });

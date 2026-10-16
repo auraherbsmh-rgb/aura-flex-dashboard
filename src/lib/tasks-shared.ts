@@ -92,6 +92,7 @@ export type TaskRow = {
   note: string | null;
   reference: string | null;
   scriptUrl: string | null;
+  origin: string;
   changeFacts: ChangeFacts | null;
   rounds: Round[]; // oldest first
 };
@@ -201,6 +202,7 @@ export type Production = {
   brief: string | null;
   reference: string | null;
   assignedAt: string | null;
+  editStartedAt: string | null;
 };
 export type EditorLoad = { id: string; name: string; doesAi: boolean; queue: number };
 /** What the Footage received and Assign pop-ups show about the script. */

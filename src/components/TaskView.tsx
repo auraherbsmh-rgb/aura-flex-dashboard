@@ -421,17 +421,23 @@ export function TaskView({
 }
 
 /** Needs changes pop-up (Pop-ups artboard). The Loom is optional; the one line is required when there is no Loom. */
-function NeedsChanges({
+export function NeedsChanges({
   open,
   onClose,
   title,
   round,
   onSend,
+  kind = "SCRIPT",
+  to = "the copywriter",
+  where = "her inbox",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   round: number;
+  kind?: "SCRIPT" | "EDIT";
+  to?: string;
+  where?: string;
   onSend: (loom: string, note: string) => Promise<{ ok?: string; error?: string }>;
 }) {
   const [loom, setLoom] = useState("");
@@ -459,7 +465,7 @@ function NeedsChanges({
 
   return (
     <Modal open={open} onClose={close} who="Founder · behind every “Needs changes”" title={title}>
-      <span className="tag t-red" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />SCRIPT · ROUND {round} → ROUND {round + 1}</span>
+      <span className="tag t-red" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{kind} · ROUND {round} → ROUND {round + 1}</span>
       <label className="field">
         <span className="lbl">Loom link · optional</span>
         <input className="inp" type="url" value={loom} onChange={(e) => setLoom(e.target.value)} placeholder="https://www.loom.com/share/…" maxLength={1000} />
@@ -468,7 +474,7 @@ function NeedsChanges({
         <span className="lbl">One line · what to fix{loom.trim() ? " · optional with a Loom" : ""}</span>
         <textarea className="ta" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="The hook is too slow: start with the stairs." />
       </label>
-      <div className="info">Goes back to the copywriter with your note{loom.trim() ? " and the Loom" : ""}. It shows at the top of her inbox.</div>
+      <div className="info">Goes back to {to} with your note{loom.trim() ? " and the Loom" : ""}. It shows at the top of {where}.</div>
       <div className="acts">
         {error && <span className="formmsg err" role="alert">{error}</span>}
         <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
