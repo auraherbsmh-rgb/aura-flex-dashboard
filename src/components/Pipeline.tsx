@@ -14,7 +14,14 @@ function openOnBoard(e: React.MouseEvent, id: string, copywriterId: string) {
   q.set("task", id);
   if (q.get("cw") && q.get("cw") !== copywriterId) q.delete("cw");
   window.history.replaceState(null, "", `/copywriting?${q}`);
-  requestAnimationFrame(() => document.getElementById("task-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  // The Board shows once the address change has rendered: wait until the task view is visible, then scroll to it.
+  let tries = 0;
+  const scroll = () => {
+    const el = document.getElementById("task-view");
+    if (el && el.offsetParent !== null) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (tries++ < 30) requestAnimationFrame(scroll);
+  };
+  requestAnimationFrame(scroll);
 }
 
 export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }: { data: Pipeline; writers: [string, string][]; forFounder: boolean; initialCw?: string | null }) {

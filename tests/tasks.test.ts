@@ -301,3 +301,21 @@ test("Testimonial: TESTIMONIAL item for Founder 2, covering for Founder 1 after 
   assert.equal(rows[0].action, "assign");
   assert.match(rows[0].origin, /testimonial/);
 });
+
+test("Editing queue: approved to launch, then launched, then live, then on hold", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const P = (taskId: string, extra: object = {}) => ({ taskId, footageUrl: "https://d.x", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-20", brief: "b", reference: null, assignedAt: "2026-10-12T09:00:00Z", editStartedAt: "x", finalUrl: null, launchedAt: null, liveAt: null, liveSource: null, ...extra });
+  const ok = [{ round: 1, videoUrl: "https://v.x", submittedAt: "2026-10-14T08:00:00Z", decision: "approved" as const, loom: null, note: null, decidedBy: "F2", decidedAt: "2026-10-15T08:00:00Z" }];
+  const ids = ["live", "launched", "toLaunch", "held"];
+  const tasks = ids.map((id) => ({ ...t0, id, status: "details_done" }));
+  const prods = new Map([
+    ["live", P("live", { launchedAt: "2026-10-15T09:00:00Z", liveAt: "2026-10-15T10:00:00Z" })],
+    ["launched", P("launched", { launchedAt: "2026-10-15T09:00:00Z" })],
+    ["toLaunch", P("toLaunch")],
+    ["held", P("held", { holdAt: "2026-10-15T09:00:00Z" })],
+  ]);
+  const rounds = new Map(["live", "launched", "toLaunch"].map((id) => [id, ok]));
+  const cards = new Map(ids.map((id) => [id, { face: id, cell: "c", angle: "a", format: "UGC", generate: false }]));
+  const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3 });
+  assert.deepEqual(q.map((x) => x.taskId), ["toLaunch", "launched", "live", "held"]);
+});
