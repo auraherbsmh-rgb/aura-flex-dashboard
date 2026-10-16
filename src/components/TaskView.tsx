@@ -67,7 +67,7 @@ export function BoardInbox({
     setCw(id);
     const q = new URLSearchParams(window.location.search);
     if (id) q.set("cw", id); else q.delete("cw");
-    window.history.replaceState(window.history.state, "", `/copywriting${q.size ? `?${q}` : ""}`);
+    window.history.replaceState(null, "", `/copywriting${q.size ? `?${q}` : ""}`);
   };
   const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
   return (

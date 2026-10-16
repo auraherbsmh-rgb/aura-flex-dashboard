@@ -21,7 +21,7 @@ export function CopyViews({ board, pipeline, library }: { board: React.ReactNode
   const pick = (v: CopyView) => {
     const q = new URLSearchParams(window.location.search);
     if (v === "board") q.delete("view"); else q.set("view", v);
-    window.history.replaceState(window.history.state, "", `/copywriting${q.size ? `?${q}` : ""}`);
+    window.history.replaceState(null, "", `/copywriting${q.size ? `?${q}` : ""}`);
   };
   return (
     <>
