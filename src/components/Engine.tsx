@@ -74,7 +74,7 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
         <div className="money-head" style={{ padding: "0 6px" }}><h3 id="h-chain">The chain · {period === "4w" ? "last 4 weeks" : "last 3 months"}</h3><span className="lbl">Click a step → its pipeline or the Library</span></div>
         <div className="funnel">
           {e.chain.map((s) => (
-            <Link key={s.key} href={s.href} className={`estep ${s.bottleneck ? "bott" : ""}`}>
+            <Link key={s.key} href={s.href} prefetch={true} className={`estep ${s.bottleneck ? "bott" : ""}`}>
               <div className="estep-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <span className="lbl">{s.label}</span>
                 {s.bottleneck && <span className="tag t-red" style={{ fontSize: 10, padding: "5px 8px" }}><i aria-hidden="true" />BOTTLENECK</span>}

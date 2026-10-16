@@ -115,7 +115,8 @@ export function buildEngine(input: {
     { key: "won", label: "Won", n: won, conv: winRate, days: null, daysLabel: "", href: "/copywriting?view=library", bottleneck: false },
   ];
   // Bottleneck = the step that takes longest (median days).
-  const slowStep = steps.filter((s) => s.days !== null).sort((a, b) => (b.days as number) - (a.days as number))[0];
+  // Only a real wait counts (all steps at 0 days or without data = no bottleneck yet).
+  const slowStep = steps.filter((s) => s.days !== null && s.days > 0).sort((a, b) => (b.days as number) - (a.days as number))[0];
   if (slowStep) slowStep.bottleneck = true;
 
   // 4. Speed · idea to live ad: launched in the period, median days per step, split by a dimension.
