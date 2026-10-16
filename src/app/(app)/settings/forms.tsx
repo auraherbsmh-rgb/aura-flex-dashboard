@@ -14,6 +14,7 @@ import {
   setCampaignActive,
   saveLevels,
   saveMapStart,
+  pullMetaNow,
   type ActionState,
 } from "./actions";
 import { ownLineForBottles, type MoneyInputs } from "@/lib/money";
@@ -574,6 +575,27 @@ export function MapStartForm({ value }: { value: string | null }) {
         <input id="map_start" name="map_start" type="date" className="fi" style={{ width: 170 }} defaultValue={value ?? ""} />
         <Msg state={state} />
         <button className="btn b-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save date"}</button>
+      </span>
+    </form>
+  );
+}
+
+// ─────────────────────────────── Meta pull ───────────────────────────────
+
+/** Pull now (founders): the daily Meta pull on demand. Read-only on Meta. */
+export function MetaPullForm({ ready }: { ready: boolean }) {
+  const [state, action, pending] = useActionState(pullMetaNow, empty);
+  return (
+    <form action={action} className="ar" style={{ flexWrap: "wrap", gap: 12, marginTop: 8 }}>
+      <span style={{ fontSize: 14, flex: "1 1 260px" }}>
+        Meta pull · daily at 06:00 Tunisia
+        <span className="unit" style={{ display: "block" }}>
+          {ready ? "Reads ads, daily results and budgets of the campaigns above. Never changes anything in Meta." : "Switched off until the Meta token and the server key are added in Vercel (see the line above)."}
+        </span>
+      </span>
+      <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Msg state={state} />
+        <button className="btn b-ghost" type="submit" disabled={pending || !ready}>{pending ? "Pulling…" : "Pull now"}</button>
       </span>
     </form>
   );

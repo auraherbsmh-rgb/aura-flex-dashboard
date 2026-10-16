@@ -10,6 +10,7 @@ export default function Preview() {
   if (process.env.ENABLE_PREVIEW !== "1") notFound();
   const s: SettingsData = {
     mapStart: "2026-10-20",
+    meta: { token: false, serviceKey: false, cronSecret: false, ready: false, last: null },
     money: {
       id: "x", month: "2026-09-01", status: "final", business_line_usd: 4.18, roas_line: 5.5, aov_band_low_usd: 20, aov_band_high_usd: 26,
       exchange_rate: 3.35, fixed_costs_tnd: 17813, kill_table_usd: [13, 14, 20, 28, 38.5, 44, 50, 55, 60.5, 66],

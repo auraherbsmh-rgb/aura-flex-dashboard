@@ -399,3 +399,16 @@ export async function saveMapStart(_prev: ActionState, form: FormData): Promise<
   revalidatePath("/", "layout");
   return done(raw ? "Saved. The map counts concepts from this day on." : "Saved. The map counts every concept.");
 }
+
+// ─────────────────────────────── Meta pull now ───────────────────────────────
+
+/** "Pull now" (founders): runs the daily Meta pull at once. Read-only on Meta. */
+export async function pullMetaNow(_prev: ActionState): Promise<ActionState> {
+  void _prev;
+  const v = await founder();
+  if (!v) return fail("Only founders can run the Meta pull.");
+  const { runMetaPull } = await import("@/lib/meta/pull");
+  const r = await runMetaPull();
+  revalidatePath("/", "layout");
+  return r.ok ? done(r.message) : fail(r.message);
+}

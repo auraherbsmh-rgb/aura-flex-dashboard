@@ -410,3 +410,22 @@ test("Library: concepts with details, days per step, states, filters", () => {
   assert.equal(filterLibrary(rows, { ...NO_FILTER, hook: "Authority" }).length, 0);
   assert.equal(filterLibrary(rows, { ...NO_FILTER, angle: rows[0].angleId }).length, 1);
 });
+
+import { toDailyRow } from "../src/lib/meta/pull";
+
+test("Meta pull: insights row → daily row (Website purchases only, video counts)", () => {
+  const r = toDailyRow({
+    ad_id: "1", date_start: "2026-10-15", spend: "12.34", impressions: "1000", reach: "800", inline_link_clicks: "25",
+    actions: [{ action_type: "offsite_conversion.fb_pixel_purchase", value: "3" }, { action_type: "omni_purchase", value: "4" }, { action_type: "video_view", value: "300" }],
+    action_values: [{ action_type: "offsite_conversion.fb_pixel_purchase", value: "75.5" }, { action_type: "omni_purchase", value: "99" }],
+    video_thruplay_watched_actions: [{ action_type: "video_view", value: "120" }],
+    video_p25_watched_actions: [{ action_type: "video_view", value: "200" }],
+  });
+  assert.equal(r.purchases, 3, "never omni");
+  assert.equal(r.purchase_value, 75.5);
+  assert.equal(r.plays_3s, 300);
+  assert.equal(r.thruplays, 120);
+  assert.equal(r.p25, 200);
+  assert.equal(r.p50, 0);
+  assert.equal(r.spend, 12.34);
+});

@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = [
   "/login",
   "/auth/confirm",
+  // Daily Meta pull: called by Vercel Cron, checks its own secret (CRON_SECRET).
+  "/api/meta/pull",
   // Local preview with sample data (never enabled on Vercel).
   ...(process.env.ENABLE_PREVIEW === "1" ? ["/dev-preview"] : []),
 ];

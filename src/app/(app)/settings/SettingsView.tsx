@@ -1,4 +1,4 @@
-import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm } from "./forms";
+import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm, MetaPullForm } from "./forms";
 import type { getSettings } from "@/lib/settings/data";
 
 export type SettingsData = Awaited<ReturnType<typeof getSettings>>;
@@ -34,15 +34,21 @@ export function summarize(s: SettingsData, today: string) {
   const levelsToFill = s.levels.length === 0;
   const toFill = [copyPayToFill, rate3dToFill, stockToFill, levelsToFill].filter(Boolean).length;
   const moneyDue = !s.money || (s.money.next_ritual_on !== null && s.money.next_ritual_on < today);
-  const connectionsToMake = 2; // Meta (daily pull, phase 3) and Shipper (phase 4) are not connected yet.
+  const metaOn = s.meta.ready && !!s.meta.last?.ok;
+  const connectionsToMake = (metaOn ? 0 : 1) + 1; // Meta (daily pull) and Shipper (phase 4).
+  const metaDetail = !s.meta.ready
+    ? `daily pull by ad name · switched off: add ${[!s.meta.token && "META_ACCESS_TOKEN", !s.meta.serviceKey && "SUPABASE_SERVICE_ROLE_KEY", !s.meta.cronSecret && "CRON_SECRET"].filter(Boolean).join(", ")} in Vercel`
+    : s.meta.last ? `last pull ${s.meta.last.started_at.slice(0, 16).replace("T", " ")} UTC · ${s.meta.last.message ?? ""}` : "ready · no pull yet (daily at 06:00, or Pull now)";
+  const metaTone: Status = metaOn ? "green" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "red" : "amber";
+  const metaWord = metaOn ? "CONNECTED" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "PULL FAILED" : s.meta.ready ? "READY" : "TO CONNECT";
 
   const moneyLine = s.money
     ? `Updated at the monthly ritual · last ${fmtDay(s.money.ritual_on)} (${monthName(s.money.month)} ${s.money.status}) · next ${fmtDay(s.money.next_ritual_on, true)}`
     : "Updated at the monthly ritual · not filled yet";
 
   const dataRows: { item: string; src: string; detail: string; tone: Status; status: string }[] = [
-    { item: "Spend, sales, CPA, ROAS, CPM, CTR, frequency", src: "META API", detail: "daily pull by ad name · needs a read-only Meta token", tone: "amber", status: "TO CONNECT" },
-    { item: "Hook rate, hold, retention 25 / 50 / 75 / 100%", src: "META API", detail: "video plays and watched-% actions", tone: "amber", status: "TO CONNECT" },
+    { item: "Spend, sales, CPA, ROAS, CPM, CTR, frequency", src: "META API", detail: metaDetail, tone: metaTone, status: metaWord },
+    { item: "Hook rate, hold, retention 25 / 50 / 75 / 100%", src: "META API", detail: "video plays and watched-% actions, same pull", tone: metaTone, status: metaWord },
     { item: "Leads, confirmed, shipped, delivered", src: "SHIPPER API", detail: "funnel for Business", tone: "amber", status: "TO CONNECT" },
     { item: "Stock left and cash at Shipper", src: "SHIPPER API", detail: "fields to check with Shipper", tone: "amber", status: "TO CONNECT" },
     {
@@ -100,6 +106,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
         ))}
         <div className="lbl" style={{ marginTop: 8 }}>Campaigns in scope · only these campaign IDs will be read (File 2 §1)</div>
         <CampaignRows campaigns={s.campaigns} />
+        <MetaPullForm ready={s.meta.ready} />
       </section>
 
       <section className="card sec" aria-labelledby="h-lists">
