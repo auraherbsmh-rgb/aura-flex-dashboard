@@ -28,7 +28,7 @@ export type Pipeline = { rows: PipeRow[]; handed: HandedChip[] };
 
 export const spent = (fromIso: string, now: number) => {
   const h = Math.max(0, (now - Date.parse(fromIso)) / 36e5);
-  return h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)} d`;
+  return h < 72 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} d`;
 };
 
 /**
@@ -120,7 +120,7 @@ export function buildPipeline(
   const handed: HandedChip[] = [];
   for (const t of tasks) {
     const d = det.get(t.id);
-    if (t.status !== "details_done" || !d?.confirmedAt || d.confirmedAt < weekStart) continue;
+    if (t.status !== "details_done" || !d?.confirmedAt || Date.parse(d.confirmedAt) < Date.parse(weekStart)) continue;
     const where = d.generate ? "AI / 3D" : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
     handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });
   }

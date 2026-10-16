@@ -114,7 +114,27 @@ test("Scripts pipeline: steps, late rules, handed to production", () => {
   assert.deepEqual(by.get("r")!.steps, ["done", "late", "todo", "todo", "todo"]);
   assert.equal(by.get("r")!.waitingOn, "You");
   assert.deepEqual(by.get("a")!.steps, ["done", "done", "skip", "done", "now"]);
-  assert.equal(by.get("a")!.nowLabel, "2h");
+  assert.equal(by.get("a")!.nowLabel, "2 h");
   assert.ok(p.rows[0].late && p.rows[1].late, "late first");
   assert.deepEqual(p.handed.map((h) => h.label), ["SAMI · SHOOT SAT"]);
+});
+
+test("Scripts pipeline: round 2, approved after changes, late changes", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const base = { ...t0, createdAt: "2026-10-10T10:00:00Z" };
+  const ch = { round: 1, scriptUrl: "https://x.y", submittedAt: "2026-10-12T08:00:00Z", submittedBy: "C1", decision: "changes" as const, loom: null, note: "Faster", decidedBy: "F1", decidedAt: "2026-10-12T10:00:00Z" };
+  const r2 = { ...ch, round: 2, submittedAt: "2026-10-16T06:00:00Z", decision: null, note: null, decidedBy: null, decidedAt: null };
+  const tasks = [
+    { ...base, id: "r2", status: "review", rounds: [ch, r2] },
+    { ...base, id: "ac", status: "approved", rounds: [ch, { ...r2, decision: "approved" as const, decidedAt: "2026-10-16T08:00:00Z" }] },
+    { ...base, id: "cl", status: "changes", dueOn: "2026-10-13", rounds: [ch] },
+  ];
+  const p = buildPipeline(tasks, [], { forFounder: true, reviewHours: 48, detailsDays: 1, weekStart: "2026-10-11T23:00:00.000Z", now });
+  const by = new Map(p.rows.map((r) => [r.id, r]));
+  assert.deepEqual(by.get("r2")!.steps, ["done", "now", "done", "todo", "todo"]);
+  assert.equal(by.get("r2")!.waitingWhat, "script review · round 2");
+  assert.deepEqual(by.get("ac")!.steps, ["done", "done", "done", "done", "now"]);
+  assert.deepEqual(by.get("cl")!.steps, ["done", "done", "late", "todo", "todo"]);
+  assert.equal(by.get("cl")!.due, "late 3 d");
+  assert.equal(by.get("cl")!.waitingWhat, "your note");
 });

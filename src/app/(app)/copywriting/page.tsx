@@ -7,12 +7,12 @@ import { getPickers, getProposals } from "@/lib/proposals";
 import { getCreateTaskContext, getDetailsLite, getTaskExtras, getTasks, inboxLine, requestTime, weekStartIso } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
 import { buildPipeline } from "@/lib/pipeline-shared";
-import { CopyViews, type CopyView } from "@/components/CopyViews";
+import { CopyViews } from "@/components/CopyViews";
 import { ScriptsPipeline } from "@/components/Pipeline";
 
 export const metadata = { title: "Copywriting · Aura Flex" };
 
-type Search = { task?: string; cw?: string; view?: string };
+type Search = { task?: string; cw?: string };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
   const viewer = await requireTab("copywriting");
@@ -44,14 +44,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const extras = selected ? await getTaskExtras(selected) : null;
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now });
-  const initialView: CopyView = sp.view === "pipeline" || sp.view === "library" ? sp.view : "board";
 
   return (
     <TabPage tab="copywriting" title="Copywriting">
       <CopyViews
-        key={`${initialView}-${sp.task ?? ""}`}
-        initial={initialView}
-        pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} />}
+        pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} />}
         library={<NotBuiltYet phase="phase 2" what="The Library (every script, searchable, with its results) comes after the production screens." />}
         board={
       <div className="board">

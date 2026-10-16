@@ -5,8 +5,8 @@ import { useState } from "react";
 import { RAIL, type Pipeline } from "@/lib/pipeline-shared";
 
 /** Scripts pipeline (artboard "Scripts pipeline"): one row per script in progress, late first. Click a row → its task. */
-export function ScriptsPipeline({ data, writers, forFounder }: { data: Pipeline; writers: [string, string][]; forFounder: boolean }) {
-  const [cw, setCw] = useState<string | null>(null);
+export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }: { data: Pipeline; writers: [string, string][]; forFounder: boolean; initialCw?: string | null }) {
+  const [cw, setCw] = useState<string | null>(initialCw);
   const rows = cw ? data.rows.filter((r) => r.copywriterId === cw) : data.rows;
   const handed = cw ? data.handed.filter((h) => h.copywriterId === cw) : data.handed;
   const late = rows.filter((r) => r.late).length;
@@ -46,7 +46,13 @@ export function ScriptsPipeline({ data, writers, forFounder }: { data: Pipeline;
                 <div className="pipe-name">{r.name}</div>
                 <div className="pipe-meta">{r.meta}</div>
               </div>
-              <div className="rail" aria-label={`Steps: ${RAIL.map((s, i) => `${s} ${r.steps[i] === "todo" ? "to do" : r.steps[i] === "skip" ? "skipped" : r.steps[i]}`).join(", ")}`}>
+              <span className="sr-only">
+                Steps: {RAIL.map((s, i) => {
+                  const st = r.steps[i];
+                  return `${s} ${st === "todo" ? "to do" : st === "skip" ? "skipped" : st === "now" ? `now, ${r.nowLabel}` : st === "late" ? `late, ${r.nowLabel}` : st}`;
+                }).join(", ")}.
+              </span>
+              <div className="rail" aria-hidden="true">
                 {r.steps.map((s, i) =>
                   s === "now" || s === "late"
                     ? <span key={i} className={s === "late" ? "s-b" : "s-n"}>{r.nowLabel}</span>
