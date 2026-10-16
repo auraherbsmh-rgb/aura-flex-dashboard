@@ -132,7 +132,8 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
                 <span className="cv-angle-name">{g.angle}</span>
               </span>
               <span className={`tag ${g.counts.test ? "t-amber" : "t-grey"}`}><i aria-hidden="true" />
-                {g.counts.test ? `TESTING · ${g.concepts.length} CONCEPT${g.concepts.length === 1 ? "" : "S"}` : `${g.concepts.length} CONCEPT${g.concepts.length === 1 ? "" : "S"}`}
+                {/* Every state with its count, so a mix never reads as all testing. */}
+                {[g.counts.test ? `${g.counts.test} TESTING` : "", g.counts.production ? `${g.counts.production} IN PROD` : "", g.counts.writing ? `${g.counts.writing} WRITING` : ""].filter(Boolean).join(" · ")}
               </span>
             </button>
             {isOpen && (
