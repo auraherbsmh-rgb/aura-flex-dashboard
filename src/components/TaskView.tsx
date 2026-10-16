@@ -296,7 +296,8 @@ export function TaskView({
               </div>
             ))}
           </div>
-          {(isOwner || isFounder) && (
+          {production?.launchedAt && <div className="unit" style={{ marginTop: 12 }}>Launched: the names are in Meta and can no longer change.</div>}
+          {(isOwner || isFounder) && !production?.launchedAt && (
             <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <ScriptDetailsButton task={task} details={details} pickers={detailsPickers} label="Edit details" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />
               <span className="unit">Editing changes the ad names: do it before launch.</span>
@@ -343,7 +344,7 @@ export function TaskView({
             <div className="tv-prod-row" style={{ marginTop: 8 }}>
               <div>
                 <span className="lbl">Launch</span>
-                <div style={{ fontSize: 14, marginTop: 4 }}>{production.liveAt ? `Live since ${fmtWhen(production.liveAt)}` : `Launched ${fmtWhen(production.launchedAt)} · waiting for Meta to find the names`}</div>
+                <div style={{ fontSize: 14, marginTop: 4 }}>{production.liveAt ? `Live since ${fmtWhen(production.liveAt)}` : `Launched ${fmtWhen(production.launchedAt)} · turns Live once Meta is connected (phase 3); use Mark live until then`}</div>
               </div>
             </div>
           )}

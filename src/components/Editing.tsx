@@ -300,7 +300,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
         <div className="notice notice-green" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span>
             Approved{last?.decidedAt ? ` ${fmtWhen(last.decidedAt)}` : ""}. Counted for payment.{" "}
-            {p.liveAt ? `Live since ${fmtWhen(p.liveAt)}.` : p.launchedAt ? `Launched ${fmtWhen(p.launchedAt)}, waiting for Meta to find the names.` : "Launch is next."}
+            {p.liveAt ? `Live since ${fmtWhen(p.liveAt)}.` : p.launchedAt ? `Launched ${fmtWhen(p.launchedAt)}. Turns Live once Meta is connected (phase 3); use Mark live until then.` : "Launch is next."}
           </span>
           {isFounder && v.card && (
             <LaunchButton card={v.card} names={v.names} current={p} approvedAt={last?.decidedAt} label={p.launchedAt ? "Launch list" : "Launch"} who="Founder · Launch" className={p.launchedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />

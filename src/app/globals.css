@@ -320,6 +320,7 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .vlbl { display: none; }
 .copy { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 14px; background: #f4f4f1; padding: 6px 6px 6px 12px; font: 500 12px var(--mono); min-width: 0; }
 .copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pop .copy > span, .tv .copy > span { white-space: normal; overflow-wrap: anywhere; }
 .cbtn { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 999px; min-height: 44px; min-width: 64px; padding: 0 12px; font: 600 12px var(--font); cursor: pointer; color: var(--ink); }
 .tv-next { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; border-radius: 20px; background: #fbf0d2; color: #5c3f00; padding: 14px 18px; font-size: 14px; line-height: 1.45; }
 .tv-det { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
