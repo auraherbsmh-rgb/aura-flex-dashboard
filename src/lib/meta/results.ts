@@ -67,7 +67,13 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
   // Two batches so rows keeping their state never send state_since / seen_state.
   const changed = payload.filter((r) => "state_since" in r);
   const same = payload.filter((r) => !("state_since" in r));
-  if (changed.length) { const { error } = await db.from("concept_results").upsert(changed, { onConflict: "task_id" }); if (error) throw new Error(error.message); }
+  if (changed.length) {
+    const { error } = await db.from("concept_results").upsert(changed, { onConflict: "task_id" });
+    if (error) throw new Error(error.message);
+    // History for the Creative engine (winning concepts alive per week, born / faded).
+    const { error: logErr } = await db.from("concept_state_log").insert(changed.map((r) => ({ task_id: r.task_id, state: r.state, at: stamp })));
+    if (logErr) throw new Error(logErr.message);
+  }
   if (same.length) { const { error } = await db.from("concept_results").upsert(same, { onConflict: "task_id" }); if (error) throw new Error(error.message); }
   // Concepts no longer matched to any ad (variations renamed or removed) drop out of the results.
   const matched = new Set([...model.states.keys()].filter((k) => k.startsWith("t:")).map((k) => k.slice(2)));

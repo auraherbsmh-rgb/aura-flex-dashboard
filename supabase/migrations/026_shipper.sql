@@ -28,3 +28,14 @@ create policy shipper_orders_read on public.shipper_orders for select using ((se
 create policy shipper_stock_read on public.shipper_stock for select using ((select private.is_founder()));
 create policy shipper_cash_read on public.shipper_cash for select using ((select private.is_founder()));
 create policy shipper_sync_read on public.shipper_sync for select using ((select private.is_founder()));
+
+-- concept_state_log (Creative engine): every change of a concept's Meta state, written by the daily pull.
+create table public.concept_state_log (
+  id bigint generated always as identity primary key,
+  task_id uuid not null references public.tasks(id) on delete cascade,
+  state text not null check (state in ('won','deteriorating','fading','recovering','testing','lost')),
+  at timestamptz not null default now()
+);
+create index concept_state_log_task on public.concept_state_log (task_id, at);
+alter table public.concept_state_log enable row level security;
+create policy concept_state_log_read on public.concept_state_log for select using ((select private.is_founder()));

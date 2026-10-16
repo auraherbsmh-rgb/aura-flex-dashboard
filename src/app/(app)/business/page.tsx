@@ -4,6 +4,8 @@ import { Money } from "@/components/Money";
 import { requireTab } from "@/lib/viewer";
 import { requestTime } from "@/lib/tasks";
 import { getMoneyData } from "@/lib/business/data";
+import { getEngineData } from "@/lib/business/engine-data";
+import { Engine } from "@/components/Engine";
 
 export const metadata = { title: "Business · Aura Flex" };
 
@@ -11,7 +13,7 @@ export const metadata = { title: "Business · Aura Flex" };
 export default async function Page() {
   await requireTab("business");
   const now = requestTime();
-  const money = await getMoneyData(now);
+  const [money, engine] = await Promise.all([getMoneyData(now), getEngineData(now)]);
   const st = money.status;
   const shipperMissing = st.ready ? null : !st.mapped
     ? "The Shipper API link is set up before launch, from Shipper's API documentation."
@@ -21,8 +23,9 @@ export default async function Page() {
       <BusinessTabs
         money={money.noMoney
           ? <section className="card sec"><div className="info">Fill the money numbers in Settings → Money first: the business line, exchange rate, bottle and delivery cost and fixed costs.</div></section>
-          : <Money view={money.view} line={money.base.businessLineUsd} fixed={money.base.fixedCostsTnd} stock={money.stock} cash={money.cash} shipperMissing={money.view.hasShipper ? null : shipperMissing} hasMeta={money.hasMeta} />}
-        engine={<section className="card sec"><div className="info">Creative engine: next screen.</div></section>}
+          : <Money view={money.view} line={money.base.businessLineUsd} fixed={money.base.fixedCostsTnd} stock={money.stock} cash={money.cash} shipperMissing={money.view.hasShipper || st.ready ? null : shipperMissing} hasMeta={money.hasMeta}
+              shipperNote={st.ready && !money.view.hasShipper ? (money.lastSync?.ok === false ? `Shipper pull: ${money.lastSync.message ?? "failed"}` : "Shipper is connected: waiting for the first pull (06:00, or Settings → Data → Pull now).") : money.lastSync?.ok === false ? `Last Shipper pull failed: ${money.lastSync.message ?? ""}` : null} />}
+        engine={<Engine w4={engine.w4} m3={engine.m3} hasMeta={engine.hasMeta} />}
       />
     </TabPage>
   );

@@ -17,10 +17,12 @@ export type MoneyProps = {
   cash: { collected: number; transit: number } | null;
   shipperMissing: string | null;
   hasMeta: boolean;
+  /** Last Shipper pull message (connected, but failing or waiting for the first pull). */
+  shipperNote?: string | null;
 };
 
 /** Business · Money (artboard "Business"): "Are we making money?" — This week (estimate) | Last closed month (settled). */
-export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta }: MoneyProps) {
+export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta, shipperNote = null }: MoneyProps) {
   const closed = view.closed;
   const [period, setPeriod] = useState<"week" | "month">(closed ? "month" : "week");
   const [detail, setDetail] = useState<LeakRow | null>(null);
@@ -35,7 +37,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
         <div>
           <h2 id="h-money" style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>Are we making money?</h2>
           <div className="unit" style={{ marginTop: 6, fontSize: 13 }}>
-            {isMonth ? `${closed!.label}${closed!.open ? `, ${closed!.open} orders still open` : ", settled"} · compared with ${closed!.prevLabel}` : `${w.label} · Meta numbers final, delivery still settling`}
+            {isMonth ? `${closed!.label}${closed!.provisional ? ` · PROVISIONAL: ${closed!.open} orders still open, estimated at the month's rates` : ", settled"} · compared with ${closed!.prevLabel}` : `${w.label} · Meta numbers final, delivery still settling`}
           </div>
         </div>
         <div className="recess wseg" role="group" aria-label="Period">
@@ -49,6 +51,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
           <b>Shipper not connected yet.</b> {shipperMissing} Until then: the week is a Meta estimate; the closed month, gross sales, stock, cash and the leak finder wait for Shipper.
         </div>
       )}
+      {!shipperMissing && shipperNote && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}>{shipperNote}</div>}
       {!hasMeta && <div className="info">No Meta results yet: the numbers fill in after the first Meta pull.</div>}
 
       <section className="money-row3">
@@ -73,7 +76,13 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
             closed!.prevProfit === null ? <><div className="money-big money-muted">—</div><div className="unit">{closed!.prevLabel} not in the Shipper data</div></> : (
               <>
                 <div className="money-big" style={{ color: closed!.profit - closed!.prevProfit < 0 ? "#A1241A" : "#135F33" }}>{signed(closed!.profit - closed!.prevProfit)}</div>
-                <div className="unit">{signed(closed!.prevProfit)} → {signed(closed!.profit)} TND{closed!.leaks ? ` · biggest: ${closed!.leaks[0].name.toLowerCase()}` : ""}</div>
+                <div className="unit">{signed(closed!.prevProfit)} → {signed(closed!.profit)} TND{(() => {
+                  const ls = closed!.leaks;
+                  if (!ls || !closed!.leakTotal) return "";
+                  const top2 = [...ls].filter((l) => Math.sign(l.amount) === Math.sign(closed!.leakTotal!)).slice(0, 2);
+                  const share = Math.round((top2.reduce((n, l) => n + l.amount, 0) / closed!.leakTotal!) * 100);
+                  return top2.length ? ` · ${Math.min(100, share)}% from ${top2.map((l) => l.name.toLowerCase()).join(" and ")}` : "";
+                })()}</div>
               </>
             )
           ) : (
@@ -92,7 +101,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
           {isMonth ? (
             <>
               <div className="money-big">{n0(closed!.gross)} <small>TND</small></div>
-              <div className="unit">{n0(closed!.delivered)} delivered{closed!.grossPrev ? ` · ${closed!.prevLabel} ${n0(closed!.grossPrev)} (${signed(((closed!.gross - closed!.grossPrev) / closed!.grossPrev) * 100)}%)` : ""}</div>
+              <div className="unit">{n0(closed!.delivered)} delivered × {closed!.aov.toFixed(2)}{closed!.grossPrev ? ` · ${closed!.prevLabel} ${n0(closed!.grossPrev)} (${signed(((closed!.gross - closed!.grossPrev) / closed!.grossPrev) * 100)}%)` : ""}</div>
             </>
           ) : w.grossSoFar === null ? <><div className="money-big money-muted">—</div><div className="unit">Delivered only · with Shipper</div></> : (
             <>
@@ -103,7 +112,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
         </div>
         <div className="card money-tile">
           <div className="lbl">Stock · days left</div>
-          <div className={`money-big ${stock.days === null ? "money-muted" : ""}`}>{stock.days === null ? "—" : stock.days} <small>days</small></div>
+          <div className={`money-big ${stock.days === null ? "money-muted" : ""}`} style={stock.days !== null && stock.redBelow && stock.days < stock.redBelow ? { color: "#A1241A" } : undefined}>{stock.days === null ? "—" : stock.days} <small>days</small></div>
           <div className="unit">{stock.bottles === null ? "Bottles at Shipper · with Shipper" : `${n0(stock.bottles)} bottles at Shipper ÷ ${stock.perDay.toFixed(0)} shipped / day`}</div>
           {stock.redBelow
             ? <span className={`tag ${stock.days !== null && stock.days < stock.redBelow ? "t-red" : "t-grey"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED BELOW {stock.redBelow} DAYS</span>
@@ -120,37 +129,40 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
 
       {closed ? (
         <section className="card" style={{ padding: "22px 24px" }} aria-labelledby="h-wf">
-          <div className="money-head"><h3 id="h-wf">Where every dinar goes · {closed.label}</h3><span className="lbl">Delivered sales only · TND</span></div>
-          <div className="wf wf-head"><span /><span className="lbl" style={{ paddingLeft: "4%" }}>0</span><span className="lbl" style={{ textAlign: "right" }}>TND</span><span className="lbl" style={{ textAlign: "right" }}>of gross</span></div>
-          {closed.waterfall.map((r, i) => {
-            const g = closed.gross || 1;
-            const pos = (x: number) => `${4 + 92 * Math.max(0, Math.min(1, x / g))}%`;
-            const first = i === 0, last = i === closed.waterfall.length - 1;
-            const from = first ? 0 : last ? Math.min(0, r.amount) : (r.left ?? 0);
-            const to = first ? r.amount : last ? Math.max(0, r.amount) : (r.left ?? 0) - r.amount;
-            const color = first ? "linear-gradient(180deg,#2C2C2C,#111)" : last ? (r.amount < 0 ? "linear-gradient(180deg,#E25440,#C63421)" : "linear-gradient(180deg,#34A865,#1F8E4C)") : "linear-gradient(180deg,#B9B9B3,#9F9F99)";
-            return (
-              <div className="wf" key={r.label}>
-                <div><div style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</div><div className="unit">{r.sub}</div></div>
-                <div className="wtrack" aria-hidden="true">
-                  <span className="wzero" />
-                  <span className="wbar" style={last && r.amount < 0
-                    ? { left: `${4 - Math.min(4, 92 * (-r.amount / g))}%`, width: `${Math.max(0.6, Math.min(4, 92 * (-r.amount / g)))}%`, background: color }
-                    : { left: pos(from), width: `calc(${pos(to)} - ${pos(from)})`, background: color }} />
-                  {!first && !last && r.left !== null && r.left > 0.15 * g && <span className="wleft" style={{ left: pos(r.left) }}>{n0(r.left)} left</span>}
+          <div className="money-head"><h3 id="h-wf">Where every dinar goes · {closed.label}{isMonth ? "" : " (last closed)"}</h3><span className="lbl">Delivered sales only · TND</span></div>
+          <div className="wf wf-head"><span /><span className="lbl">0 · TND left after each cost</span><span className="lbl" style={{ textAlign: "right" }}>TND</span><span className="lbl" style={{ textAlign: "right" }}>of gross</span></div>
+          {(() => {
+            // Scale from the lowest point (a loss crosses zero, as on the artboard) to gross.
+            const lo = Math.min(0, ...closed.waterfall.map((r) => (r.left ?? r.amount)));
+            const hi = Math.max(1, closed.gross);
+            const pos = (x: number) => 2 + 96 * ((x - lo) / (hi - lo));
+            return closed.waterfall.map((r, i) => {
+              const first = i === 0, last = i === closed.waterfall.length - 1;
+              const a = first ? 0 : last ? 0 : (r.left ?? 0) - r.amount;
+              const b = first ? r.amount : last ? r.amount : (r.left ?? 0);
+              const from = Math.min(a, b), to = Math.max(a, b);
+              const color = first ? "linear-gradient(180deg,#2C2C2C,#111)" : last ? (r.amount < 0 ? "linear-gradient(180deg,#E25440,#C63421)" : "linear-gradient(180deg,#34A865,#1F8E4C)") : "linear-gradient(180deg,#B9B9B3,#9F9F99)";
+              return (
+                <div className="wf" key={r.label}>
+                  <div><div style={{ fontSize: 14, fontWeight: 600 }}>{r.label}</div><div className="unit">{r.sub}</div></div>
+                  <div className="wtrack" aria-hidden="true">
+                    <span className="wzero" style={{ left: `${pos(0)}%` }} />
+                    <span className="wbar" style={{ left: `${pos(from)}%`, width: `${Math.max(0.5, pos(to) - pos(from))}%`, background: color }} />
+                    {!first && !last && r.left !== null && r.left > 0.15 * hi && <span className="wleft" style={{ left: `${pos(r.left)}%` }}>{n0(r.left)} left</span>}
+                  </div>
+                  <span className={`amt ${last ? (r.amount < 0 ? "a-red" : "a-green") : ""}`}>{first ? n0(r.amount) : r.amount < 0 ? n0(r.amount) : `+${n0(r.amount)}`}</span>
+                  <span className="unit" style={{ textAlign: "right" }}>{Math.round(r.pct * 100)}%</span>
                 </div>
-                <span className={`amt ${last ? (r.amount < 0 ? "a-red" : "a-green") : ""}`}>{first ? n0(r.amount) : r.amount < 0 ? n0(r.amount) : `+${n0(r.amount)}`}</span>
-                <span className="unit" style={{ textAlign: "right" }}>{Math.round(r.pct * 100)}%</span>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </section>
       ) : null}
 
       <section className="tray" style={{ padding: "20px 18px" }} aria-labelledby="h-leaks">
         <div className="money-head" style={{ padding: "0 6px 12px" }}>
           <h3 id="h-leaks">Where the money went</h3>
-          <span className="lbl">{isMonth && closed?.leaks ? `vs ${closed.prevLabel} · biggest first` : "closed months only"}</span>
+          <span className="lbl">{isMonth && closed?.leaks ? `vs ${closed.prevLabel} · biggest first` : closed && !isMonth ? `see ${closed.label} (last closed)` : "closed months only"}</span>
         </div>
         {isMonth && closed?.leaks ? (
           <>
@@ -162,21 +174,21 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
                   <div><div style={{ fontSize: 15, fontWeight: 600, color: l.grey ? "#77776F" : undefined }}>{l.name}</div><div className="unit">{l.what}</div></div>
                   <span className="rate">{l.rate}</span>
                   <div className="track" aria-hidden="true"><div className={`fill ${l.grey ? "f-grey" : l.amount < 0 ? "f-red" : "f-green"}`} style={{ width: `${Math.max(3, Math.round((Math.abs(l.amount) / max) * 100))}%` }} /></div>
-                  <span className={`amt ${l.grey ? "a-grey" : l.amount < 0 ? "a-red" : "a-green"}`}>{signed(l.amount)}</span>
-                  <span>{l.detail && <button type="button" className="btn b-ghost" onClick={() => setDetail(l)}>Details</button>}</span>
+                  <span className={`amt ${l.grey ? "a-grey" : l.amount < 0 ? "a-red" : "a-green"}`}>{signed(l.shown)}</span>
+                  <span>{l.detail && <button type="button" className="btn b-ghost" aria-label={`Details: ${l.name}`} onClick={() => setDetail(l)}>Details</button>}</span>
                 </div>
               ));
             })()}
             <div className="leak-total">
               <span style={{ fontWeight: 600 }}>Total · stages add up exactly</span>
               <span className="unit">{closed.prevLabel} {signed(closed.prevProfit ?? 0)} → {closed.label} {signed(closed.profit)} TND</span>
-              <span className={`amt ${(closed.leakTotal ?? 0) < 0 ? "a-red" : "a-green"}`}>{signed(closed.leakTotal ?? 0)}</span>
+              <span className={`amt ${(closed.leakTotal ?? 0) < 0 ? "a-red" : "a-green"}`}>{signed(Math.round(closed.leakTotal ?? 0))}</span>
             </div>
           </>
         ) : (
           <div className="leak-settling">
-            <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{closed ? "SETTLING" : "WAITS FOR SHIPPER"}</span>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{closed ? "This week's orders are still being confirmed and delivered" : "The leak finder needs two months of Shipper orders"}</div>
+            <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{!closed ? "WAITS FOR SHIPPER" : isMonth ? "NOT ENOUGH DATA" : "SETTLING"}</span>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{!closed ? "The leak finder needs two months of Shipper orders" : isMonth ? `The leak finder ${closed.leakWhy ?? "needs two settled months"}` : "This week's orders are still being confirmed and delivered"}</div>
             <div className="unit" style={{ fontSize: 13 }}>The leak finder needs settled delivery (2–3 weeks for COD). It runs on closed months; weeks appear here once their orders settle. Nothing is guessed.</div>
           </div>
         )}
@@ -186,8 +198,9 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta 
         {closed?.tracking != null && (
           <span><span className={`tag ${closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "t-green" : "t-red"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />{closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "DATA OK" : "CHECK TRACKING"}</span>Tracking {closed.tracking.toFixed(3)} · band 0.89–0.95</span>
         )}
-        <span><b>Editing cost</b> = approved videos × the editor&apos;s pay per video, read from the Editing tab (variable cost) · fixed {n0(fixed)} TND / month from Settings</span>
-        <span>Normal = last closed month · stages switched in fixed order: ad cost → volume → tracking → confirmation → door rate → order value → delivery cost</span>
+        {closed && <span><span className={`tag ${closed.lineStatus === "final" ? "t-green" : "t-amber"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />LINE {closed.lineStatus.toUpperCase()}</span>Business line ${closed.line.toFixed(2)} · Settings → Money</span>}
+        <span><b>Salaries and fixed</b> = {n0(fixed)} TND / month from Settings (editing included, as in File 1)</span>
+        <span>Normal = last closed month · stages switched in fixed order: ad cost → volume → tracking → confirmation → door rate → order value → delivery cost → salaries and fixed</span>
       </section>
 
       {detail?.detail && closed && (
@@ -207,9 +220,10 @@ function Trend({ points }: { points: TrendPoint[] }) {
   const vals = points.map((p) => p.profit);
   const max = Math.max(1000, ...vals.map(Math.abs));
   const W = 1000, H = 220, pad = 10;
-  const x = (i: number) => pad + (i * (W - 2 * pad)) / Math.max(1, points.length - 1);
+  const x = (i: number) => ((i + 0.5) * W) / points.length; // centred under each date label
   const y = (v: number) => H / 2 - (v / max) * (H / 2 - pad);
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
+  const tick = Math.round(max / 2 / 100) * 100 || 500;
   const area = `${path} L${x(points.length - 1)},${H / 2} L${x(0)},${H / 2} Z`;
   const firstSettling = points.findIndex((p) => p.settling);
   let loss = 0; for (let i = vals.length - 1; i >= 0 && vals[i] < 0; i--) loss++;
@@ -227,6 +241,9 @@ function Trend({ points }: { points: TrendPoint[] }) {
           {up > 0 ? <span className="tag t-green"><i aria-hidden="true" />IMPROVING {up} WEEK{up > 1 ? "S" : ""}</span> : down > 0 ? <span className="tag t-red"><i aria-hidden="true" />WORSE {down} WEEK{down > 1 ? "S" : ""}</span> : null}
         </div>
       </div>
+      <div className="trend-wrap">
+      <div className="trend-ticks" aria-hidden="true"><span>+{tick.toLocaleString("en-US")}</span><span>0</span><span>−{tick.toLocaleString("en-US")}</span></div>
+      <div style={{ position: "relative", minWidth: 0 }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="trend-svg" role="img" aria-label={`Weekly profit: ${points.map((p) => `${fmt(p.monday)} ${Math.round(p.profit)} TND${p.settling ? " (settling)" : ""}`).join(", ")}`}>
         <defs>
           <clipPath id="tr-up"><rect x="0" y="0" width={W} height={H / 2} /></clipPath>
@@ -235,11 +252,15 @@ function Trend({ points }: { points: TrendPoint[] }) {
         <path d={area} fill="rgba(31,142,76,0.18)" clipPath="url(#tr-up)" />
         <path d={area} fill="rgba(214,59,39,0.16)" clipPath="url(#tr-down)" />
         <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#B9B9B3" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        <path d={firstSettling > 0 ? points.slice(0, firstSettling + 1).map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ") : firstSettling === 0 ? "" : path} fill="none" stroke="#111" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-        {firstSettling >= 0 && <path d={points.slice(Math.max(0, firstSettling - (firstSettling > 0 ? 1 : 0))).map((p, i) => `${i ? "L" : "M"}${x(i + Math.max(0, firstSettling - (firstSettling > 0 ? 1 : 0))).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
+        {/* Solid up to the last settled week; dashed from there into the settling weeks. */}
+        {firstSettling !== 0 && <path d={(firstSettling > 0 ? points.slice(0, firstSettling) : points).map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />}
+        {firstSettling >= 0 && <path d={points.slice(Math.max(0, firstSettling - 1)).map((p, i) => `${i ? "L" : "M"}${x(i + Math.max(0, firstSettling - 1)).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ")} fill="none" stroke="#111" strokeWidth="2.5" strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />}
         
       </svg>
+      <span className="trend-end" style={{ top: `${(y(last.profit) / H) * 100}%` }}>{signed(last.profit)}{last.settling ? " · settling" : ""}</span>
       <div className="trend-axis">{points.map((p) => <span key={p.monday}>{fmt(p.monday)}</span>)}</div>
+      </div>
+      </div>
       <div className="unit" style={{ marginTop: 6 }}>
         Last week {signed(last.profit)} TND{last.settling ? " · settling" : ""}. Green area = profit · red area = loss · dashed = estimate while delivery settles (Meta purchases × line − spend) · weeks by order date.
       </div>

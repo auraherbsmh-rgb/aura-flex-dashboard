@@ -39,7 +39,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
   month("2026-08", 31, 3327, 421, 0.71, 0.72, 3102, 13752);
   month("2026-09", 30, 3095, 406, 0.66, 0.70, 2900, 13005);
   month("2026-10", 15, 1500, 200, 0.68, 0.71, 1450, 6600);
-  const view = buildMoney({ orders: noShip ? [] : orders, metaDays: meta, money: { exchangeRate: 3.35, bottleCostTnd: 20.6, deliveryCostTnd: 13, fixedCostsTnd: 17813, businessLineUsd: 4.18 }, editingByMonth: { "2026-09": 1200, "2026-08": 1000 }, now });
+  const view = buildMoney({ orders: noShip ? [] : orders, metaDays: meta, bases: [{ month: "2026-09-01", status: "final", base: { exchangeRate: 3.35, bottleCostTnd: 20.6, deliveryCostTnd: 13, fixedCostsTnd: 17813, businessLineUsd: 4.18 } }], now });
   return (
     <main className="page"><div className="slab"><div className="body">
       <Money view={view} line={4.18} fixed={17813} hasMeta
