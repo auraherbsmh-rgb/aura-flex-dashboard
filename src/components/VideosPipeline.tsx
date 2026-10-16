@@ -77,7 +77,6 @@ export function VideosPipeline({
             key={r.taskId}
             href={r.href}
             className={`row pipe-row ${r.late ? "row-late" : ""} ${r.hold ? "row-hold" : ""}`}
-            aria-label={r.action && cards[r.taskId] ? `${r.name}: ${r.action === "footage" ? "footage received" : "assign an editor"}` : undefined}
             onClick={(e) => {
               if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
               // Not with an editor yet: open Footage received / Assign right here (founder choice Oct 16).
@@ -94,7 +93,7 @@ export function VideosPipeline({
                 {r.hold?.reason && <div className="pipe-meta">On hold: {r.hold.reason}</div>}
                 <div className="pipe-meta">{r.origin}</div>
                 <span className="sr-only">
-                  Steps: {VRAIL.map((s, i) => {
+                  {r.hold ? "On hold. " : ""}{r.action && cards[r.taskId] ? `Opens ${r.action === "footage" ? "Footage received" : "Assign"}. ` : ""}Steps: {VRAIL.map((s, i) => {
                     const st = r.steps[i];
                     return `${s} ${st === "todo" ? "to do" : st === "skip" ? "skipped" : st === "now" ? `now, ${r.nowLabel}` : st === "late" ? `late, ${r.nowLabel}` : st}`;
                   }).join(", ")}.

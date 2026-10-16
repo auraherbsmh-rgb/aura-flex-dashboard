@@ -258,8 +258,9 @@ export function HoldButton({ taskId, face, current, onDone }: { taskId: string; 
         <label className="field">
           <span className="lbl">Reason · optional</span>
           <input className="inp" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="Another script goes first this week" />
+          <span className="unit">The editor and the copywriter see this reason.</span>
         </label>
-        <div className="info">While on hold: no late alerts, no Home items, it sorts last, and the editor can&rsquo;t send a version. Nothing else changes. Resume any time.</div>
+        <div className="info">While on hold: no late alerts, no Home items, it sorts last, the editor can&rsquo;t start or send a version, and it can&rsquo;t be launched. Due dates don&rsquo;t move: after resuming, change the due date in Assign if needed.</div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
           <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>

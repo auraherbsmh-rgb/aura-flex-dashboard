@@ -3,3 +3,5 @@
 -- details_done and not launched; submit_edit refuses while on hold ("This video is on hold. Wait for Founder 2 to resume it.").
 -- App side: isHeld() skips late alerts and Needs-me items, sorts on-hold last (queue + Videos pipeline), grey ON HOLD tag.
 -- Same commit: Videos pipeline rows not with an editor yet open Footage received / Assign in place.
+-- Checker round 1 (migrations "production_on_hold_guards", "launch_blocked_on_hold"): start_edit also refuses while on hold;
+-- refusal wording names "a founder"; launch_concept refuses a first launch while on hold ("Resume it first, then launch.").

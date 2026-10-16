@@ -262,7 +262,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
       {held && (
         <div className="notice notice-hold" role="status">
           <b>On hold</b> since {fmtWhen(p.holdAt!)}{p.holdReason ? ` · ${p.holdReason}` : ""}.{" "}
-          {isFounder ? "No late alerts or Home items until you resume it." : "Another video goes first. Founder 2 resumes it when it's time; you can't send a version until then."}
+          {isFounder ? "No late alerts or Home items until you resume it." : "Another video goes first. A founder resumes it when it's time; you can't start or send a version until then."}
         </div>
       )}
 
@@ -346,9 +346,9 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
         <div className="notice notice-green" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span>
             Approved{last?.decidedAt ? ` ${fmtWhen(last.decidedAt)}` : ""}. Counted for payment.{" "}
-            {p.liveAt ? `Live since ${fmtWhen(p.liveAt)}.` : p.launchedAt ? `Launched ${fmtWhen(p.launchedAt)}. Turns Live once Meta is connected (phase 3); use Mark live until then.` : "Launch is next."}
+            {held ? "On hold: resume it to launch." : p.liveAt ? `Live since ${fmtWhen(p.liveAt)}.` : p.launchedAt ? `Launched ${fmtWhen(p.launchedAt)}. Turns Live once Meta is connected (phase 3); use Mark live until then.` : "Launch is next."}
           </span>
-          {isFounder && v.card && (
+          {isFounder && v.card && !held && (
             <LaunchButton card={v.card} names={v.names} current={p} approvedAt={last?.decidedAt} label={p.launchedAt ? "Launch list" : "Launch"} who="Founder · Launch" className={p.launchedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />
           )}
         </div>
