@@ -9,6 +9,8 @@ import {
   getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getHookCounts, getLaunchNames, getProductions, getTasks, getTestimonials, prodCards, requestTime,
 } from "@/lib/tasks";
 import { buildNeeds, getRule, mergeNeeds } from "@/lib/needs";
+import { getLiveData } from "@/lib/meta/live-data";
+import { createClient } from "@/lib/supabase/server";
 import { buildVideoPipeline } from "@/lib/editing-shared";
 import { buildBlocked, pace, scriptsApprovedThisWeek, speedSplit, videosApprovedThisWeek, waitingToLaunch } from "@/lib/home-shared";
 
@@ -47,10 +49,17 @@ export default async function Page() {
     getLaunchNames(),
     getTestimonials(),
   ]);
-  const editors = await getEditors(productions, tasks);
-  const cards = prodCards(tasks, details, hooks);
   const now = requestTime();
-  const prod = { cards, productions, footageLateDays, assignLateDays, editRounds, launchLateDays, launchNames, testimonials };
+  const supabase = await createClient();
+  // Live ads (daily Meta pull): KILL and UNMAPPED items. Empty until Meta is connected.
+  const [editors, live, formats] = await Promise.all([
+    getEditors(productions, tasks),
+    getLiveData(now),
+    supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
+  ]);
+  const cards = prodCards(tasks, details, hooks);
+  const tagPickers = { ...pickers, formats: (formats.data ?? []) as { id: string; code: string | null; label: string }[] };
+  const prod = { cards, productions, footageLateDays, assignLateDays, editRounds, launchLateDays, launchNames, testimonials, kills: live.kills, unmapped: live.unmappedItems };
   const groups = buildNeeds(viewer, proposals, hours, now, tasks, reviewHours, prod);
   // "All": what each founder has on their own Home (so Founder 1 can see Founder 2's items, and the reverse).
   const asRole = (role: "founder_1" | "founder_2") => buildNeeds({ ...viewer, role }, proposals, hours, now, tasks, reviewHours, prod);
@@ -87,10 +96,10 @@ export default async function Page() {
           <CreateTaskButton ctx={ctx} pickers={pickers} />
           <TestimonialButton pickers={pickers} editors={editors} />
         </div>
-        <NeedsMe groups={groups} total={total} editors={editors} allGroups={allGroups} pickers={pickers} />
+        <NeedsMe groups={groups} total={total} editors={editors} allGroups={allGroups} pickers={pickers} tagPickers={tagPickers} />
       </FounderNumbers>
       <div className="unit" style={{ padding: "0 8px" }}>
-        Coming with Meta (phase 3): won / settled, cells needing a successor, and the ALERT, WINNER, KILL and UNMAPPED items.
+        {live.hasData ? "Coming next with Meta: won / settled, cells needing a successor, and the ALERT and WINNER items." : "KILL and UNMAPPED items arrive with the first Meta pull (Meta not connected yet). Then: won / settled, cells needing a successor, ALERT and WINNER."}
       </div>
     </TabPage>
   );

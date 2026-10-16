@@ -10,7 +10,7 @@ import type { Pickers } from "@/lib/proposals-shared";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 
 export type LiveView =
-  | { connected: false; missing: string[]; noMoney: boolean; lastError: string | null }
+  | { connected: false; missing: string[]; noCron: boolean; noMoney: boolean; lastError: string | null }
   | { connected: true; live: LiveConcept[]; unmapped: Unmapped[]; frozenEntities: number; lastPull: string | null; d3Min: number };
 
 /** Map & performance: Map | Live ads (handoff §3). The choice lives in ?view=live. */
@@ -47,6 +47,7 @@ export function MapTabs({ map, pickers, tagPickers, createCtx, live }: { map: Ma
             )}
             {live.noMoney && <p style={{ margin: 0, fontSize: 15 }}>Live ads judges every ad against the business line and kill table: fill them in Settings → Money.</p>}
             {!live.missing.length && !live.noMoney && <p style={{ margin: 0, fontSize: 15 }}>Meta is connected; no ads pulled yet.</p>}
+            {live.noCron && <p style={{ margin: 0, fontSize: 14 }}>Also add <span className="mono">CRON_SECRET</span> in Vercel for the daily 06:00 pull (Pull now works without it).</p>}
             {live.lastError && <div className="formmsg err">Last pull: {live.lastError}</div>}
             <div className="unit">{live.missing.length ? "Then " : ""}Settings → Data → Pull now, or wait for the daily pull at 06:00. Nothing in Meta is ever changed by the dashboard.</div>
           </section>

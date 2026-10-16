@@ -19,10 +19,35 @@ begin
   return 'saved';
 end $function$;
 
--- map_concepts(): every non-cancelled task with cell, angle, format, face, production dates and V# variations
--- (founders + copywriters). Full body: select pg_get_functiondef('public.map_concepts'::regproc).
+create or replace function public.map_concepts()
+ returns table(task_id uuid, avatar_id uuid, avatar_code text, awareness text, angle_id uuid, angle_label text, angle_code text, angle_track text, format_label text, format_code text, origin text, status text, copywriter text, created_at timestamptz, face text, generate boolean, vo boolean, launched_at timestamptz, live_at timestamptz, hold_at timestamptz, variations jsonb)
+ language sql stable security definer set search_path to '' as $function$
+  select t.id, t.avatar_id, av.code, t.awareness, t.angle_id, an.label, an.code, an.track,
+         fm.label, fm.code, t.origin, t.status, coalesce(p.display_name, case when t.origin = 'testimonial' then 'Testimonial' end), t.created_at,
+         sd.face, coalesce(sd.generate, false), coalesce(sd.vo, false),
+         pr.launched_at, pr.live_at, pr.hold_at,
+         coalesce((select jsonb_agg(jsonb_build_object('v', v.v, 'type', ht.label, 'line', v.hook_line, 'name', v.ad_name) order by v.v)
+                   from public.ad_variations v left join public.list_items ht on ht.id = v.hook_type_id
+                   where v.task_id = t.id and v.active), '[]'::jsonb)
+  from public.tasks t
+  join public.list_items av on av.id = t.avatar_id
+  join public.list_items an on an.id = t.angle_id
+  join public.list_items fm on fm.id = t.format_id
+  left join public.people p on p.id = t.copywriter_id
+  left join public.script_details sd on sd.task_id = t.id
+  left join public.productions pr on pr.task_id = t.id
+  where t.status <> 'cancelled' and private.current_person_id() is not null
+    and exists (select 1 from public.people me where me.id = private.current_person_id() and me.active and me.role in ('founder_1','founder_2','copywriter'));
+$function$;
 
--- campaign_scope (founders, all): campaign_id digits, kind ABO|CBO, track knee|hips — 4 rows (File 2 §1).
+-- Campaigns the dashboard reads (File 2 §1). The 4 rows (knee/hips × ABO/CBO) are entered in Settings or by hand.
+create table if not exists public.campaign_scope (
+  campaign_id text primary key check (campaign_id ~ '^[0-9]+$'), name text not null,
+  track text not null check (track in ('knee','hips')), kind text not null check (kind in ('ABO','CBO')),
+  active boolean not null default true, updated_by uuid references public.people(id), updated_at timestamptz not null default now()
+);
+alter table public.campaign_scope enable row level security;
+create policy scope_founders on public.campaign_scope for all using ((select private.is_founder()));
 
 -- Meta copy, filled only by the daily pull (service role). Founders read; nobody writes from the app.
 create table if not exists public.meta_ads (

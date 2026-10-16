@@ -1,18 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
+import type { KillNeed, Unmapped, UnmappedNeed } from "@/lib/live-shared";
 import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow, type TestimonialLite } from "@/lib/tasks-shared";
 
 /**
  * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
  * (Today = arrived today in Tunisia and over 12h old, New = under 12h).
  * Items are computed from the records they are about, never stored, so they disappear the moment the work is done.
- * Built so far: DECIDE and REVIEW (script), FOOTAGE and ASSIGN (production), and COVERING for each.
+ * Built: DECIDE, REVIEW, OVERDUE, FOOTAGE, VO, ASSIGN, LAUNCH, TESTIMONIAL, KILL, UNMAPPED, and COVERING for each.
  * The other types arrive with their screens.
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "OVERDUE" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "COVERING";
+  type: "DECIDE" | "REVIEW" | "OVERDUE" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "KILL" | "UNMAPPED" | "COVERING";
   tagTone: "violet" | "blue" | "orange" | "green" | "grey" | "red" | "amber";
   title: string;
   sub: string;
@@ -26,6 +27,9 @@ export type NeedItem = {
   prod?: { kind: "footage" | "assign" | "launch"; card: ProdCard; current?: Production; names?: LaunchNames; approvedAt?: string | null };
   /** TESTIMONIAL items open the Testimonial tag pop-up. */
   testimonial?: TestimonialLite;
+  /** KILL items open the Pause in Meta pop-up; UNMAPPED items open Tag an old ad. */
+  kill?: KillNeed;
+  unmapped?: Unmapped;
 };
 
 export type ProdNeeds = {
@@ -41,6 +45,9 @@ export type ProdNeeds = {
   launchNames?: Map<string, LaunchNames>;
   /** Support-call recordings waiting to be tagged: TESTIMONIAL items (Founder 2; Founder 1 covers after 48h). */
   testimonials?: TestimonialLite[];
+  /** From the daily Meta pull (Live ads): KILL (Founder 2, Founder 1 covers after 48h) and UNMAPPED (both founders). */
+  kills?: KillNeed[];
+  unmapped?: UnmappedNeed[];
 };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
@@ -196,15 +203,39 @@ export function buildNeeds(
       items.push({ key: p.id, type: "COVERING", tagTone: "orange", title, sub: `Founder 1's decision, waiting over ${unansweredHours}h · ${cell}`, age: age.text, ageTone: "red", hours: age.hours, proposal: p });
     }
   }
+  // KILL (Live ads flag: kill line / fading / deteriorating / twin split): Founder 2 pauses in Meta; Founder 1 covers after 48h.
+  const FLAG_WORD = { kill: "Kill line", fading: "Fading", deteriorating: "Deteriorating", twin: "Twin split" } as const;
+  for (const k of prod?.kills ?? []) {
+    const cover = prod?.coverHours ?? 48;
+    const age = ageLabel(new Date(k.sinceMs).toISOString(), now, cover);
+    const title = `${FLAG_WORD[k.flag]} · pause ${k.concept}`;
+    const sub = k.recheck ? `${k.recheck} · ${k.reason}` : k.reason;
+    if (viewer.role === "founder_2") {
+      items.push({ key: k.key, type: "KILL", tagTone: "red", title, sub, age: age.text, ageTone: "red", hours: age.hours, kill: k });
+    } else if (viewer.role === "founder_1" && age.hours >= cover) {
+      items.push({ key: k.key, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's kill, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, kill: k });
+    }
+  }
+  // UNMAPPED: a live ad in scope with an old or unknown name: either founder tags it.
+  for (const u of prod?.unmapped ?? []) {
+    const age = ageLabel(new Date(u.sinceMs).toISOString(), now);
+    items.push({
+      key: u.key, type: "UNMAPPED", tagTone: "grey", title: `Tag an old ad · ${u.u.example}`,
+      sub: `${u.u.adIds.length} ad${u.u.adIds.length === 1 ? "" : "s"} · $${Math.round(u.u.spend7)} · ${u.u.sales7} sales in 7d`, age: age.text, ageTone: "grey", hours: age.hours, unmapped: u.u,
+    });
+  }
   items.sort((a, b) => b.hours - a.hours);
   // Both rules are 48h today; the late group uses the smaller one so nothing late hides in "This week".
   const lateFrom = Math.min(unansweredHours, reviewHours);
-  const late = items.filter((i) => i.ageTone === "red" || i.hours >= lateFrom);
-  const rest = items.filter((i) => !late.includes(i));
+  // Founder 2's list puts KILL first (handoff §6): its own group on top.
+  const kill = items.filter((i) => i.type === "KILL");
+  const late = items.filter((i) => i.type !== "KILL" && (i.ageTone === "red" || i.hours >= lateFrom));
+  const rest = items.filter((i) => !late.includes(i) && !kill.includes(i));
   const week = rest.filter((i) => i.hours >= 24);
   const today = rest.filter((i) => i.hours >= 12 && i.hours < 24);
   const fresh = rest.filter((i) => i.hours < 12);
   return [
+    { name: "KILL · ACT IN META FIRST", tone: "red" as const, items: kill },
     { name: `LATE / OVER ${lateFrom}H`, tone: "red" as const, items: late },
     { name: "TODAY", tone: "amber" as const, items: today },
     { name: "THIS WEEK", tone: "amber" as const, items: week },
@@ -226,13 +257,13 @@ export function mergeNeeds(f1: NeedGroup[], f2: NeedGroup[]): NeedGroup[] {
         const prev = byKey.get(it.key);
         const own = it.type !== "COVERING";
         if (prev && (prev.item.type !== "COVERING" || !own)) continue;
-        byKey.set(it.key, { group: g, item: own ? { ...it, sub: `${owner} · ${it.sub}` } : it });
+        byKey.set(it.key, { group: g, item: own && it.type !== "UNMAPPED" ? { ...it, sub: `${owner} · ${it.sub}` } : it });
       }
     }
   };
   add(f1, "Founder 1");
   add(f2, "Founder 2");
-  const rank = (name: string) => (name.startsWith("LATE") ? 0 : name === "TODAY" ? 1 : name === "THIS WEEK" ? 2 : 3);
+  const rank = (name: string) => (name.startsWith("KILL") ? -1 : name.startsWith("LATE") ? 0 : name === "TODAY" ? 1 : name === "THIS WEEK" ? 2 : 3);
   return [...new Set(order)]
     .sort((a, b) => rank(a) - rank(b))
     .map((name) => {

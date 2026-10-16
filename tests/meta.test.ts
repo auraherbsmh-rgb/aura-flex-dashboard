@@ -106,3 +106,35 @@ test("Live ads: a concept is judged on its live variations; a budget change free
   assert.equal(f.frozen, true);
   assert.equal(f.group, "testing");
 });
+
+test("KILL items: kill line ad → Founder 2 first, answers hide until the next pull, a paused ad still active comes back", async () => {
+  const { buildLive, killNeeds, unmappedNeeds } = await import("../src/lib/live-shared");
+  const { buildNeeds } = await import("../src/lib/needs");
+  const base = "UGC_FSB_Problem-Aware_Knee-Prayer_Sami";
+  const ads = [ad("1", `${base}_V1`), ad("9", "VSL_BRD_Most-Aware_Old_V4")];
+  const daily = [...days("2026-10-12", 4).map((x) => D("1", x, 4, 0)), D("9", "2026-10-14", 5, 1)];
+  const generated = new Map([[`${base}_v1`.toLowerCase(), { taskId: "t1", v: 1 }]]);
+  const info = { key: "t:t1", name: "Sami", cell: "FSB × Problem", angle: "Knee-Prayer", format: "UGC", formatCode: "UGC", track: "knee", copywriter: null, editor: null, launchedAt: null, taskId: "t1", hooks: {} };
+  const model = buildLive({ ads, daily, scope: [{ campaignId: "abo", kind: "ABO", track: "knee" }], budgets: [], generated, old: new Map(), concepts: new Map([["t:t1", info]]), money: SEP, now: NOW });
+  const pull = "2026-10-16T05:00:00Z";
+  const k = (answers: { adId: string; answer: "paused" | "not_now"; reason: string | null; answeredAt: string }[]) =>
+    killNeeds({ live: model.live, daily, adNames: new Map(ads.map((a) => [a.adId, a.name])), answers, lastPullAt: pull, money: SEP, now: NOW });
+  const items = k([]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].flag, "kill");
+  assert.equal(items[0].name, `${base}_V1`);
+  // Cumulative $16 at 0 sales passes the $13 kill line on Oct 15 → counted from the Oct 16 pull.
+  assert.equal(new Date(items[0].sinceMs).toISOString(), "2026-10-16T05:00:00.000Z");
+  assert.equal(k([{ adId: "1", answer: "paused", reason: null, answeredAt: "2026-10-16T08:00:00Z" }]).length, 0, "answered after the pull: wait");
+  const back = k([{ adId: "1", answer: "paused", reason: null, answeredAt: "2026-10-15T08:00:00Z" }]);
+  assert.match(back[0].recheck ?? "", /still active/);
+  const v = (role: "founder_1" | "founder_2") => ({ personId: "p", name: "F", role, email: "" });
+  const um = unmappedNeeds(model.unmapped, new Map([["9", "2026-10-10T05:00:00Z"]]), NOW);
+  assert.equal(um.length, 1);
+  const g2 = buildNeeds(v("founder_2"), [], 48, NOW, [], 48, { cards: new Map(), productions: new Map(), footageLateDays: 2, assignLateDays: 2, kills: items, unmapped: um });
+  assert.equal(g2[0].name, "KILL · ACT IN META FIRST");
+  assert.ok(g2.flatMap((g) => g.items).some((i) => i.type === "UNMAPPED"));
+  const g1 = buildNeeds(v("founder_1"), [], 48, NOW, [], 48, { cards: new Map(), productions: new Map(), footageLateDays: 2, assignLateDays: 2, kills: items, unmapped: um });
+  assert.ok(!g1.flatMap((g) => g.items).some((i) => i.kill), "Founder 1 covers only after 48h");
+  assert.ok(g1.flatMap((g) => g.items).some((i) => i.type === "UNMAPPED"));
+});

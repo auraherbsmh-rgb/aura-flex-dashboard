@@ -5,7 +5,8 @@ import { startTransition, useActionState, useState, type FormEvent } from "react
 import { Modal } from "./Modal";
 import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
-import type { NeedGroup } from "@/lib/needs";
+import type { NeedGroup, NeedItem } from "@/lib/needs";
+import { PauseInMeta, TagOldAd } from "./OldAd";
 import type { EditorLoad, ProdCard, Production } from "@/lib/tasks-shared";
 import { AssignButton, FootageButton, LaunchButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
@@ -180,7 +181,10 @@ export function NeedsMe({
   editors = [],
   allGroups,
   pickers,
+  tagPickers,
 }: {
+  /** Tag an old ad (UNMAPPED): every approved format, statics included. */
+  tagPickers?: Pickers;
   groups: NeedGroup[];
   total: number;
   editors?: EditorLoad[];
@@ -194,6 +198,7 @@ export function NeedsMe({
   const [showAll, setShowAll] = useState(false);
   // Assign after tagging a testimonial: held here because the TESTIMONIAL row disappears once it is used.
   const [assign, setAssign] = useState<{ card: ProdCard; current: Production } | null>(null);
+  const [meta, setMeta] = useState<NeedItem | null>(null);
   const groups = showAll && allGroups ? allGroups : mine;
   // "Start with the most urgent" (Home header) opens the founder's own first item, even when All is shown.
   const mineKeys = new Set(mine.flatMap((g) => g.items.map((i) => i.key)));
@@ -216,6 +221,8 @@ export function NeedsMe({
       </div>
       {doneMsg && <div className="notice notice-green" role="status">{doneMsg}</div>}
       {assign && <AssignButton key={assign.card.taskId} startOpen card={assign.card} editors={editors} current={assign.current} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={setDoneMsg} />}
+      {meta?.kill && <PauseInMeta key={meta.key} adId={meta.kill.adId} name={meta.kill.name} flag={meta.kill.flag} reason={meta.kill.reason} note={meta.kill.recheck} who={meta.type === "COVERING" ? "Founder 1 · covering Founder 2’s KILL item" : "Founder 2 · KILL item · act in Meta"} onClose={() => setMeta(null)} onDone={setDoneMsg} />}
+      {meta?.unmapped && tagPickers && <TagOldAd key={meta.key} base={meta.unmapped.base} example={meta.unmapped.example} guess={meta.unmapped.formatGuess} pickers={tagPickers} onClose={() => setMeta(null)} onDone={setDoneMsg} />}
       {groups.length === 0 && <div className="info">{showAll ? "Nothing needs either founder right now." : "Nothing needs you right now."}</div>}
       {groups.map((g) => (
         <div key={g.name}>
@@ -229,7 +236,11 @@ export function NeedsMe({
                   <div className="need-sub">{it.sub}</div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
-                {it.prod ? (
+                {it.kill ? (
+                  <button type="button" className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onClick={() => setMeta(it)}>Pause in Meta</button>
+                ) : it.unmapped ? (
+                  tagPickers ? <button type="button" className="btn b-primary" onClick={() => setMeta(it)}>Tag</button> : null
+                ) : it.prod ? (
                   it.prod.kind === "launch"
                     ? <LaunchButton card={it.prod.card} names={it.prod.names} current={it.prod.current} approvedAt={it.prod.approvedAt} label="Open launch list" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s LAUNCH item" : "Founder 2 · LAUNCH item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                     : it.prod.kind === "footage"

@@ -68,15 +68,16 @@ export function TagOldAd({ base, example, pickers, onClose, onDone, guess }: {
 }
 
 /** "Pause in Meta" pop-up (handoff §6b, KILL): reason, ad name + ID to copy → Done, paused in Meta / Not now (say why). */
-export function PauseInMeta({ adId, name, flag, reason, onClose, onDone }: {
-  adId: string; name: string; flag: string; reason: string; onClose: () => void; onDone: (m: string) => void;
+export function PauseInMeta({ adId, name, flag, reason, onClose, onDone, who = "Founder 2 · KILL item · act in Meta", note }: {
+  adId: string; name: string; flag: string; reason: string; onClose: () => void; onDone: (m: string) => void; who?: string; note?: string | null;
 }) {
   const [why, setWhy] = useState("");
   const [notNow, setNotNow] = useState(false);
   const { error, pending, run } = useRun(onDone, onClose);
   return (
-    <Modal open onClose={onClose} who="Founder 2 · KILL item · act in Meta" title="Pause in Meta">
+    <Modal open onClose={onClose} who={who} title="Pause in Meta">
       <span className="tag t-red" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{reason}</span>
+      {note && <div className="formmsg err">{note}</div>}
       <div className="field"><span className="lbl">Ad name</span><div className="copy"><span>{name}</span><CopyName text={name} /></div></div>
       <div className="field"><span className="lbl">Ad ID</span><div className="copy"><span className="mono">{adId}</span><CopyName text={adId} /></div></div>
       <div className="info">Pause it in Ads Manager, then click Done. The dashboard never changes Meta; the next pull checks it is paused.</div>

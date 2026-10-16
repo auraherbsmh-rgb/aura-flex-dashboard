@@ -109,12 +109,14 @@ export function buildLive(input: {
     const c7 = conceptCpa7(results);
     const pausedList = c.vars.filter((x) => !x.res.live && x.res.life.spend > 0).map((x) => `V${x.res.v ?? "?"}${info.hooks[x.res.v ?? -1]?.type ? ` ${info.hooks[x.res.v ?? -1]?.type}` : ""}`);
     const lostLive = liveRes.some((r) => r.state === "lost");
-    // Budget changed in the last 48h on any live variation: no verdict yet (no flags, no Won / attention group).
-    const frozen = liveRes.some((r) => r.frozen);
-    const attention = !frozen && (!!top || ["fading", "deteriorating"].includes(state) || lostLive);
+    // Budget changed in the last 48h: those variations have no verdict (no flags). The concept shows "no verdict" only when
+    // every live variation is frozen; while any is, it cannot be Won / Recovering, but a flag on another ad set still counts.
+    const anyFrozen = liveRes.some((r) => r.frozen);
+    const frozen = liveRes.every((r) => r.frozen);
+    const attention = !!top || (!anyFrozen && (["fading", "deteriorating"].includes(state) || lostLive));
     live.push({
       key, kind: c.kind, info, track: info.track ?? c.track,
-      group: attention ? "attention" : frozen ? "testing" : state === "won" ? "won" : state === "recovering" ? "recovering" : "testing",
+      group: attention ? "attention" : anyFrozen ? "testing" : state === "won" ? "won" : state === "recovering" ? "recovering" : "testing",
       state, flag, flagTone: top ? (top.f === "twin" || top.f === "deteriorating" ? "orange" : "red") : null,
       cpa7: c7.cpa, line, cpa3: t3.sales ? t3.spend / t3.sales : null, sales3: t3.sales, spend7: c7.spend, sales7: c7.sales,
       daysLive: Math.max(...liveRes.map((r) => r.daysLive)),
@@ -126,4 +128,81 @@ export function buildLive(input: {
   live.sort((a, b) => order[a.group] - order[b.group] || b.spend7 - a.spend7);
   unmapped.sort((a, b) => Number(b.live) - Number(a.live) || b.spend7 - a.spend7);
   return { live, unmapped, states, frozenEntities: frozenCount.size, windows: w };
+}
+
+/* ───────────── Home items from Live ads (Meta 4) ───────────── */
+
+export type PauseAnswer = { adId: string; answer: "paused" | "not_now"; reason: string | null; answeredAt: string };
+export type KillNeed = {
+  key: string; adId: string; name: string; flag: Exclude<Flag, "near_kill">; reason: string; concept: string;
+  /** When the problem started (kill table crossed, this week's verdict, or the last "Not now"). */
+  sinceMs: number;
+  /** Set when the founder said "Done, paused in Meta" but a later pull still finds the ad active. */
+  recheck: string | null;
+};
+export type UnmappedNeed = { key: string; u: Unmapped; sinceMs: number };
+
+const FLAG_ORDER: Exclude<Flag, "near_kill">[] = ["kill", "fading", "deteriorating", "twin"];
+const pullMs = (dayStr: string) => Date.parse(`${dayStr}T05:00:00Z`); // the 06:00 Tunisia pull of that day
+const nextDay = (d: string) => new Date(Date.parse(`${d}T12:00:00Z`) + 864e5).toISOString().slice(0, 10);
+
+/**
+ * KILL items (handoff §4 "Problem ads", §11): every live ad of a variation flagged kill line / fading / deteriorating,
+ * and the over-the-line side of a twin split. Answers: "Done, paused" hides the item until the next pull, which verifies
+ * (still active → back, marked "still active"); "Not now" hides it until the next pull, then it returns if still flagged.
+ */
+export function killNeeds(input: {
+  live: LiveConcept[]; daily: MetaDay[]; adNames: Map<string, string>; answers: PauseAnswer[];
+  lastPullAt: string | null; money: MoneyInputs; now: number;
+}): KillNeed[] {
+  const { live, daily, adNames, answers, lastPullAt, money: m, now } = input;
+  const w = windows(now);
+  const pulled = lastPullAt ? Date.parse(lastPullAt) : 0;
+  const rowsBy = new Map<string, MetaDay[]>();
+  for (const r of daily) rowsBy.set(r.adId, [...(rowsBy.get(r.adId) ?? []), r]);
+  const lastAnswer = new Map<string, PauseAnswer>();
+  for (const a of [...answers].sort((x, y) => x.answeredAt.localeCompare(y.answeredAt))) lastAnswer.set(a.adId, a);
+  const out: KillNeed[] = [];
+  for (const c of live) {
+    for (const v of c.live) {
+      const flag = FLAG_ORDER.find((f) => v.res.flags.includes(f));
+      if (!flag) continue;
+      // Which ads to pause: every live side, or for a twin split only the side over the line.
+      const sides = v.res.sides.filter((s) => s.live && (flag !== "twin" || (cpa(s.t7) ?? Infinity) > v.res.line));
+      // When it started: the kill table crossing day, else this week's Monday pull (weekly verdicts), else the last pull.
+      let since = pulled || now;
+      if (flag === "kill") {
+        const rows = v.adIds.flatMap((id) => rowsBy.get(id) ?? []).sort((a, b) => a.day.localeCompare(b.day));
+        let spend = 0, sales = 0;
+        for (const r of rows) {
+          spend += r.spend; sales += r.purchases;
+          if (sales < 10 && spend >= m.killTableUsd[sales]) { since = pullMs(nextDay(r.day)); break; }
+        }
+      } else if (flag === "fading" || flag === "deteriorating") since = pullMs(nextDay(w.weeks[0][1]));
+      for (const s of sides) {
+        const ans = lastAnswer.get(s.adId);
+        let recheck: string | null = null;
+        let start = since;
+        if (ans) {
+          const at = Date.parse(ans.answeredAt);
+          if (at >= pulled) continue; // answered since the last pull: wait for the next one
+          if (ans.answer === "paused") recheck = `Marked paused ${new Date(at + 36e5).toISOString().slice(5, 10).replace("-", "/")}, still active in Meta`;
+          else start = Math.max(start, at);
+        }
+        out.push({
+          key: `k-${s.adId}`, adId: s.adId, name: adNames.get(s.adId) ?? v.name, flag, reason: whyHere(v.res, m),
+          concept: `${c.info.name} · ${c.info.cell} · V${v.v ?? "?"}${s.side === "CBO" ? " · CBO" : ""}`, sinceMs: Math.min(start, now), recheck,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** UNMAPPED items (both founders): live ads in scope whose name matches no task and no tagged old concept. */
+export function unmappedNeeds(unmapped: Unmapped[], firstSeen: Map<string, string>, now: number): UnmappedNeed[] {
+  return unmapped.filter((u) => u.live).map((u) => {
+    const seen = u.adIds.map((id) => firstSeen.get(id)).filter(Boolean).map((t) => Date.parse(t as string));
+    return { key: `u-${u.base}`, u, sinceMs: seen.length ? Math.min(...seen) : now };
+  });
 }

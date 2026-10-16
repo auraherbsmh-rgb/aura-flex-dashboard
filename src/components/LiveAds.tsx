@@ -43,8 +43,8 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
   const shown = live.filter((c) => onTrack(c.track)).filter((c) => fmt === "all" || (fmt === "static") === c.isStatic);
   const spendAll = shown.reduce((n, c) => n + c.spend7, 0);
   const spendVideo = shown.filter((c) => !c.isStatic).reduce((n, c) => n + c.spend7, 0);
-  const d3 = (c: number | null, sales: number, line: number) =>
-    sales >= d3Min ? <span className={`bx ${c !== null && c > line ? "bx-r" : "bx-g"}`}>{money(c)}</span> : <span className="bx bx-n">n={sales}</span>;
+  const d3 = (c: number | null, sales: number, line: number, frozen = false) =>
+    frozen ? <span className="bx bx-n">{sales ? money(c) : "n=0"}</span> : sales >= d3Min ? <span className={`bx ${c !== null && c > line ? "bx-r" : "bx-g"}`}>{money(c)}</span> : <span className="bx bx-n">n={sales}</span>;
   const unmappedLive = unmapped.filter((u) => u.live && onTrack(u.campaignTrack));
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-labelledby="h-live">
@@ -96,7 +96,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                         <span className="pipe-meta" style={{ display: "block" }}>{c.info.angle} · {c.info.format} · {c.live.length} live variation{c.live.length === 1 ? "" : "s"}{c.kind === "old" ? " · tagged old ad" : ""}</span>
                       </span>
                       <span><span className={`bx ${c.frozen ? "bx-n" : cpaBox(c.cpa7, c.line, c.state === "testing")}`}>{money(c.cpa7)}</span> <span className="unit">/ {c.line.toFixed(2)}</span></span>
-                      <span>{d3(c.cpa3, c.sales3, c.line)}</span>
+                      <span>{d3(c.cpa3, c.sales3, c.line, c.frozen)}</span>
                       <span className="mono">{money(c.spend7)}</span>
                       <span className="mono">{c.sales7}</span>
                       <span className="mono">{c.daysLive}</span>
@@ -122,7 +122,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
                                 </span>
                               </span>
                               <span><span className={`bx ${v.res.frozen ? "bx-n" : cpaBox(v.res.cpa7, v.res.line, v.res.state === "testing")}`}>{money(v.res.cpa7)}</span> <span className="unit">/ {v.res.line.toFixed(2)}</span></span>
-                              <span>{d3(v.res.cpa3, v.res.t3.sales, v.res.line)}</span>
+                              <span>{d3(v.res.cpa3, v.res.t3.sales, v.res.line, v.res.frozen)}</span>
                               <span className="mono">{money(v.res.t7.spend)}</span>
                               <span className="mono">{v.res.t7.sales}</span>
                               <span><span className={`tag ${killNow ? "t-red" : vs.tone}`}><i aria-hidden="true" />{killNow ? "KILL LINE" : vs.word}</span></span>

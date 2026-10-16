@@ -26,7 +26,8 @@ export default async function Page() {
       }
     : {
         connected: false,
-        missing: [!st.token && "META_ACCESS_TOKEN", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY", !st.cronSecret && "CRON_SECRET"].filter(Boolean) as string[],
+        missing: [!st.token && "META_ACCESS_TOKEN", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean) as string[],
+        noCron: !st.cronSecret,
         noMoney: liveData.noMoney,
         lastError: liveData.lastPull && !liveData.lastPull.ok ? liveData.lastPull.message : null,
       };
