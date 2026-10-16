@@ -1,6 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+
+/** A scorecard is mounted the first time it is opened (that is her visit), then kept hidden for instant switching. */
+function ScoreSlot({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  const [opened, setOpened] = useState(visible);
+  if (visible && !opened) setOpened(true);
+  return opened ? <div hidden={!visible}>{children}</div> : null;
+}
 
 const VIEWS = [
   { key: "board", label: "Board" },
@@ -44,7 +52,7 @@ export function CopyViews({ board, pipeline, library, scorecards = {}, selfId = 
       <div hidden={view !== "board"}>{board}</div>
       <div hidden={view !== "pipeline"}>{pipeline}</div>
       <div hidden={view !== "library"}>{library}</div>
-      {Object.entries(scorecards).map(([id, node]) => <div key={id} hidden={view !== "score" || id !== scoreId}>{node}</div>)}
+      {Object.entries(scorecards).map(([id, node]) => <ScoreSlot key={id} visible={view === "score" && id === scoreId}>{node}</ScoreSlot>)}
     </>
   );
 }

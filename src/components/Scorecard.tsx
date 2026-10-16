@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { Scorecard as Data, WLItem } from "@/lib/scorecard-shared";
 
 const pct = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
@@ -23,6 +23,7 @@ function visitOnce(personId: string): string | null {
  */
 export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data: Data; personId: string; name: string; forFounder: boolean; cwQuery: string }) {
   const [drill, setDrill] = useState<WLItem | null>(null);
+  const uid = useId(); // several scorecards can sit on a founder's page: unique heading ids
   // "New since your last visit": a per-browser convenience (her own visits only).
   const [lastVisit, setLastVisit] = useState<string | null>(null);
   useEffect(() => {
@@ -36,9 +37,9 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
   const empty = data.settledTotal === 0 && data.latest.length === 0;
   const [m0, m1, m2] = data.months;
   return (
-    <section className="sc" aria-labelledby="h-sc">
+    <section className="sc" aria-labelledby={`h-sc${uid}`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <h2 id="h-sc" style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>{forFounder ? `Scorecard · ${name}` : "My scorecard"}</h2>
+        <h2 id={`h-sc${uid}`} style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>{forFounder ? `Scorecard · ${name}` : "My scorecard"}</h2>
         <span className="lbl">{forFounder ? "Her own dashboard · private to her and the founders" : "Private: only you and the founders see it"}</span>
       </div>
       {empty && <div className="info">No concept of {forFounder ? "hers" : "yours"} is live yet. The scorecard fills itself once {forFounder ? "her" : "your"} concepts run and the daily Meta pull judges them.</div>}
@@ -63,8 +64,8 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         </div>
       </section>
 
-      <section className="tray" style={{ padding: "18px 16px 16px" }} aria-labelledby="h-sc-latest">
-        <div className="sc-head"><h3 id="h-sc-latest">{forFounder ? "Her latest concepts" : "My latest concepts"}</h3><span className="lbl">{forFounder ? "Newest first" : "New since your last visit first"}</span></div>
+      <section className="tray" style={{ padding: "18px 16px 16px" }} aria-labelledby={`h-sc-latest${uid}`}>
+        <div className="sc-head"><h3 id={`h-sc-latest${uid}`}>{forFounder ? "Her latest concepts" : "My latest concepts"}</h3><span className="lbl">{forFounder ? "Newest first" : "New since your last visit first"}</span></div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {latest.length === 0 && <div className="info">Nothing launched yet.</div>}
           {latest.map((c) => (
@@ -81,8 +82,8 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         </div>
       </section>
 
-      <section className="card sc-row" aria-labelledby="h-sc-wins">
-        <h3 id="h-sc-wins">{forFounder ? "Her winners live now" : "My winners live now"}</h3>
+      <section className="card sc-row" aria-labelledby={`h-sc-wins${uid}`}>
+        <h3 id={`h-sc-wins${uid}`}>{forFounder ? "Her winners live now" : "My winners live now"}</h3>
         {data.liveWins.length === 0 ? <span className="unit">None live right now.</span> : data.liveWins.map((w) => <span key={w.label} className={`tag ${w.tone}`} style={{ fontSize: 12, padding: "8px 12px" }}><i aria-hidden="true" />{w.label}</span>)}
       </section>
 
@@ -94,7 +95,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
               <span style={{ fontSize: 15, fontWeight: 600 }}>{x.part}</span>
               <span className="mono" style={{ fontSize: 18, fontWeight: 600 }}>{pct(x.value, x.part === "Clicks" ? 2 : 0)}</span>
               {x.inBand === null
-                ? <span className="unit">{x.value === null ? "too early" : "no band"}</span>
+                ? <span className="unit">{x.value === null ? "too early" : x.low === null ? "no band" : `band from ${x.low}%`}</span>
                 : <span className={`tag ${x.inBand ? "t-green" : "t-red"}`} style={{ justifySelf: "start" }}><i aria-hidden="true" />{x.inBand ? "IN BAND" : "BELOW BAND"} · FROM {x.low}%</span>}
             </div>
           ))}
@@ -130,8 +131,8 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         )}
       </section>
 
-      <section className="card" style={{ padding: "20px 22px" }} aria-labelledby="h-sc-wl">
-        <div className="sc-head" style={{ padding: "0 0 8px" }}><h3 id="h-sc-wl">Where {forFounder ? "she wins and where she loses" : "I win and where I lose"}</h3><span className="lbl">Won / settled · click one to see its ads</span></div>
+      <section className="card" style={{ padding: "20px 22px" }} aria-labelledby={`h-sc-wl${uid}`}>
+        <div className="sc-head" style={{ padding: "0 0 8px" }}><h3 id={`h-sc-wl${uid}`}>Where {forFounder ? "she wins and where she loses" : "I win and where I lose"}</h3><span className="lbl">Won / settled · click one to see its ads</span></div>
         <div className="sc-wl" role="table" aria-label="Best and worst">
           <span role="row" style={{ display: "contents" }}>
             <span role="columnheader" />
@@ -174,8 +175,8 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         )}
       </section>
 
-      <section className="card sc-row" aria-labelledby="h-sc-best">
-        <h3 id="h-sc-best">{forFounder ? "Her best scripts" : "My best scripts"}</h3>
+      <section className="card sc-row" aria-labelledby={`h-sc-best${uid}`}>
+        <h3 id={`h-sc-best${uid}`}>{forFounder ? "Her best scripts" : "My best scripts"}</h3>
         {data.best.length === 0 ? <span className="unit">Your first winner shows here.</span> : data.best.map((b) => (
           b.url ? <a key={b.taskId} href={b.url} target="_blank" rel="noopener noreferrer" className="btn b-ghost">{b.label} ↗</a> : <span key={b.taskId} className="btn b-ghost">{b.label}</span>
         ))}
