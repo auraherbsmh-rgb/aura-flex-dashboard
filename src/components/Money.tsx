@@ -235,7 +235,6 @@ function Trend({ points }: { points: TrendPoint[] }) {
   const y = (v: number) => H / 2 - (v / max) * (H / 2 - pad);
   // A new "M" after a missing week: the line never bridges a gap.
   const seg = (xs: { p: TrendPoint; i: number }[]) => xs.map(({ p, i }, k) => `${k && xs[k - 1].i === i - 1 ? "L" : "M"}${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(" ");
-  const path = seg(have);
   const tick = Math.round(max / 2 / 100) * 100 || 500;
   // Area per unbroken run of weeks.
   const runs: { p: TrendPoint; i: number }[][] = [];
