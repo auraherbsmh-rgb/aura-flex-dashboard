@@ -471,7 +471,7 @@ export async function getBands(): Promise<Bands | null> {
 export async function getPriority(): Promise<Record<string, Prio>> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("production_priority");
-  if (error) return {};
+  if (error) { console.error(`[prio] production order not read: ${error.message}`); return {}; }
   return Object.fromEntries(((data ?? []) as { task_id: string; pos: number; grp: 1 | 2 | 3 | 4; pinned: boolean }[]).map((r) => [r.task_id, { pos: r.pos, grp: r.grp, pinned: r.pinned }]));
 }
 

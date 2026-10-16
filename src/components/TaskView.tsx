@@ -180,7 +180,7 @@ export function CopyBoard({
   const markSeen = useCallback((id: string, state: string) => setSeenNow((m) => ({ ...m, [id]: state })), []);
   const results: Record<string, ConceptResult> = Object.fromEntries(Object.entries(map?.results ?? {}).map(([id, r]) => [id, seenNow[id] ? { ...r, seenState: seenNow[id] } : r]));
   const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
-  const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now, results[a.id]).rank - inboxLine(b, forFounder, now, results[b.id]).rank || a.dueOn.localeCompare(b.dueOn))[0];
+  const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now, results[a.id]).rank - inboxLine(b, forFounder, now, results[b.id]).rank || prioPos(map?.prio?.[a.id]) - prioPos(map?.prio?.[b.id]) || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = shown.find((t) => t.id === sel) ?? urgent ?? null;
   const open = (id: string) => {
     setCell(null);
@@ -512,7 +512,7 @@ export function TaskView({
                   ? <><span className="tag t-hold"><i aria-hidden="true" />ON HOLD</span><div style={{ fontSize: 14, marginTop: 6 }}>Since {fmtWhen(production.holdAt)}{production.holdReason ? ` · ${production.holdReason}` : ""} · no late alerts, the editor can&rsquo;t send a version</div></>
                   : <span className="unit">{prio ? <><b style={{ color: "var(--ink)" }}>Production order {prioLabel(prio)}</b> · </> : null}Should another script go first? Move this one to the top, or put it on hold.</span>}
               </div>
-              {isFounder && !production?.holdAt && <PinButton taskId={task.id} pinned={!!prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
+              {isFounder && prio && !production?.holdAt && <PinButton taskId={task.id} pinned={!!prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
               {isFounder && <HoldButton taskId={task.id} face={details?.face ?? task.angle} current={production} onDone={(m) => setMsg({ ok: m })} />}
             </div>
           )}

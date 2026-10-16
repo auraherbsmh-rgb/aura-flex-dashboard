@@ -404,7 +404,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
       )}
       {isFounder && v.card && (v.state !== "approved" || !p.launchedAt) && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {v.state !== "approved" && !p.holdAt && <PinButton taskId={v.taskId} pinned={!!v.prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
+          {v.state !== "approved" && v.prio && !p.holdAt && <PinButton taskId={v.taskId} pinned={!!v.prio?.pinned} onDone={(m) => setMsg({ ok: m })} />}
           <HoldButton taskId={v.taskId} face={v.title} current={p} onDone={(m) => setMsg({ ok: m })} />
           {v.state !== "approved" && <AssignButton card={v.card} editors={editors} current={p} who="Founder · Assign" label="Change assignment" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />}
         </div>

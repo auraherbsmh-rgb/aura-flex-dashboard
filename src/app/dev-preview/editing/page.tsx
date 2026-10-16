@@ -32,7 +32,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     ["mervet", [R(1, "approved")]],
   ]);
   const cards = new Map(tasks.map((t) => [t.id, { face: t.id[0].toUpperCase() + t.id.slice(1), cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", generate: false }]));
-  const prio = Object.fromEntries(tasks.filter((t) => t.id !== "mervet").map((t, i) => [t.id, { pos: i + 1, grp: (i === 0 ? 1 : i === 1 ? 2 : 3) as 1 | 2 | 3, pinned: false }]));
+  const prio = Object.fromEntries(tasks.filter((t) => t.id !== "mervet").map((t, i) => [t.id, { pos: i + 1, grp: (t.origin === "successor" ? 1 : 3) as 1 | 3, pinned: false }]));
   const q = buildQueue(tasks, prods, rounds, cards, { now, notStartedDays: 2, roundAlert: 3, prio });
   const sel = sp.task ?? "hedi";
   const view: EditView = {
