@@ -122,7 +122,8 @@ export function buildQueue(
       alert,
       alertTone,
       dim: state === "approved",
-      rank: { changes: 0, editing: 1, ready: 2, submitted: 3, approved: 4 }[state],
+      // Approved and waiting for launch first (it still needs Founder 2), then launched, then live (founder request Oct 16).
+      rank: state === "approved" ? (p.liveAt ? 6 : p.launchedAt ? 5 : 4) : { changes: 0, editing: 1, ready: 2, submitted: 3 }[state],
       successor: t.origin === "successor",
       dueOn: due,
       hold,

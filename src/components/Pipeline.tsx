@@ -5,6 +5,18 @@ import { useState } from "react";
 import { RAIL, type Pipeline } from "@/lib/pipeline-shared";
 
 /** Scripts pipeline (artboard "Scripts pipeline"): one row per script in progress, late first. Click a row → its task. */
+/** Opens a script on the Board without a page load: the Board follows ?task in the address. */
+function openOnBoard(e: React.MouseEvent, id: string, copywriterId: string) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  e.preventDefault();
+  const q = new URLSearchParams(window.location.search);
+  q.delete("view");
+  q.set("task", id);
+  if (q.get("cw") && q.get("cw") !== copywriterId) q.delete("cw");
+  window.history.replaceState(null, "", `/copywriting?${q}`);
+  requestAnimationFrame(() => document.getElementById("task-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
 export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }: { data: Pipeline; writers: [string, string][]; forFounder: boolean; initialCw?: string | null }) {
   const [cw, setCw] = useState<string | null>(initialCw);
   const rows = cw ? data.rows.filter((r) => r.copywriterId === cw) : data.rows;
@@ -40,7 +52,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
         </div>
         {rows.length === 0 && <div className="info">No script in progress.</div>}
         {rows.map((r) => (
-          <Link key={r.id} href={`/copywriting?task=${r.id}#task-view`} prefetch={true} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
+          <Link key={r.id} href={`/copywriting?task=${r.id}#task-view`} prefetch={false} onClick={(e) => openOnBoard(e, r.id, r.copywriterId)} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
                 <div className="pipe-name">{r.name}</div>
@@ -70,7 +82,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
             <b style={{ color: "var(--ink)" }}>Handed to production this week · {handed.length}</b> · details confirmed, now in production
           </span>
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {handed.map((h) => <Link key={h.id} href={`/copywriting?task=${h.id}#task-view`} className="pchip">{h.label}</Link>)}
+            {handed.map((h) => <Link key={h.id} href={`/copywriting?task=${h.id}#task-view`} prefetch={false} onClick={(e) => openOnBoard(e, h.id, h.copywriterId)} className="pchip">{h.label}</Link>)}
           </span>
         </div>
       </div>
