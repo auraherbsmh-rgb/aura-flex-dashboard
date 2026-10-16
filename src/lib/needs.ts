@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
-import { fmtDay, prodStage, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
 
 /**
  * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
@@ -12,8 +12,8 @@ import { fmtDay, prodStage, type ProdCard, type Production, type TaskRow } from 
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "ASSIGN" | "COVERING";
-  tagTone: "violet" | "blue" | "orange";
+  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "ASSIGN" | "LAUNCH" | "COVERING";
+  tagTone: "violet" | "blue" | "orange" | "green";
   title: string;
   sub: string;
   age: string;
@@ -23,7 +23,7 @@ export type NeedItem = {
   proposal?: Proposal;
   href?: string;
   /** FOOTAGE and ASSIGN items open their pop-up right on Home. */
-  prod?: { kind: "footage" | "assign"; card: ProdCard; current?: Production };
+  prod?: { kind: "footage" | "assign" | "launch"; card: ProdCard; current?: Production; names?: LaunchNames; approvedAt?: string | null };
 };
 
 export type ProdNeeds = {
@@ -33,7 +33,10 @@ export type ProdNeeds = {
   assignLateDays: number;
   coverHours?: number;
   /** Edit versions by task: a version waiting for review is a REVIEW item for Founder 2. */
-  editRounds?: Map<string, { round: number; submittedAt: string; decision: string | null }[]>;
+  editRounds?: Map<string, { round: number; submittedAt: string; decision: string | null; decidedAt?: string | null }[]>;
+  /** LAUNCH: approved edits not launched yet (late after the launch rule, in days). */
+  launchLateDays?: number;
+  launchNames?: Map<string, LaunchNames>;
 };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
@@ -70,6 +73,29 @@ export function buildNeeds(
         items.push({ key: `e-${taskId}`, type: "REVIEW", tagTone: "blue", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, href });
       } else if (viewer.role === "founder_1" && late) {
         items.push({ key: `e-${taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's review, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, href });
+      }
+    }
+  }
+  // LAUNCH: edit approved, not launched yet. Founder 2's; Founder 1 covers after 48h.
+  if (prod?.editRounds) {
+    for (const [taskId, list] of prod.editRounds) {
+      const ok = list.find((r) => r.decision === "approved");
+      const card = prod.cards.get(taskId);
+      const p = prod.productions.get(taskId);
+      if (!ok || !card || p?.launchedAt) continue;
+      const since = ok.decidedAt ?? ok.submittedAt;
+      const lateH = (prod.launchLateDays ?? 2) * 24;
+      const cover = prod.coverHours ?? 48;
+      const age = ageLabel(since, now, Math.min(lateH, cover));
+      const late = age.hours >= lateH;
+      const n = prod.launchNames?.get(taskId)?.ads.length ?? 0;
+      const title = `${card.cell} · ${card.format} ${card.face} approved`;
+      const sub = `1 concept to launch · ${n} hook${n === 1 ? "" : "s"}${n ? ` (V1–V${n})` : ""} · names ready to copy`;
+      const extra = { card, current: p, names: prod.launchNames?.get(taskId), approvedAt: ok.decidedAt ?? null };
+      if (viewer.role === "founder_2") {
+        items.push({ key: `l-${taskId}`, type: "LAUNCH", tagTone: "green", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind: "launch", ...extra } });
+      } else if (viewer.role === "founder_1" && age.hours >= cover) {
+        items.push({ key: `l-${taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's launch, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind: "launch", ...extra } });
       }
     }
   }

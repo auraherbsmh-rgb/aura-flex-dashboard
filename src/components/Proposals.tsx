@@ -7,7 +7,7 @@ import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
 import type { NeedGroup } from "@/lib/needs";
 import type { EditorLoad } from "@/lib/tasks-shared";
-import { AssignButton, FootageButton } from "./Production";
+import { AssignButton, FootageButton, LaunchButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { CreateTaskButton } from "./Tasks";
 
@@ -213,7 +213,9 @@ export function NeedsMe({
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
                 {it.prod ? (
-                  it.prod.kind === "footage"
+                  it.prod.kind === "launch"
+                    ? <LaunchButton card={it.prod.card} names={it.prod.names} current={it.prod.current} approvedAt={it.prod.approvedAt} label="Open launch list" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s LAUNCH item" : "Founder 2 · LAUNCH item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                    : it.prod.kind === "footage"
                     ? <FootageButton card={it.prod.card} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s FOOTAGE item" : "Founder 2 · FOOTAGE item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                     : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s ASSIGN item" : "Founder 2 · ASSIGN item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                 ) : it.href ? (

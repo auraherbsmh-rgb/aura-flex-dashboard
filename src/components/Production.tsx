@@ -2,8 +2,9 @@
 
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
-import { assignEdit, markFootage } from "@/app/tasks/actions";
-import { fmtDay, suggestEditor, tunisDate, type EditorLoad, type ProdCard, type Production } from "@/lib/tasks-shared";
+import { assignEdit, launchConcept, markFootage } from "@/app/tasks/actions";
+import { CopyName } from "./ScriptDetails";
+import { fmtDay, fmtWhen, suggestEditor, tunisDate, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
 function useRun(onDone: (msg: string) => void, close: () => void) {
   const [error, setError] = useState("");
@@ -148,6 +149,71 @@ export function AssignButton({
           <button type="button" className="btn b-primary" disabled={pending || !f.editor || f.brief.trim().length < 3 || !f.due} onClick={() => run(() => assignEdit(card.taskId, f.editor, f.due, f.brief, f.ref))}>
             {pending ? "Saving…" : current?.assignedAt ? "Save changes" : "Assign"}
           </button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/**
+ * "Launch" pop-up (Pop-ups artboard, LAUNCH item): ad set name + every V# ad name with Copy, the final videos folder,
+ * then Done (launched in Meta) or Mark live (fallback). The dashboard never touches Meta itself.
+ */
+export function LaunchButton({
+  card,
+  names,
+  current,
+  approvedAt,
+  label = "Launch",
+  who = "Founder 2 · LAUNCH item",
+  className = "btn b-primary",
+  onDone,
+}: {
+  card: ProdCard;
+  names: LaunchNames | undefined;
+  current?: Production;
+  approvedAt?: string | null;
+  label?: string;
+  who?: string;
+  className?: string;
+  onDone: (msg: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [finalUrl, setFinalUrl] = useState("");
+  const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
+  const allNames = [names?.adSetName, ...(names?.ads ?? []).map((a) => a.name)].filter(Boolean).join("\n");
+  return (
+    <>
+      <button type="button" className={className} onClick={() => { setFinalUrl(current?.finalUrl ?? ""); setError(""); setOpen(true); }}>{label}</button>
+      <Modal open={open} onClose={() => setOpen(false)} who={who} title={`Launch · ${card.face}`}>
+        <div className="sub">{card.cell} · {card.angle} · {card.format}{approvedAt ? ` · approved ${fmtDay(approvedAt.slice(0, 10))}` : ""}</div>
+        {current?.launchedAt && (
+          <span className={`tag ${current.liveAt ? "t-green" : "t-blue"}`} style={{ alignSelf: "flex-start" }}>
+            <i aria-hidden="true" />{current.liveAt ? `LIVE · ${fmtWhen(current.liveAt)}` : `LAUNCHED · ${fmtWhen(current.launchedAt)}`}
+          </span>
+        )}
+        <div className="field">
+          <span className="lbl">Ad set name</span>
+          {names?.adSetName ? <div className="copy"><span>{names.adSetName}</span><CopyName text={names.adSetName} /></div> : <div className="info">No ad set name: the script details were not confirmed.</div>}
+        </div>
+        <div className="field">
+          <span className="lbl">Ad names · one per hook</span>
+          {(names?.ads ?? []).map((a) => <div className="copy" key={a.v}><span>{a.name}</span><CopyName text={a.name} /></div>)}
+          {allNames && <div style={{ display: "flex", justifyContent: "flex-end" }}><CopyName text={allNames} label="Copy all" /></div>}
+        </div>
+        <label className="field">
+          <span className="lbl">Final videos · Drive folder</span>
+          <input className="inp" type="url" value={finalUrl} onChange={(e) => setFinalUrl(e.target.value)} placeholder="https://drive.google.com/…" maxLength={1000} />
+          {current?.finalUrl && <a className="tap" href={current.finalUrl} target="_blank" rel="noopener noreferrer">Open the folder ↗</a>}
+        </label>
+        <div className="info">
+          Create the ads in Meta with exactly these names, then click <b style={{ color: "var(--ink)" }}>Done</b>. Once Meta is connected (phase 3) it turns{" "}
+          <b style={{ color: "var(--ink)" }}>Live</b> by itself when the daily pull finds the names. Until then, use Mark live.
+        </div>
+        <div className="acts">
+          {error && <span className="formmsg err" role="alert">{error}</span>}
+          <button type="button" className="btn b-ghost" disabled={pending || !!current?.liveAt} onClick={() => run(() => launchConcept(card.taskId, finalUrl, true))}>Mark live (fallback)</button>
+          <button type="button" className="btn b-primary" disabled={pending} onClick={() => run(() => launchConcept(card.taskId, finalUrl, false))}>{pending ? "Saving…" : current?.launchedAt ? "Save" : "Done"}</button>
         </div>
       </Modal>
     </>

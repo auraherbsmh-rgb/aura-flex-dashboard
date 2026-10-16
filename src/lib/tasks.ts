@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -179,13 +179,13 @@ export async function getProductions(): Promise<Map<string, Production>> {
   type R = {
     task_id: string; footage_url: string | null; all_hooks_shot: boolean | null; footage_gap: string | null; footage_at: string | null;
     editor_id: string | null; edit_due: string | null; brief: string | null; edit_reference: string | null; assigned_at: string | null;
-    edit_started_at: string | null;
+    edit_started_at: string | null; final_url: string | null; launched_at: string | null; live_at: string | null; live_source: "manual" | "meta" | null;
     editor: { display_name: string } | null;
   };
   const rows = await allRows("production", (a, b) =>
     supabase
       .from("productions")
-      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, editor:people!productions_editor_id_fkey(display_name)")
+      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, final_url, launched_at, live_at, live_source, editor:people!productions_editor_id_fkey(display_name)")
       .order("task_id")
       .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
@@ -196,6 +196,7 @@ export async function getProductions(): Promise<Map<string, Production>> {
         taskId: r.task_id, footageUrl: r.footage_url, allHooksShot: r.all_hooks_shot, footageGap: r.footage_gap, footageAt: r.footage_at,
         editorId: r.editor_id, editorName: r.editor?.display_name ?? (r.editor_id ? "an editor" : null), editDue: r.edit_due,
         brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at, editStartedAt: r.edit_started_at,
+        finalUrl: r.final_url, launchedAt: r.launched_at, liveAt: r.live_at, liveSource: r.live_source,
       },
     ]),
   );
@@ -284,4 +285,28 @@ export async function getHooks(taskId: string) {
   if (error) throw new Error("Could not read the hooks. Reload the page.");
   type A = { v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
   return ((data ?? []) as unknown as A[]).map((a) => ({ v: a.v, type: a.hook?.label ?? "—", line: a.hook_line, headline: a.headline, name: a.ad_name }));
+}
+
+/** Ad set and ad names of every confirmed script, for the Launch pop-ups (founders). */
+export async function getLaunchNames(): Promise<Map<string, LaunchNames>> {
+  const supabase = await createClient();
+  type V = { task_id: string; v: number; ad_name: string };
+  type D = { task_id: string; ad_set_name: string | null };
+  const [vars, sets] = await Promise.all([
+    allRows("ad names", (a, b) =>
+      supabase.from("ad_variations").select("id, task_id, v, ad_name").eq("active", true).order("id").range(a, b) as unknown as PromiseLike<{ data: V[] | null; error: unknown }>,
+    ),
+    allRows("ad set names", (a, b) =>
+      supabase.from("script_details").select("task_id, ad_set_name").not("ad_set_name", "is", null).order("task_id").range(a, b) as unknown as PromiseLike<{ data: D[] | null; error: unknown }>,
+    ),
+  ]);
+  const m = new Map<string, LaunchNames>();
+  for (const d of sets) m.set(d.task_id, { adSetName: d.ad_set_name, ads: [] });
+  for (const v of vars) {
+    const x = m.get(v.task_id) ?? { adSetName: null, ads: [] };
+    x.ads.push({ v: v.v, name: v.ad_name });
+    m.set(v.task_id, x);
+  }
+  for (const x of m.values()) x.ads.sort((a, b) => a.v - b.v);
+  return m;
 }

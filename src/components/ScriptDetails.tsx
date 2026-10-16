@@ -10,7 +10,7 @@ import { adSetName, missingDetails, type DetailsPickers, type ScriptDetails, typ
 const blank = (): Variation => ({ hookTypeId: "", hookLine: "", headline: "" });
 
 /** Copy button for an ad name (Launch needs them exactly as written). */
-export function CopyName({ text }: { text: string }) {
+export function CopyName({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
@@ -22,9 +22,9 @@ export function CopyName({ text }: { text: string }) {
           () => setDone(false),
         );
       }}
-      aria-label={`Copy ${text}`}
+      aria-label={label === "Copy" ? `Copy ${text}` : label}
     >
-      {done ? "Copied ✓" : "Copy"}
+      {done ? "Copied ✓" : label}
     </button>
   );
 }

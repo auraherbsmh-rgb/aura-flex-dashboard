@@ -126,7 +126,7 @@ export function buildPipeline(
     const p = productions.get(t.id);
     const stage = prodStage(d.generate, p);
     const where =
-      stage === "editing" ? "EDITING"
+      p?.liveAt ? "LIVE" : p?.launchedAt ? "LAUNCHED" : stage === "editing" ? "EDITING"
       : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : "FOOTAGE IN")
       : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
     handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });

@@ -241,3 +241,17 @@ export async function reviewEdit(taskId: string, round: number, decision: "appro
   revalidatePath("/", "layout");
   return done(decision === "approved" ? "Approved. Upload the final to Drive; launching comes next." : "Sent back with your note. It is at the top of the editor’s queue.");
 }
+
+/** Launch (founders): "Done" = launched in Meta with these names; "Mark live" = the fallback when Meta can't confirm. */
+export async function launchConcept(taskId: string, finalUrl: string, markLive: boolean): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders launch.");
+  const f = finalUrl.trim();
+  if (f && !LINK.test(f)) return fail("The final videos link must start with https://.");
+  if (f.length > 1000) return fail("That link is too long.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("launch_concept", { p_task: taskId, p_final: f, p_mark_live: markLive });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(markLive ? "Marked live." : "Launched. It turns Live by itself once Meta is connected and finds these names.");
+}

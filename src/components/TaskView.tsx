@@ -123,7 +123,7 @@ export function TaskView({
   const generate = !!details?.generate || task.formatCode === "AI";
   const stage = task.status === "details_done" ? prodStage(generate, production) : null;
   // After hand-off: Shoot (or Generate) until the footage is in (AI / 3D: until assigned), then Edit.
-  const now = stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
+  const now = production?.liveAt ? 5 : stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
   const canSend = (isOwner || isFounder) && (task.status === "writing" || task.status === "changes");
   const canReview = isFounder && task.status === "review" && !!last && !last.decision;
   const today = tunisDate(0);
@@ -339,6 +339,14 @@ export function TaskView({
               )}
             </div>
           </div>
+          {production?.launchedAt && (
+            <div className="tv-prod-row" style={{ marginTop: 8 }}>
+              <div>
+                <span className="lbl">Launch</span>
+                <div style={{ fontSize: 14, marginTop: 4 }}>{production.liveAt ? `Live since ${fmtWhen(production.liveAt)}` : `Launched ${fmtWhen(production.launchedAt)} · waiting for Meta to find the names`}</div>
+              </div>
+            </div>
+          )}
           {!isFounder && <div className="unit" style={{ marginTop: 6 }}>Read-only: Founder 2 runs production.</div>}
         </div>
       )}

@@ -15,7 +15,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     angleId: "g", angle: "Knee-Broad", angleCode: "Knee-Broad", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null,
     scriptUrl: "https://docs.google.com/document/d/x", origin, changeFacts: null, rounds: [],
   });
-  const P = (taskId: string, extra: Partial<Production> = {}): Production => ({ taskId, footageUrl: "https://drive.google.com/raw", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-17", brief: "Calm, older working man, slow cuts. Show the stairs at work and the bottle in hand at the end.", reference: "https://www.facebook.com/ads/library/?id=1", assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, ...extra });
+  const P = (taskId: string, extra: Partial<Production> = {}): Production => ({ taskId, footageUrl: "https://drive.google.com/raw", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-17", brief: "Calm, older working man, slow cuts. Show the stairs at work and the bottle in hand at the end.", reference: "https://www.facebook.com/ads/library/?id=1", assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null, ...extra });
   const R = (round: number, decision: EditRound["decision"], extra: Partial<EditRound> = {}): EditRound => ({ round, videoUrl: "https://drive.google.com/v", submittedAt: "2026-10-14T08:00:00Z", decision, loom: null, note: null, decidedBy: "Founder 2", decidedAt: decision ? "2026-10-15T08:00:00Z" : null, ...extra });
   const tasks = [T("hedi"), T("nour", "successor"), T("asma"), T("rania"), T("mervet")];
   const prods = new Map([
@@ -38,6 +38,8 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     state: q.find((x) => x.taskId === sel)!.state, rounds: rounds.get(sel) ?? [], production: prods.get(sel)!, scriptUrl: "https://docs.google.com/document/d/x",
     hooks: [1, 2, 3, 4, 5].map((v) => ({ v, type: v % 2 ? "Storytelling" : "Authority", line: `Hook line ${v}`, headline: null, name: `UGC_MSB_Problem-Aware_Knee-Broad_Hedi_V${v}` })),
     generate: false, payPerVideo: 100, editorName: "Editor B",
+    card: { taskId: sel, face: cards.get(sel)!.face, cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" },
+    names: { adSetName: "UGC_MSB_Problem-Aware_Knee-Broad_Mervet", ads: [1, 2, 3, 4, 5].map((v) => ({ v, name: `UGC_MSB_Problem-Aware_Knee-Broad_Mervet_V${v}` })) },
   };
   const v = { personId: founder ? "f2" : "eb", name: founder ? "Founder 2" : "Editor B", role: (founder ? "founder_2" : "editor") as "founder_2" | "editor", email: "" };
   return (

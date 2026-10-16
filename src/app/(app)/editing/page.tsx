@@ -5,7 +5,7 @@ import { EditBoard, EditTask, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getHookCounts, getHooks, getPay, getProductions, getTasks, prodCards, requestTime,
+  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getHookCounts, getHooks, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import { buildQueue, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
@@ -88,6 +88,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       payPerVideo: pay.get(p.editorId ?? "")?.perVideo ?? null,
       editorName: p.editorName ?? "Editor",
       card: pcards.get(selectedId),
+      names: founder ? (await getLaunchNames()).get(selectedId) : undefined,
     };
   }
 

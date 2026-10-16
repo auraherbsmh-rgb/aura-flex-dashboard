@@ -203,7 +203,13 @@ export type Production = {
   reference: string | null;
   assignedAt: string | null;
   editStartedAt: string | null;
+  finalUrl: string | null;
+  launchedAt: string | null;
+  liveAt: string | null;
+  liveSource: "manual" | "meta" | null;
 };
+/** What the Launch pop-up shows: the ad set name and one ad name per hook, ready to copy. */
+export type LaunchNames = { adSetName: string | null; ads: { v: number; name: string }[] };
 export type EditorLoad = { id: string; name: string; doesAi: boolean; queue: number };
 /** What the Footage received and Assign pop-ups show about the script. */
 export type ProdCard = {

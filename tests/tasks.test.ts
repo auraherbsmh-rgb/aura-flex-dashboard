@@ -142,7 +142,7 @@ test("Scripts pipeline: round 2, approved after changes, late changes", () => {
 import { prodStage, suggestEditor } from "../src/lib/tasks-shared";
 
 test("production stage and ★ editor", () => {
-  const p = { taskId: "t", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null };
+  const p = { taskId: "t", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
   assert.equal(prodStage(false, undefined), "shoot");
   assert.equal(prodStage(true, undefined), "assign");
   assert.equal(prodStage(false, { ...p, footageAt: "2026-10-16T08:00:00Z" }), "assign");
@@ -168,7 +168,7 @@ import { buildQueue, editState, editorStats } from "../src/lib/editing-shared";
 
 test("Editing: state, queue order and alerts, private tiles", () => {
   const now = Date.parse("2026-10-16T10:00:00Z");
-  const P = (taskId: string, extra: object = {}) => ({ taskId, footageUrl: "https://d.x", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-20", brief: "b", reference: null, assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, ...extra });
+  const P = (taskId: string, extra: object = {}) => ({ taskId, footageUrl: "https://d.x", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-20", brief: "b", reference: null, assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null, ...extra });
   const R = (round: number, decision: "approved" | "changes" | null, extra: object = {}) => ({ round, videoUrl: "https://v.x", submittedAt: "2026-10-14T08:00:00Z", decision, loom: null, note: decision === "changes" ? "Cut faster" : null, decidedBy: "F2", decidedAt: decision ? "2026-10-15T08:00:00Z" : null, ...extra });
   assert.equal(editState(undefined, []), null);
   assert.equal(editState(P("a"), []), "ready");

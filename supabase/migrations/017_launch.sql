@@ -1,0 +1,6 @@
+-- Applied Oct 16, 2026 (screen 10: Launch pop-up). Summary of live migration "launch_concept".
+-- productions: final_url (final videos Drive folder), launched_at/by ("Done" = launched in Meta with these names),
+--   live_at + live_source ('manual' = Mark live fallback; 'meta' = the daily Meta pull, phase 3).
+-- public.launch_concept(task, final_url, mark_live): founders; only after the edit is approved; https link;
+--   first launch time kept; Mark live sets live_at once.
+-- Live test (rolled back): not-approved, http link and editor launching refused; Done → launched; Mark live → live (manual).

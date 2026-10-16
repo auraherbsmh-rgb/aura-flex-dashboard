@@ -4,10 +4,10 @@ import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
-import { AssignButton } from "./Production";
+import { AssignButton, LaunchButton } from "./Production";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem } from "@/lib/editing-shared";
-import { fmtDay, fmtWhen, isLink, type EditorLoad, type ProdCard, type Production } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
 /** The three private tiles (Editing artboard) + the 3D tile for the AI / 3D editor. */
 export function EditorTiles({ s, showAi }: { s: EditorStats; showAi: boolean }) {
@@ -167,6 +167,7 @@ export type EditView = {
   payPerVideo: number | null;
   editorName: string;
   card?: ProdCard;
+  names?: LaunchNames;
 };
 
 /** Open task (right): steps, what she works from, Founder 2's changes, brief, hooks to deliver, Drive link + Submit vN. */
@@ -187,7 +188,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
   }, [confirming]);
   const p = v.production;
   const last = v.rounds[v.rounds.length - 1];
-  const now = editStepNow(v.state);
+  const now = v.state === "approved" && v.production.launchedAt ? 5 : editStepNow(v.state);
   const lastChanges = [...v.rounds].reverse().find((r) => r.decision === "changes");
   const nextRound = (last?.round ?? 0) + 1;
   const canSend = (isEditor || isFounder) && (v.state === "ready" || v.state === "editing" || v.state === "changes");
@@ -295,7 +296,17 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
         </form>
       )}
       {v.state === "submitted" && !isFounder && <div className="info">v{last?.round} sent {last ? fmtWhen(last.submittedAt) : ""} · waiting for Founder 2’s review.</div>}
-      {v.state === "approved" && <div className="notice notice-green">Approved{last?.decidedAt ? ` ${fmtWhen(last.decidedAt)}` : ""}. Counted for payment. Launching comes next.</div>}
+      {v.state === "approved" && (
+        <div className="notice notice-green" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span>
+            Approved{last?.decidedAt ? ` ${fmtWhen(last.decidedAt)}` : ""}. Counted for payment.{" "}
+            {p.liveAt ? `Live since ${fmtWhen(p.liveAt)}.` : p.launchedAt ? `Launched ${fmtWhen(p.launchedAt)}, waiting for Meta to find the names.` : "Launch is next."}
+          </span>
+          {isFounder && v.card && (
+            <LaunchButton card={v.card} names={v.names} current={p} approvedAt={last?.decidedAt} label={p.launchedAt ? "Launch list" : "Launch"} who="Founder · Launch" className={p.launchedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />
+          )}
+        </div>
+      )}
 
       {canReview && (
         <div className="ed-review">

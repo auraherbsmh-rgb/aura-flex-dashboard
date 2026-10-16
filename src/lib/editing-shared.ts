@@ -108,7 +108,7 @@ export function buildQueue(
       taskId: t.id,
       editorId: p.editorId ?? "",
       state,
-      tag: tag.word(state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0)),
+      tag: state === "approved" && p.liveAt ? "LIVE" : state === "approved" && p.launchedAt ? "LAUNCHED" : tag.word(state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0)),
       tone: tag.tone,
       title: `${c.face} · ${c.cell} · ${c.format}`,
       sub,
