@@ -385,3 +385,26 @@ test("Map: concepts by avatar × awareness, track, start date, states, cell view
   assert.deepEqual(g.map((x) => x.angle), ["Knee-Broad", "Knee-Prayer"]);
   assert.deepEqual(mix(cell.concepts).hooks, [["Storytelling", 1]]);
 });
+
+import { buildLibrary, filterLibrary, NO_FILTER } from "../src/lib/library-shared";
+
+test("Library: concepts with details, days per step, states, filters", () => {
+  const now = Date.parse("2026-10-20T10:00:00Z");
+  const R = (round: number, decision: "approved" | "changes" | null, submittedAt: string, decidedAt: string | null, loom: string | null = null) => ({ round, scriptUrl: "https://d.x/s", submittedAt, submittedBy: "C", decision, loom, note: null, decidedBy: null, decidedAt });
+  const tasks = [
+    { ...t0, id: "a", status: "details_done", createdAt: "2026-10-10T10:00:00Z", scriptUrl: "https://docs.google.com/x", rounds: [R(1, "changes", "2026-10-11T10:00:00Z", "2026-10-12T10:00:00Z", "https://loom.com/a"), R(2, "approved", "2026-10-13T10:00:00Z", "2026-10-14T10:00:00Z")] },
+    { ...t0, id: "w", status: "writing" },
+  ];
+  const det = { face: "Sami", shootOn: "2026-10-16", generate: false, vo: false, mainArgumentId: "m1", offer: 2, variations: [], adSetName: "x", confirmedAt: "2026-10-15T10:00:00Z",
+    ads: [{ v: 1, hookType: "Storytelling", hookLine: "He stopped going to the mosque", headline: null, adName: "UGC_X_V1" }] };
+  const P = { taskId: "a", footageUrl: "https://d.x/f", allHooksShot: true, footageGap: null, footageAt: "2026-10-17T10:00:00Z", editorId: "e", editorName: "Editor B", editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
+  const rows = buildLibrary(tasks, { a: det }, { a: P }, new Map(), now);
+  assert.equal(rows.length, 1, "only concepts with confirmed details");
+  assert.deepEqual(rows[0].days, [1, 3, 1, 2, 3, 0]);
+  assert.equal(rows[0].state, "production");
+  assert.equal(rows[0].looms.length, 1);
+  assert.deepEqual(rows[0].links.map((l) => l.label), ["Script ↗", "Raw footage ↗"]);
+  assert.equal(filterLibrary(rows, { ...NO_FILTER, q: "mosque" }).length, 1);
+  assert.equal(filterLibrary(rows, { ...NO_FILTER, hook: "Authority" }).length, 0);
+  assert.equal(filterLibrary(rows, { ...NO_FILTER, angle: rows[0].angleId }).length, 1);
+});

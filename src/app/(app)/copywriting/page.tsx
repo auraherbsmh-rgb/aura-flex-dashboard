@@ -1,13 +1,15 @@
-import { TabPage, NotBuiltYet } from "@/components/TabPage";
+import { TabPage } from "@/components/TabPage";
 import { ProposeButton, ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
 import { CopyBoard } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
-import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getBoardExtras, getMapData, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
+import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getBoardExtras, getEditRounds, getMapData, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
 import { buildPipeline } from "@/lib/pipeline-shared";
 import { CopyViews } from "@/components/CopyViews";
+import { Library } from "@/components/Library";
+import { buildLibrary } from "@/lib/library-shared";
 import { ScriptsPipeline } from "@/components/Pipeline";
 
 export const metadata = { title: "Copywriting · Aura Flex" };
@@ -48,14 +50,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const now = requestTime();
   const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
-  const [extras, mapData] = await Promise.all([getBoardExtras(allTasks), getMapData()]);
+  // Board extras for every task (testimonials too: the Library lists them), the map, and edit versions (Library looms / days).
+  const [extras, mapData, editRounds] = await Promise.all([getBoardExtras(everyTask), getMapData(), getEditRounds()]);
+  const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   return (
     <TabPage tab="copywriting" title="Copywriting">
       <CopyViews
         pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} />}
-        library={<NotBuiltYet phase="phase 2" what="The Library (every script, searchable, with its results) comes after the production screens." />}
+        library={
+          <Library
+            rows={library}
+            avatars={pickers.avatars.map((a) => a.code ?? a.label)}
+            angles={pickers.angles.map((a) => ({ id: a.id, label: a.label }))}
+            formats={[...new Set(library.map((r) => r.formatKey))].sort()}
+            hookTypes={extras.pickers.hookTypes.map((h) => h.label)}
+            mainArguments={extras.pickers.mainArguments}
+          />
+        }
         board={
           <CopyBoard
             tasks={allTasks}

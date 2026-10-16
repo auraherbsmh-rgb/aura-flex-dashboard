@@ -557,3 +557,31 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .cell b { font-size: 9px; letter-spacing: 0.02em; }
   .cell-line { font-size: 10px; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
 }
+
+/* Library (artboard "Library") */
+.lib-filters { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.lib-f { display: flex; flex-direction: column; gap: 6px; flex: 1 1 150px; min-width: 0; }
+.lib-f .inp { min-height: 44px; }
+.lib-q { flex: 2 1 280px; }
+.lib-table { display: flex; flex-direction: column; gap: 8px; }
+.lib-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr) auto minmax(0, 0.8fr); gap: 12px; align-items: center; width: 100%; text-align: left; font: inherit; color: inherit; border: 0; padding: 14px 18px; min-height: 44px; cursor: pointer; }
+.lib-head { background: none; box-shadow: none; padding: 4px 18px; cursor: default; }
+.lib-c { font-size: 13px; color: #3a3a36; }
+.lib-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.lib-facts > div { display: flex; flex-direction: column; gap: 4px; }
+.lib-steps { display: flex; gap: 3px; height: 26px; border-radius: 999px; padding: 3px; }
+.lib-steps span { border-radius: 999px; color: #fff; font: 600 10px var(--mono); display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
+.lib-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #55564f; }
+.lib-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lib-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.lib-legend b { font-family: var(--mono); }
+.lib-hook { display: grid; grid-template-columns: 30px auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid #ececE8; }
+.lib-links { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 900px) {
+  .lib-head { display: none; }
+  .lib-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .lib-row .lib-c { display: none; }
+  .lib-row > span:nth-child(5) { display: block; grid-column: 1; font-size: 12px; }
+  .lib-hook { grid-template-columns: 30px minmax(0, 1fr); }
+  .lib-hook > span:last-child { grid-column: 1 / -1; }
+}
