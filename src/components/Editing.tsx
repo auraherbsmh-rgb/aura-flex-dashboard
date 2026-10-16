@@ -70,7 +70,7 @@ export function EditBoard({
 }: {
   orderVersion?: number;
   /** Production order (founders' panel above the Videos pipeline). */
-  prio?: Record<string, Prio>;
+  prio?: Record<string, Prio> | null;
   now?: number;
   statsBy: Record<string, EditorStats>;
   aiBy: Record<string, boolean>;
@@ -132,7 +132,7 @@ export function EditBoard({
           {createTask}
         </div>
       )}
-      {view === "pipeline" && pipelineRows && prio && forFounder && (
+      {view === "pipeline" && pipelineRows && prio !== undefined && forFounder && (
         <ProductionOrder items={pipelineRows.map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }))} prio={prio} version={orderVersion} now={now} />
       )}
       {view === "pipeline" && pipelineRows && (

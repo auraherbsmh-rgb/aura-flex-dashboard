@@ -279,15 +279,15 @@ export async function setHold(taskId: string, hold: boolean, reason: string): Pr
 }
 
 /** The founders' production order: the full list of in-production task ids, first = #1 (arrows, or ✓ Use suggested order). */
-export async function setProductionOrder(ids: string[], version: number): Promise<TaskState> {
+export async function setProductionOrder(ids: string[], version: number): Promise<TaskState & { version?: number }> {
   const v = await getViewer();
   if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders change the production order.");
   if (!ids.length || ids.length > 500 || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) return fail("Reload the page and try again.");
   const supabase = await createClient();
-  const { error } = await supabase.rpc("set_production_order2", { p_ids: ids, p_version: version });
+  const { data, error } = await supabase.rpc("set_production_order2", { p_ids: ids, p_version: version });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done("Order saved. Everyone sees it.");
+  return { ...done("Order saved. Everyone sees it."), version: Number(data) };
 }
 
 /** VO received (founders): the voice recording link + an optional inspiration link for the editor. */

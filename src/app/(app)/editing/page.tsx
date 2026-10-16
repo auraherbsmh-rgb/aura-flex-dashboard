@@ -62,7 +62,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   // An editor only ever has her own edits (row-level security); founders pick Editor A · B · All.
   const edList: [string, string][] = editors.map((e) => [e.id, e.name]);
   const ed = founder && sp.ed && edList.some(([id]) => id === sp.ed) ? sp.ed : null;
-  const queueAll = buildQueue(tasks, productions, rounds, cards, { now, notStartedDays, roundAlert, prio });
+  const queueAll = buildQueue(tasks, productions, rounds, cards, { now, notStartedDays, roundAlert, prio: prio ?? {} });
   const mine = isEditor ? queueAll.filter((q) => q.editorId === viewer.personId) : queueAll;
   const visible = ed ? mine.filter((q) => q.editorId === ed) : mine;
 
@@ -112,12 +112,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       editorName: p.editorName ?? "Editor",
       card: pcards.get(q.taskId),
       names: launchNames?.get(q.taskId),
-      prio: prio[q.taskId],
+      prio: prio?.[q.taskId],
     };
   }
 
   // Rows not with an editor yet open Footage received / Assign right in the pipeline.
-  const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert, prio }) : undefined;
+  const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert, prio: prio ?? {} }) : undefined;
   const pipeCards: Record<string, ProdCard> = {};
   const pipeCurrent: Record<string, Production> = {};
   for (const r of pipelineRows ?? []) {

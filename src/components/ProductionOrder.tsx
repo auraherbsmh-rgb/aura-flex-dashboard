@@ -14,7 +14,19 @@ const TONE = { 1: "t-red", 2: "t-green", 3: "t-grey", 4: "t-grey" } as const;
  * differs, a line says so and "Use suggested order" applies it in one click. Built from the order itself (every script
  * in production), so its numbers are the same as in the inbox, the Videos pipeline and the editor queue.
  */
-export function ProductionOrder({ items, prio, version, now }: { items: OrderItem[]; prio: Record<string, Prio>; version: number; now: number }) {
+export function ProductionOrder({ items, prio, version, now }: { items: OrderItem[]; prio: Record<string, Prio> | null; version: number; now: number }) {
+  if (!prio) {
+    return (
+      <section className="card sec" aria-labelledby="h-order">
+        <h2 id="h-order" style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Production order</h2>
+        <div className="formmsg err" role="alert">The production order could not be read. Reload the page.</div>
+      </section>
+    );
+  }
+  return <OrderPanel items={items} prio={prio} version={version} now={now} />;
+}
+
+function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: Record<string, Prio>; version: number; now: number }) {
   const fromServer = Object.keys(prio).sort((a, b) => prio[a].pos - prio[b].pos);
   const key = `${version}:${fromServer.join(",")}`;
   // Arrows move the list at once; the server copy replaces it when it changes (previous-value pattern).
@@ -53,10 +65,11 @@ export function ProductionOrder({ items, prio, version, now }: { items: OrderIte
     startTransition(async () => {
       try {
         const res = await setProductionOrder(next, ver);
-        if (res.ok) { setVer((v) => v + 1); setMsg({ ok: res.ok }); }
-        else { setOrder(before); setMsg({ error: res.error ?? "Not saved." }); }
+        if (res.ok) { if (typeof res.version === "number") setVer(res.version); setMsg({ ok: res.ok }); }
+        else { setOrder(before); setSaid("Not moved."); setMsg({ error: res.error ?? "Not saved." }); }
       } catch {
         setOrder(before);
+        setSaid("Not moved.");
         setMsg({ error: "Not saved: the connection dropped or your session expired. Reload the page and try again." });
       } finally {
         setPending(false);

@@ -468,10 +468,10 @@ export async function getBands(): Promise<Bands | null> {
 }
 
 /** Production order for scripts in production (not launched, not on hold, edit not approved), with the reasons. */
-export async function getPriority(): Promise<Record<string, Prio>> {
+export async function getPriority(): Promise<Record<string, Prio> | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("production_order");
-  if (error) { console.error(`[prio] production order not read: ${error.message}`); return {}; }
+  if (error) { console.error(`[prio] production order not read: ${error.message}`); return null; }
   type R = {
     task_id: string; sug: number; grp: 1 | 2 | 3 | 4; order_rank: number | null; due_on: string;
     winner_task: string | null; winner_face: string | null; winner_state: string | null; winner_cpa7: number | null; winner_line: number | null;
@@ -519,5 +519,5 @@ export async function getMapData(): Promise<{ concepts: MapConcept[]; start: str
     copywriter: r.copywriter, createdAt: r.created_at, face: r.face, generate: r.generate, vo: r.vo, launchedAt: r.launched_at, liveAt: r.live_at,
     holdAt: r.hold_at, variations: r.variations ?? [], resultState: r.result_state, everWon: r.ever_won,
   }));
-  return { concepts, start: (start.data?.value as string | null) ?? null, results, bands, prio };
+  return { concepts, start: (start.data?.value as string | null) ?? null, results, bands, prio: prio ?? {} };
 }
