@@ -57,7 +57,8 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
                     aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? "empty, click to propose a test" : c.line}`} onClick={() => {
                       const k = { avatarId: c.avatarId, awareness: c.awareness };
                       onPick(k);
-                      if (c.state === "empty" && pickers) setPropose(k);
+                      // A fresh pop-up every click (also after a proposal was sent for this cell).
+                      if (c.state === "empty" && pickers) { setPropose(null); requestAnimationFrame(() => setPropose(k)); }
                     }}>
                     <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : c.line}</span>
                   </button>
