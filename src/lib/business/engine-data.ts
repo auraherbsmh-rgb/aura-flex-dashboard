@@ -12,7 +12,7 @@ export async function getEngineData(now: number) {
   type D = { ad_id: string; day: string; spend: number; purchases: number };
   const [tasks, productions, editRounds, results, money, logRows, people, pay, ads, days, vars] = await Promise.all([
     getTasks(), getProductions(), getEditRounds(), getResults(), getCurrentMoney(),
-    supabase.from("concept_state_log").select("task_id, state, live, at").order("at"),
+    supabase.from("concept_state_log").select("task_id, state, live, at").order("at").order("live", { ascending: false }),
     supabase.from("people").select("id, role, active"),
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit"),
     allRows<{ ad_id: string; name: string; campaign_id: string }>("Meta ads", (a, b) => supabase.from("meta_ads").select("ad_id, name, campaign_id").order("ad_id").range(a, b) as unknown as PromiseLike<{ data: { ad_id: string; name: string; campaign_id: string }[] | null; error: unknown }>),
