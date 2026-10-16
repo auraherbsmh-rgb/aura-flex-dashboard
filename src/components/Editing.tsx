@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
 import { AssignButton } from "./Production";
@@ -94,7 +94,12 @@ export function EditBoard({
         </div>
         <div className="ed-layout">
           <EditQueue items={items} selectedId={selectedId} editors={editors} ed={ed} pick={pick} forFounder={forFounder} />
-          <div style={{ minWidth: 0 }}>{task}</div>
+          <div style={{ minWidth: 0 }}>
+            {/* The open task belongs to the queue shown: switching to another editor shows the prompt instead. */}
+            {ed && items.find((i) => i.taskId === selectedId)?.editorId !== ed
+              ? <section className="card sec"><div className="info">Pick a video in the queue.</div></section>
+              : task}
+          </div>
         </div>
       </div>
     </>
@@ -171,6 +176,15 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
   const [pending, setPending] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Keyboard focus follows the confirm step (the button pressed disappears).
+  const backRef = useRef<HTMLButtonElement>(null);
+  const approveRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+  useEffect(() => {
+    if (confirming) backRef.current?.focus();
+    else if (wasConfirming.current) approveRef.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
   const p = v.production;
   const last = v.rounds[v.rounds.length - 1];
   const now = editStepNow(v.state);
@@ -293,12 +307,12 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           {confirming ? (
             <>
               <span className="formmsg" role="status">Approve v{last.round}? It can’t be undone and counts for payment.</span>
-              <button type="button" className="btn b-ghost" disabled={pending} onClick={() => setConfirming(false)}>Back</button>
+              <button ref={backRef} type="button" className="btn b-ghost" disabled={pending} onClick={() => setConfirming(false)}>Back</button>
               <button type="button" className="btn b-green" disabled={pending} onClick={() => run(() => reviewEdit(v.taskId, last.round, "approved", "", ""))}>{pending ? "Saving…" : "Yes, approve"}</button>
             </>
           ) : (
             <>
-              <button type="button" className="btn b-green" disabled={pending} onClick={() => setConfirming(true)}>Approve</button>
+              <button ref={approveRef} type="button" className="btn b-green" disabled={pending} onClick={() => setConfirming(true)}>Approve</button>
               <button type="button" className="btn b-red" disabled={pending} onClick={() => setChangesOpen(true)}>Needs changes</button>
             </>
           )}
