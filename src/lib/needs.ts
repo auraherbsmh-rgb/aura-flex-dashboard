@@ -136,7 +136,7 @@ export function buildNeeds(
       if (viewer.role === "founder_2") {
         items.push({ key: `${kind}-${card.taskId}`, type, tagTone: kind === "footage" ? "blue" : "violet", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
       } else if (viewer.role === "founder_1" && covering) {
-        items.push({ key: `${kind}-${card.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's ${type.toLowerCase()}, waiting over ${prod.coverHours ?? 48}h · ${sub}`, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
+        items.push({ key: `${kind}-${card.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's ${type === "VO" ? "VO" : type.toLowerCase()}, waiting over ${prod.coverHours ?? 48}h · ${sub}`, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
       }
     }
   }

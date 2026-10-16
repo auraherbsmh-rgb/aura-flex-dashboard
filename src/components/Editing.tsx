@@ -400,7 +400,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           ))}
           {p.editStartedAt && <div className="hist"><span className="mono unit">{fmtWhen(p.editStartedAt)}</span><span>Started editing</span><span /></div>}
           {p.assignedAt && <div className="hist"><span className="mono unit">{fmtWhen(p.assignedAt)}</span><span>Assigned</span><span /></div>}
-          {p.footageAt && <div className="hist"><span className="mono unit">{fmtWhen(p.footageAt)}</span><span>Footage received from the agency</span><span /></div>}
+          {p.footageAt && <div className="hist"><span className="mono unit">{fmtWhen(p.footageAt)}</span><span>{v.vo ? "VO recording received" : "Footage received from the agency"}</span><span /></div>}
         </div>
       </div>
 

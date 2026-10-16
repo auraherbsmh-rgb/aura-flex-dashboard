@@ -4,3 +4,5 @@
 --   The old save_script_details is retired: execute revoked from authenticated.
 -- mark_footage refuses VO scripts; mark_vo(task, url, inspiration): founders, details_done, not assigned yet, https links,
 --   stores the recording in footage_url (all hooks = true) so the ASSIGN step works unchanged.
+-- Checker round 1 (migration "vo_switch_guard"): once footage_at is set, save_script_details2 refuses switching between
+-- filmed, VO and AI / 3D ("The footage or VO is already in: you can no longer switch …").

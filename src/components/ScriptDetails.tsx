@@ -112,7 +112,7 @@ export function ScriptDetailsButton({
             <span className="unit">The person in the video (creator, actor, doctor, customer). Nobody in it? One word for the idea, e.g. TalkingObjects. Goes into every ad name{tag ? <> as <b>{tag}</b></> : ""}.</span>
           </label>
           <div className="field">
-            <span className="lbl">Shoot date ●</span>
+            <span className="lbl">Shoot date{d.generate || d.vo ? "" : " ●"}</span>
             <input className={`inp ${!d.generate && !d.vo && !d.shootOn ? "fi-miss" : ""}`} type="date" value={d.generate || d.vo ? "" : d.shootOn} disabled={d.generate || d.vo} onChange={(e) => setD({ ...d, shootOn: e.target.value })} aria-label="Shoot date" />
             <label className="chk-row">
               <input type="checkbox" checked={d.vo} disabled={isAI} onChange={(e) => setD({ ...d, vo: e.target.checked, generate: e.target.checked ? false : d.generate })} />

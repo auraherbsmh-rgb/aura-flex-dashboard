@@ -107,7 +107,7 @@ export function buildQueue(
       state === "changes" ? (last?.loom ? "Loom waiting" : last?.note ?? "Founder note waiting")
       : state === "submitted" ? `Waiting for Founder 2 review`
       : state === "approved" ? `Approved ${last?.decidedAt ? fmtDay(last.decidedAt.slice(0, 10)) : ""} · counted for payment`
-      : state === "ready" ? (c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO" : "Footage"} in Drive since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
+      : state === "ready" ? (c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO recording in" : "Footage in Drive"} since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
       : t.origin === "successor" ? "Successor for a fading winner" : "Editing";
     out.push({
       taskId: t.id,

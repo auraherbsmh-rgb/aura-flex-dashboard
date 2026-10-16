@@ -449,7 +449,7 @@ export function TaskView({
                 <div style={{ fontSize: 14, marginTop: 4 }}>
                   {production?.assignedAt
                     ? <>{production.editorName} · due {production.editDue ? fmtDay(production.editDue) : "—"}{production.brief ? <span className="unit"> · brief: {production.brief}</span> : null}</>
-                    : stage === "assign" ? "Ready to assign to an editor" : "After the footage"}
+                    : stage === "assign" ? "Ready to assign to an editor" : vo ? "After the VO recording" : "After the footage"}
                 </div>
               </div>
               {isFounder && prodCard && stage !== "shoot" && (
