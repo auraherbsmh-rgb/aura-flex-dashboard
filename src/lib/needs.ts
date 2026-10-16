@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
-import { fmtDay, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
 
 /**
  * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
@@ -61,7 +61,7 @@ export function buildNeeds(
     for (const [taskId, list] of prod.editRounds) {
       const last = list[list.length - 1];
       const card = prod.cards.get(taskId);
-      if (!last || last.decision || !card) continue;
+      if (!last || last.decision || !card || isHeld(prod.productions.get(taskId))) continue;
       const cover = prod.coverHours ?? 48;
       const age = ageLabel(last.submittedAt, now, cover);
       const late = age.hours >= cover;
@@ -82,7 +82,7 @@ export function buildNeeds(
       const ok = list.find((r) => r.decision === "approved");
       const card = prod.cards.get(taskId);
       const p = prod.productions.get(taskId);
-      if (!ok || !card || p?.launchedAt) continue;
+      if (!ok || !card || p?.launchedAt || isHeld(p)) continue;
       const since = ok.decidedAt ?? ok.submittedAt;
       const lateH = (prod.launchLateDays ?? 2) * 24;
       const cover = prod.coverHours ?? 48;
@@ -104,6 +104,7 @@ export function buildNeeds(
     const today = new Date(now + 36e5).toISOString().slice(0, 10);
     for (const card of prod.cards.values()) {
       const p = prod.productions.get(card.taskId);
+      if (isHeld(p)) continue; // on hold: no Home item until resumed
       const stage = prodStage(card.generate, p);
       let kind: "footage" | "assign";
       let since: string;

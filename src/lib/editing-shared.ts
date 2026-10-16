@@ -2,7 +2,7 @@
  * Editing tab (handoff §8, Editing artboard): the editor's queue, her open task and her three private tiles.
  * Pure functions, safe for server and browser.
  */
-import { fmtDay, tunisDate, type Production, type TaskRow } from "./tasks-shared";
+import { fmtDay, isHeld, tunisDate, type Production, type TaskRow } from "./tasks-shared";
 
 export type EditRound = {
   round: number;
@@ -56,6 +56,8 @@ export type QueueItem = {
   rank: number;
   successor: boolean;
   dueOn: string;
+  /** On hold (founders): no alerts, sorted last. */
+  hold: boolean;
 };
 
 export type EditCard = { face: string; cell: string; angle: string; format: string; generate: boolean };
@@ -98,6 +100,8 @@ export function buildQueue(
     }
     const changesCount = r.filter((x) => x.decision === "changes").length;
     if (state === "changes" && changesCount + 1 >= opts.roundAlert) { alert = `Round ${changesCount + 1}`; alertTone = "red"; }
+    const hold = isHeld(p);
+    if (hold) alert = null;
     const tag = EDIT_TAG[state];
     const sub =
       state === "changes" ? (last?.loom ? "Loom waiting" : last?.note ?? "Founder note waiting")
@@ -109,21 +113,23 @@ export function buildQueue(
       taskId: t.id,
       editorId: p.editorId ?? "",
       state,
-      tag: state === "approved" && p.liveAt ? "LIVE" : state === "approved" && p.launchedAt ? "LAUNCHED" : tag.word(state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0)),
+      tag: hold ? "ON HOLD" : state === "approved" && p.liveAt ? "LIVE" : state === "approved" && p.launchedAt ? "LAUNCHED" : tag.word(state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0)),
       // Launched and Live stand out from Approved at a glance (founder request Oct 16).
-      tone: state === "approved" && p.liveAt ? "t-live" : state === "approved" && p.launchedAt ? "t-launched" : tag.tone,
+      tone: hold ? "t-hold" : state === "approved" && p.liveAt ? "t-live" : state === "approved" && p.launchedAt ? "t-launched" : tag.tone,
       title: `${c.face} · ${c.cell} · ${c.format}`,
-      sub,
-      due: state === "approved" || state === "submitted" ? "" : `due ${fmtDay(due).split(" ").slice(0, 1).join("")}`,
+      sub: hold ? `On hold since ${fmtDay(p.holdAt!.slice(0, 10))}${p.holdReason ? ` · ${p.holdReason}` : ""}` : sub,
+      due: hold || state === "approved" || state === "submitted" ? "" : `due ${fmtDay(due).split(" ").slice(0, 1).join("")}`,
       alert,
       alertTone,
       dim: state === "approved",
       rank: { changes: 0, editing: 1, ready: 2, submitted: 3, approved: 4 }[state],
       successor: t.origin === "successor",
       dueOn: due,
+      hold,
     });
   }
-  return out.sort((a, b) => Number(b.successor && !b.dim) - Number(a.successor && !a.dim) || a.rank - b.rank || a.dueOn.localeCompare(b.dueOn));
+  // On hold sorts last (after approved), so what can move today stays on top.
+  return out.sort((a, b) => Number(a.hold) - Number(b.hold) || Number(b.successor && !b.dim) - Number(a.successor && !a.dim) || a.rank - b.rank || a.dueOn.localeCompare(b.dueOn));
 }
 
 export type EditorStats = {
@@ -196,6 +202,10 @@ export type VideoRow = {
   late: boolean;
   href: string;
   dueSort: string;
+  /** Not with an editor yet: the row opens Footage received or Assign right in the pipeline (founder choice Oct 16). */
+  action: "footage" | "assign" | null;
+  /** On hold (founders): not late, sorted last, reason shown. */
+  hold: { since: string; reason: string | null } | null;
 };
 
 /** "Oct 6" for a timestamp, as a Tunisia calendar day. */
@@ -280,6 +290,8 @@ export function buildVideoPipeline(
       label = inDays !== null ? `in ${inDays} d` : "—";
       due = "on track";
     }
+    const hold = isHeld(p) ? { since: p!.holdAt!, reason: p!.holdReason ?? null } : null;
+    if (hold) { late = false; due = "on hold"; }
     for (let k = 0; k < i; k++) if (steps[k] !== "skip") steps[k] = "done";
     steps[i] = late ? "late" : "now";
     rows.push({
@@ -297,7 +309,9 @@ export function buildVideoPipeline(
       late,
       href: p?.assignedAt ? `/editing?task=${t.id}#edit-view` : `/copywriting?task=${t.id}#task-view`,
       dueSort: p?.editDue ?? d.shootOn ?? t.dueOn,
+      action: p?.assignedAt ? null : i === 2 ? "assign" : "footage",
+      hold,
     });
   }
-  return rows.sort((a, b) => Number(b.late) - Number(a.late) || Number(b.waitingOn === "You") - Number(a.waitingOn === "You") || a.dueSort.localeCompare(b.dueSort));
+  return rows.sort((a, b) => Number(!!a.hold) - Number(!!b.hold) || Number(b.late) - Number(a.late) || Number(b.waitingOn === "You") - Number(a.waitingOn === "You") || a.dueSort.localeCompare(b.dueSort));
 }

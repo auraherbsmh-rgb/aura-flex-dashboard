@@ -4,7 +4,7 @@ import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
-import { AssignButton, LaunchButton } from "./Production";
+import { AssignButton, HoldButton, LaunchButton } from "./Production";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
 import { VideosPipeline } from "./VideosPipeline";
@@ -57,6 +57,8 @@ export function EditBoard({
   editorLoads,
   createTask,
   pipelineRows,
+  pipeCards,
+  pipeCurrent,
 }: {
   statsBy: Record<string, EditorStats>;
   aiBy: Record<string, boolean>;
@@ -73,6 +75,8 @@ export function EditBoard({
   createTask?: React.ReactNode;
   /** Videos pipeline rows (founders). */
   pipelineRows?: VideoRow[];
+  pipeCards?: Record<string, ProdCard>;
+  pipeCurrent?: Record<string, Production>;
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
   const [view, setView] = useState<"queue" | "pipeline">("queue");
@@ -107,7 +111,7 @@ export function EditBoard({
         </div>
       )}
       {view === "pipeline" && pipelineRows && (
-        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
+        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
       )}
       <div hidden={view !== "queue"} style={{ display: view === "queue" ? "flex" : "none", flexDirection: "column", gap: 20 }}>
         {statsBy[key] && <EditorTiles s={statsBy[key]} showAi={!!aiBy[key]} />}
@@ -173,7 +177,7 @@ export function EditQueue({
             e.preventDefault();
             onOpen(q.taskId);
           }}
-          className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.tone === "t-launched" ? "qi-launched" : q.tone === "t-live" ? "qi-live" : q.dim ? "qi-dim" : ""}`}
+          className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.tone === "t-launched" ? "qi-launched" : q.tone === "t-live" ? "qi-live" : q.hold ? "qi-hold" : q.dim ? "qi-dim" : ""}`}
           aria-current={q.taskId === selectedId ? "true" : undefined}
         >
           <span className="qi-top"><span className={`tag ${q.tone}`}><i aria-hidden="true" />{q.tag}</span><span className="mono unit">{q.due}</span></span>
@@ -223,7 +227,8 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
   const now = v.state === "approved" && v.production.launchedAt ? 5 : editStepNow(v.state);
   const lastChanges = [...v.rounds].reverse().find((r) => r.decision === "changes");
   const nextRound = (last?.round ?? 0) + 1;
-  const canSend = (isEditor || isFounder) && (v.state === "ready" || v.state === "editing" || v.state === "changes");
+  const held = !!p.holdAt && !p.launchedAt;
+  const canSend = !held && (isEditor || isFounder) && (v.state === "ready" || v.state === "editing" || v.state === "changes");
   const canReview = isFounder && v.state === "submitted" && !!last;
   const tag = EDIT_TAG[v.state];
 
@@ -247,12 +252,19 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
             {v.payPerVideo !== null && !isFounder ? ` · ${v.payPerVideo} TND when approved` : ""}
           </div>
         </div>
-        {v.state === "approved" && p.liveAt ? <span className="tag t-live"><i aria-hidden="true" />LIVE</span>
+        {held ? <span className="tag t-hold"><i aria-hidden="true" />ON HOLD</span>
+          : v.state === "approved" && p.liveAt ? <span className="tag t-live"><i aria-hidden="true" />LIVE</span>
           : v.state === "approved" && p.launchedAt ? <span className="tag t-launched"><i aria-hidden="true" />LAUNCHED</span>
           : <span className={`tag ${tag.tone}`}><i aria-hidden="true" />{tag.word(v.state === "changes" ? (last?.round ?? 1) : (last?.round ?? 0))}</span>}
       </div>
 
       {msg.ok && <div className="notice notice-green" role="status">{msg.ok}</div>}
+      {held && (
+        <div className="notice notice-hold" role="status">
+          <b>On hold</b> since {fmtWhen(p.holdAt!)}{p.holdReason ? ` · ${p.holdReason}` : ""}.{" "}
+          {isFounder ? "No late alerts or Home items until you resume it." : "Another video goes first. Founder 2 resumes it when it's time; you can't send a version until then."}
+        </div>
+      )}
 
       <ol className="recess steps" aria-label="Progress">
         {EDIT_STEPS.map((s, i) => (
@@ -313,7 +325,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
         </div>
       </div>
 
-      {isEditor && v.state === "ready" && (
+      {isEditor && !held && v.state === "ready" && (
         <div className="acts" style={{ justifyContent: "space-between" }}>
           <span className="unit">Tell Founder 2 you started: the task moves to Editing.</span>
           <button type="button" className="btn b-ghost" disabled={pending} onClick={() => run(() => startEdit(v.taskId))}>Start editing</button>
@@ -363,9 +375,10 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           )}
         </div>
       )}
-      {isFounder && v.card && v.state !== "approved" && (
+      {isFounder && v.card && (v.state !== "approved" || !p.launchedAt) && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <AssignButton card={v.card} editors={editors} current={p} who="Founder · Assign" label="Change assignment" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />
+          <HoldButton taskId={v.taskId} face={v.title} current={p} onDone={(m) => setMsg({ ok: m })} />
+          {v.state !== "approved" && <AssignButton card={v.card} editors={editors} current={p} who="Founder · Assign" label="Change assignment" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />}
         </div>
       )}
       {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}

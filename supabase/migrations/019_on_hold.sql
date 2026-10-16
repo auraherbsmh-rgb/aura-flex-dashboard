@@ -1,0 +1,5 @@
+-- Applied live Oct 16 as migration "production_on_hold".
+-- productions.hold_at / hold_reason / hold_by; RPC set_production_hold(task, hold, reason) — founders only,
+-- details_done and not launched; submit_edit refuses while on hold ("This video is on hold. Wait for Founder 2 to resume it.").
+-- App side: isHeld() skips late alerts and Needs-me items, sorts on-hold last (queue + Videos pipeline), grey ON HOLD tag.
+-- Same commit: Videos pipeline rows not with an editor yet open Footage received / Assign in place.

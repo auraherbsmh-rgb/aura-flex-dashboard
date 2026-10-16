@@ -2,7 +2,7 @@
 
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
-import { assignEdit, launchConcept, markFootage } from "@/app/tasks/actions";
+import { assignEdit, launchConcept, markFootage, setHold } from "@/app/tasks/actions";
 import { CopyName } from "./ScriptDetails";
 import { fmtDay, fmtWhen, suggestEditor, tunisDate, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
@@ -34,6 +34,8 @@ export function FootageButton({
   label = "Footage received",
   who = "Founder 2 · FOOTAGE item",
   className = "btn b-ghost",
+  startOpen = false,
+  onClose,
   onDone,
 }: {
   card: ProdCard;
@@ -41,17 +43,21 @@ export function FootageButton({
   label?: string;
   who?: string;
   className?: string;
+  /** Opened from a pipeline row: no trigger button, the pop-up shows at once. */
+  startOpen?: boolean;
+  onClose?: () => void;
   onDone: (msg: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
-  const [all, setAll] = useState(true);
-  const [gap, setGap] = useState("");
-  const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
+  const [open, setOpen] = useState(startOpen);
+  const [url, setUrl] = useState(current?.footageUrl ?? "");
+  const [all, setAll] = useState(current?.allHooksShot ?? true);
+  const [gap, setGap] = useState(current?.footageGap ?? "");
+  const close = () => { setOpen(false); onClose?.(); };
+  const { error, setError, pending, run } = useRun(onDone, close);
   return (
     <>
-      <button type="button" className={className} onClick={() => { setUrl(current?.footageUrl ?? ""); setAll(current?.allHooksShot ?? true); setGap(current?.footageGap ?? ""); setError(""); setOpen(true); }}>{label}</button>
-      <Modal open={open} onClose={() => setOpen(false)} who={who} title={`Footage received · ${card.face}`}>
+      {!startOpen && <button type="button" className={className} onClick={() => { setUrl(current?.footageUrl ?? ""); setAll(current?.allHooksShot ?? true); setGap(current?.footageGap ?? ""); setError(""); setOpen(true); }}>{label}</button>}
+      <Modal open={open} onClose={close} who={who} title={`Footage received · ${card.face}`}>
         <div className="sub">{card.cell} · {card.angle} · {card.format}{card.shootOn ? ` · shoot ${fmtDay(card.shootOn)}` : ""} · script by {card.copywriter}</div>
         <label className="field">
           <span className="lbl">Raw footage · Drive link</span>
@@ -71,7 +77,7 @@ export function FootageButton({
         <div className="info">{current?.footageAt ? "Updates the link and note. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned."}</div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
-          <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
+          <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
           <button type="button" className="btn b-primary" disabled={pending || !url.trim() || (!all && gap.trim().length < 2)} onClick={() => run(() => markFootage(card.taskId, url, all, gap))}>
             {pending ? "Saving…" : current?.footageAt ? "Save changes" : "Mark received"}
           </button>
@@ -89,6 +95,8 @@ export function AssignButton({
   label = "Assign",
   who = "Founder 2 · ASSIGN item",
   className = "btn b-ghost",
+  startOpen = false,
+  onClose,
   onDone,
 }: {
   card: ProdCard;
@@ -97,6 +105,9 @@ export function AssignButton({
   label?: string;
   who?: string;
   className?: string;
+  /** Opened from a pipeline row: no trigger button, the pop-up shows at once. */
+  startOpen?: boolean;
+  onClose?: () => void;
   onDone: (msg: string) => void;
 }) {
   // The task being re-assigned is not extra work for its current editor.
@@ -108,14 +119,15 @@ export function AssignButton({
     brief: current?.brief ?? "",
     editor: current?.editorId && editors.some((e) => e.id === current.editorId) ? current.editorId : star ?? "",
   });
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [f, setF] = useState(start);
-  const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
+  const close = () => { setOpen(false); onClose?.(); };
+  const { error, setError, pending, run } = useRun(onDone, close);
   const what = card.generate ? "full AI / 3D video" : `full video + ${card.hooks} hooks, subtitled`;
   return (
     <>
-      <button type="button" className={className} onClick={() => { setF(start()); setError(""); setOpen(true); }}>{label}</button>
-      <Modal open={open} onClose={() => setOpen(false)} who={who} title={`Assign · ${card.face}`}>
+      {!startOpen && <button type="button" className={className} onClick={() => { setF(start()); setError(""); setOpen(true); }}>{label}</button>}
+      <Modal open={open} onClose={close} who={who} title={`Assign · ${card.face}`}>
         <div className="sub">{card.cell} · {card.angle} · {card.format} · {what}</div>
         <div className="row2">
           <label className="field">
@@ -145,7 +157,7 @@ export function AssignButton({
         </div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
-          <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
+          <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
           <button type="button" className="btn b-primary" disabled={pending || !f.editor || f.brief.trim().length < 3 || !f.due} onClick={() => run(() => assignEdit(card.taskId, f.editor, f.due, f.brief, f.ref))}>
             {pending ? "Saving…" : current?.assignedAt ? "Save changes" : "Assign"}
           </button>
@@ -216,6 +228,42 @@ export function LaunchButton({
           {error && <span className="formmsg err" role="alert">{error}</span>}
           <button type="button" className="btn b-ghost" disabled={pending || !!current?.liveAt || noFolder} title={noFolder ? "Paste the final videos folder first" : undefined} onClick={() => run(() => launchConcept(card.taskId, finalUrl, true))}>Mark live (fallback)</button>
           <button type="button" className="btn b-primary" disabled={pending || noFolder} title={noFolder ? "Paste the final videos folder first" : undefined} onClick={() => run(() => launchConcept(card.taskId, finalUrl, false))}>{pending ? "Saving…" : current?.launchedAt ? "Save" : "Done"}</button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/**
+ * On hold / Resume (founders): a video in production, not launched yet. While on hold its late alerts and Home items
+ * stop, it sorts last, and the editor can't send a version. Founder request Oct 16.
+ */
+export function HoldButton({ taskId, face, current, onDone }: { taskId: string; face: string; current?: Production; onDone: (msg: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
+  if (current?.launchedAt) return null;
+  if (current?.holdAt) {
+    return (
+      <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <button type="button" className="btn b-ghost" disabled={pending} onClick={() => run(() => setHold(taskId, false, ""))}>{pending ? "Saving…" : "Resume"}</button>
+        {error && <span className="formmsg err" role="alert">{error}</span>}
+      </span>
+    );
+  }
+  return (
+    <>
+      <button type="button" className="btn b-ghost" onClick={() => { setReason(""); setError(""); setOpen(true); }}>On hold</button>
+      <Modal open={open} onClose={() => setOpen(false)} who="Founders · priority" title={`Put on hold · ${face}`}>
+        <label className="field">
+          <span className="lbl">Reason · optional</span>
+          <input className="inp" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="Another script goes first this week" />
+        </label>
+        <div className="info">While on hold: no late alerts, no Home items, it sorts last, and the editor can&rsquo;t send a version. Nothing else changes. Resume any time.</div>
+        <div className="acts">
+          {error && <span className="formmsg err" role="alert">{error}</span>}
+          <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
+          <button type="button" className="btn b-primary" disabled={pending} onClick={() => run(() => setHold(taskId, true, reason))}>{pending ? "Saving…" : "Put on hold"}</button>
         </div>
       </Modal>
     </>

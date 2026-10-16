@@ -17,11 +17,12 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
   });
   const P = (taskId: string, extra: Partial<Production> = {}): Production => ({ taskId, footageUrl: "https://drive.google.com/raw", allHooksShot: true, footageGap: null, footageAt: "2026-10-12T08:00:00Z", editorId: "eb", editorName: "Editor B", editDue: "2026-10-17", brief: "Calm, older working man, slow cuts. Show the stairs at work and the bottle in hand at the end.", reference: "https://www.facebook.com/ads/library/?id=1", assignedAt: "2026-10-12T09:00:00Z", editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null, ...extra });
   const R = (round: number, decision: EditRound["decision"], extra: Partial<EditRound> = {}): EditRound => ({ round, videoUrl: "https://drive.google.com/v", submittedAt: "2026-10-14T08:00:00Z", decision, loom: null, note: null, decidedBy: "Founder 2", decidedAt: decision ? "2026-10-15T08:00:00Z" : null, ...extra });
-  const tasks = [T("hedi"), T("nour", "successor"), T("asma"), T("rania"), T("mervet")];
+  const tasks = [T("hedi"), T("nour", "successor"), T("asma"), T("rania"), T("mervet"), T("lina")];
   const prods = new Map([
     ["hedi", P("hedi", { editStartedAt: "2026-10-13T08:00:00Z", footageGap: "V5 not shot", allHooksShot: false })],
     ["nour", P("nour", { editStartedAt: "2026-10-15T08:00:00Z", editDue: "2026-10-18" })],
-    ["asma", P("asma")],
+    ["asma", P("asma", { holdAt: "2026-10-15T08:00:00Z", holdReason: "Knee script goes first this week" })],
+    ["lina", P("lina", { editorId: null, editorName: null, assignedAt: null, editDue: null, brief: null })],
     ["rania", P("rania", { editStartedAt: "2026-10-13T08:00:00Z" })],
     ["mervet", P("mervet", { editStartedAt: "2026-10-10T08:00:00Z" })],
   ]);
@@ -59,7 +60,9 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             pipelineRows={(buildVideoPipeline(tasks, prods, rounds, new Map(tasks.map((t) => [t.id, { shootOn: "2026-10-12", generate: false, face: cards.get(t.id)!.face, confirmedAt: "2026-10-11T08:00:00Z" }])), { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 }))}
             views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}
             isEditorId={founder ? null : "eb"}
-            editorLoads={[]}
+            editorLoads={[{ id: "ea", name: "Editor A", doesAi: true, queue: 1 }, { id: "eb", name: "Editor B", doesAi: false, queue: 4 }]}
+            pipeCards={{ lina: { taskId: "lina", face: "Lina", cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" } }}
+            pipeCurrent={{ lina: prods.get("lina")! }}
           />
         </div>
       </div>

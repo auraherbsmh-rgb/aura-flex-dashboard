@@ -147,6 +147,7 @@ a:hover { color: #444; }
 .notice { border-radius: 16px; padding: 12px 16px; font-size: 14px; }
 .notice-red { background: var(--red-bg); color: var(--red-ink); }
 .notice-green { background: var(--green-bg); color: var(--green-ink); }
+.notice-hold { background: #ecece8; color: #3d3d3a; border: 1px dashed #8a8a84; }
 
 /* ── Phone width: 16px gutters, nothing scrolls sideways ─── */
 @media (max-width: 720px) {
@@ -391,6 +392,10 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .qi:hover { transform: translateY(-3px); color: var(--ink); }
 .qi:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qi-on { border: 2px solid #111; box-shadow: 0 10px 22px rgba(20, 20, 15, 0.14); }
+/* On hold (founder request Oct 16): grey, dashed, clearly paused. */
+.t-hold { background: #e4e4df; color: #3d3d3a; border: 1px dashed #8a8a84; } .t-hold i { background: #8a8a84; }
+.qi-hold { background: repeating-linear-gradient(135deg, #f4f4f1 0 10px, #ecece8 10px 20px); border-style: dashed; box-shadow: none; }
+.pipe-row.row-hold { background: repeating-linear-gradient(135deg, #f7f7f4 0 10px, #efefeb 10px 20px); }
 .qi-dim { opacity: 0.62; box-shadow: none; background: #f3f3f0; }
 /* Launched and Live cards read at a glance (founder request Oct 16): dark card = launched, green card = live. */
 .qi-launched { background: linear-gradient(180deg, #2a2a28 0%, #161615 100%); color: #fff; border-color: transparent; }

@@ -5,7 +5,7 @@ import { startTransition, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
-import { AssignButton, FootageButton } from "./Production";
+import { AssignButton, FootageButton, HoldButton } from "./Production";
 import { reviewScript, submitScript } from "@/app/tasks/actions";
 import { shortAwareness } from "@/lib/proposals-shared";
 import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
@@ -411,6 +411,16 @@ export function TaskView({
       {task.status === "details_done" && stage && (
         <div>
           <h3 className="h3">Production</h3>
+          {!production?.launchedAt && (production?.holdAt || isFounder) && (
+            <div className="tv-prod-row" style={{ marginBottom: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                {production?.holdAt
+                  ? <><span className="tag t-hold"><i aria-hidden="true" />ON HOLD</span><div style={{ fontSize: 14, marginTop: 6 }}>Since {fmtWhen(production.holdAt)}{production.holdReason ? ` · ${production.holdReason}` : ""} · no late alerts, the editor can&rsquo;t send a version</div></>
+                  : <span className="unit">Another script should go first? Put this one on hold.</span>}
+              </div>
+              {isFounder && <HoldButton taskId={task.id} face={details?.face ?? task.angle} current={production} onDone={(m) => setMsg({ ok: m })} />}
+            </div>
+          )}
           <div className="tv-prod">
             <div className="tv-prod-row">
               <div style={{ minWidth: 0 }}>

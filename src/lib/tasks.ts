@@ -253,12 +253,13 @@ export async function getProductions(): Promise<Map<string, Production>> {
     task_id: string; footage_url: string | null; all_hooks_shot: boolean | null; footage_gap: string | null; footage_at: string | null;
     editor_id: string | null; edit_due: string | null; brief: string | null; edit_reference: string | null; assigned_at: string | null;
     edit_started_at: string | null; final_url: string | null; launched_at: string | null; live_at: string | null; live_source: "manual" | "meta" | null;
+    hold_at: string | null; hold_reason: string | null;
     editor: { display_name: string } | null;
   };
   const rows = await allRows("production", (a, b) =>
     supabase
       .from("productions")
-      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, final_url, launched_at, live_at, live_source, editor:people!productions_editor_id_fkey(display_name)")
+      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, edit_started_at, final_url, launched_at, live_at, live_source, hold_at, hold_reason, editor:people!productions_editor_id_fkey(display_name)")
       .order("task_id")
       .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
@@ -269,7 +270,7 @@ export async function getProductions(): Promise<Map<string, Production>> {
         taskId: r.task_id, footageUrl: r.footage_url, allHooksShot: r.all_hooks_shot, footageGap: r.footage_gap, footageAt: r.footage_at,
         editorId: r.editor_id, editorName: r.editor?.display_name ?? (r.editor_id ? "an editor" : null), editDue: r.edit_due,
         brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at, editStartedAt: r.edit_started_at,
-        finalUrl: r.final_url, launchedAt: r.launched_at, liveAt: r.live_at, liveSource: r.live_source,
+        finalUrl: r.final_url, launchedAt: r.launched_at, liveAt: r.live_at, liveSource: r.live_source, holdAt: r.hold_at, holdReason: r.hold_reason,
       },
     ]),
   );

@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { VRAIL, type VideoRow } from "@/lib/editing-shared";
+import type { EditorLoad, ProdCard, Production } from "@/lib/tasks-shared";
+import { AssignButton, FootageButton } from "./Production";
 
 /** Videos pipeline (Founder 2): one row per video in production, late first. Click a row → its task. */
 export function VideosPipeline({
@@ -10,8 +13,15 @@ export function VideosPipeline({
   ed,
   pick,
   onOpen,
+  cards = {},
+  current = {},
+  editorLoads = [],
 }: {
   rows: VideoRow[];
+  /** For rows not with an editor yet: what the Footage received / Assign pop-ups show. */
+  cards?: Record<string, ProdCard>;
+  current?: Record<string, Production>;
+  editorLoads?: EditorLoad[];
   editors: [string, string][];
   /** Same Editor A · B · All choice as the queue (one switch for both views). */
   ed: string | null;
@@ -20,10 +30,15 @@ export function VideosPipeline({
   onOpen?: (taskId: string) => void;
 }) {
   const setEd = pick;
+  const [act, setAct] = useState<{ id: string; kind: "footage" | "assign" } | null>(null);
+  const [msg, setMsg] = useState("");
   const shown = ed ? rows.filter((r) => r.editorId === ed) : rows;
-  const late = shown.filter((r) => r.late).length;
-  const onYou = shown.filter((r) => r.waitingOn === "You").length;
-  const onAgency = shown.filter((r) => r.waitingOn === "Agency").length;
+  const moving = shown.filter((r) => !r.hold);
+  const late = moving.filter((r) => r.late).length;
+  const onYou = moving.filter((r) => r.waitingOn === "You").length;
+  const onAgency = moving.filter((r) => r.waitingOn === "Agency").length;
+  const onHold = shown.length - moving.length;
+  const actCard = act ? cards[act.id] : undefined;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-labelledby="h-vpipe">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
@@ -40,7 +55,15 @@ export function VideosPipeline({
         <span className={`pill ${late ? "pill-r" : "raise"}`}><b>{late}</b>late</span>
         <span className="pill raise"><b>{onYou}</b>waiting on you</span>
         <span className="pill raise"><b>{onAgency}</b>waiting on the agency</span>
+        {onHold > 0 && <span className="pill raise"><b>{onHold}</b>on hold</span>}
       </div>
+      {msg && <div className="notice notice-green" role="status">{msg}</div>}
+      {act && actCard && act.kind === "footage" && (
+        <FootageButton key={act.id} startOpen card={actCard} current={current[act.id]} who="Founder 2 · Footage received" onClose={() => setAct(null)} onDone={setMsg} />
+      )}
+      {act && actCard && act.kind === "assign" && (
+        <AssignButton key={act.id} startOpen card={actCard} editors={editorLoads} current={current[act.id]} who="Founder 2 · Assign" onClose={() => setAct(null)} onDone={setMsg} />
+      )}
       <div className="tray pipe">
         <div className="pipe-grid pipe-head" aria-hidden="true">
           <span className="lbl">Video · late first</span>
@@ -53,17 +76,22 @@ export function VideosPipeline({
           <Link
             key={r.taskId}
             href={r.href}
-            className={`row pipe-row ${r.late ? "row-late" : ""}`}
+            className={`row pipe-row ${r.late ? "row-late" : ""} ${r.hold ? "row-hold" : ""}`}
+            aria-label={r.action && cards[r.taskId] ? `${r.name}: ${r.action === "footage" ? "footage received" : "assign an editor"}` : undefined}
             onClick={(e) => {
-              if (!onOpen || !r.editorId || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              // Not with an editor yet: open Footage received / Assign right here (founder choice Oct 16).
+              if (r.action && cards[r.taskId]) { e.preventDefault(); setMsg(""); setAct({ id: r.taskId, kind: r.action }); return; }
+              if (!onOpen || !r.editorId) return;
               e.preventDefault();
               onOpen(r.taskId);
             }}
           >
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
-                <div className="pipe-name">{r.name}</div>
+                <div className="pipe-name">{r.name}{r.hold && <> <span className="tag t-hold" style={{ verticalAlign: "middle", marginLeft: 6 }}><i aria-hidden="true" />ON HOLD</span></>}</div>
                 <div className="pipe-meta">{r.meta}</div>
+                {r.hold?.reason && <div className="pipe-meta">On hold: {r.hold.reason}</div>}
                 <div className="pipe-meta">{r.origin}</div>
                 <span className="sr-only">
                   Steps: {VRAIL.map((s, i) => {
@@ -87,10 +115,10 @@ export function VideosPipeline({
         ))}
       </div>
       <div className="pipe-legend">
-        <span>Black = step done</span><span>Outlined = where it is now, time spent there</span><span>Red = late on that step</span><span>Hatched = skipped (AI / 3D has no shoot)</span><span>Click a row → its task</span>
+        <span>Black = step done</span><span>Outlined = where it is now, time spent there</span><span>Red = late on that step</span><span>Hatched = skipped (AI / 3D has no shoot)</span><span>Click a row → Footage received, Assign, or the video</span><span>Striped = on hold (no alerts)</span>
       </div>
       <div className="unit" style={{ padding: "0 8px" }}>
-        Late rules (Settings): footage not received 2 days after the shoot date · editing due date passed or round 3 · review waiting over 48 h · launch waiting over 2 days. Each also reaches your Home as a Needs-me item.
+        Late rules (Settings): footage not received 2 days after the shoot date · editing due date passed or round 3 · review waiting over 48 h · launch waiting over 2 days. Videos on hold skip these until resumed. Each also reaches your Home as a Needs-me item.
       </div>
     </section>
   );

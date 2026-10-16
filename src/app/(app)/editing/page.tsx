@@ -7,6 +7,7 @@ import { getRule } from "@/lib/needs";
 import {
   getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
+import type { ProdCard, Production } from "@/lib/tasks-shared";
 import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
 export const metadata = { title: "Editing · Aura Flex" };
@@ -98,8 +99,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     };
   }
 
-  const queueCount = mine.filter((q) => !q.dim).length;
-  const needNow = mine.filter((q) => q.state === "changes" || q.state === "ready" || (q.alert && q.alertTone === "red" && q.state !== "submitted")).length;
+  // Rows not with an editor yet open Footage received / Assign right in the pipeline.
+  const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert }) : undefined;
+  const pipeCards: Record<string, ProdCard> = {};
+  const pipeCurrent: Record<string, Production> = {};
+  for (const r of pipelineRows ?? []) {
+    const c = pcards.get(r.taskId);
+    if (r.action && c) pipeCards[r.taskId] = c;
+    const p = productions.get(r.taskId);
+    if (r.action && p) pipeCurrent[r.taskId] = p;
+  }
+
+  const queueCount = mine.filter((q) => !q.dim && !q.hold).length;
+  const needNow = mine.filter((q) => !q.hold).filter((q) => q.state === "changes" || q.state === "ready" || (q.alert && q.alertTone === "red" && q.state !== "submitted")).length;
   return (
     <TabPage
       tab="editing"
@@ -120,7 +132,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         initialEd={ed}
         forFounder={founder}
         createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
-        pipelineRows={founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert }) : undefined}
+        pipelineRows={pipelineRows}
+        pipeCards={pipeCards}
+        pipeCurrent={pipeCurrent}
         views={views}
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}

@@ -230,3 +230,33 @@ test("Videos pipeline: one row per video, steps, late rules, AI skips shoot", ()
   assert.deepEqual(by.get("ai")!.steps, ["skip", "skip", "late", "todo", "todo"]); // confirmed 2 days ago, not assigned
   assert.ok(rows.slice(0, 3).every((r) => r.late), "late first");
 });
+
+test("On hold: no alerts, sorted last, ON HOLD tag; pipeline rows open Footage / Assign", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const base = { taskId: "", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
+  const T = (id: string) => ({ ...t0, id, status: "details_done" });
+  const D = (shootOn: string | null) => ({ shootOn, generate: false, face: "F", confirmedAt: "2026-10-01T08:00:00Z" });
+  const tasks = [T("held"), T("late"), T("foot")];
+  const details = new Map([["held", D("2026-10-05")], ["late", D("2026-10-05")], ["foot", D("2026-10-05")]]);
+  const ed = { footageAt: "2026-10-06T08:00:00Z", assignedAt: "2026-10-06T09:00:00Z", editorId: "e", editorName: "Editor B", editDue: "2026-10-10" };
+  const prods = new Map([
+    ["held", { ...base, ...ed, taskId: "held", holdAt: "2026-10-14T08:00:00Z", holdReason: "Knee script first" }],
+    ["late", { ...base, ...ed, taskId: "late" }],
+  ]);
+  const rows = buildVideoPipeline(tasks, prods, new Map(), details, { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 });
+  assert.equal(rows[rows.length - 1].taskId, "held", "on hold sorts last");
+  const held = rows.find((r) => r.taskId === "held")!;
+  assert.equal(held.late, false);
+  assert.equal(held.due, "on hold");
+  assert.equal(held.hold?.reason, "Knee script first");
+  assert.equal(held.action, null, "with an editor: opens the video");
+  assert.equal(rows.find((r) => r.taskId === "foot")!.action, "footage");
+
+  const cards = new Map(["held", "late"].map((id) => [id, { face: id, cell: "c", angle: "a", format: "UGC", generate: false }]));
+  const q = buildQueue(tasks, prods, new Map(), cards, { now, notStartedDays: 2, roundAlert: 3 });
+  assert.deepEqual(q.map((x) => x.taskId), ["late", "held"]);
+  assert.equal(q[1].tag, "ON HOLD");
+  assert.equal(q[1].alert, null);
+  assert.match(q[1].sub, /Knee script first/);
+  assert.ok(q[0].alert, "the other one still alerts");
+});

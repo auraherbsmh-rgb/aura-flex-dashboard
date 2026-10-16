@@ -3,7 +3,7 @@
  * Rail of 5 steps: Writing → Review → Changes → Approved → Details.
  * Pure functions, safe for server and browser; fed by tasks, their review rounds and their Script details.
  */
-import { fmtDay, prodStage, tunisDate, type Production, type TaskRow } from "./tasks-shared";
+import { fmtDay, isHeld, prodStage, tunisDate, type Production, type TaskRow } from "./tasks-shared";
 
 export const RAIL = ["Writing", "Review", "Changes", "Approved", "Details"] as const;
 export type StepState = "done" | "now" | "late" | "skip" | "todo";
@@ -126,7 +126,7 @@ export function buildPipeline(
     const p = productions.get(t.id);
     const stage = prodStage(d.generate, p);
     const where =
-      p?.liveAt ? "LIVE" : p?.launchedAt ? "LAUNCHED" : stage === "editing" ? "EDITING"
+      p?.liveAt ? "LIVE" : p?.launchedAt ? "LAUNCHED" : isHeld(p) ? "ON HOLD" : stage === "editing" ? "EDITING"
       : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : "FOOTAGE IN")
       : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
     handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });

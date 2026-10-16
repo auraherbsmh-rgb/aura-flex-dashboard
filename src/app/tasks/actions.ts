@@ -255,3 +255,16 @@ export async function launchConcept(taskId: string, finalUrl: string, markLive: 
   revalidatePath("/", "layout");
   return done(markLive ? "Marked live." : "Launched. It turns Live by itself once Meta is connected and finds these names.");
 }
+
+/** On hold / Resume (founders): pauses a video in production so another script can go first. */
+export async function setHold(taskId: string, hold: boolean, reason: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders put a video on hold.");
+  const r = reason.trim();
+  if (r.length > 300) return fail("Keep the reason short.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_production_hold", { p_task: taskId, p_hold: hold, p_reason: hold ? r : "" });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done(hold ? "On hold. Its late alerts and Home items stop until you resume it." : "Resumed. Alerts and Home items are back.");
+}

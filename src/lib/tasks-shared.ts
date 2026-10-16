@@ -207,6 +207,9 @@ export type Production = {
   launchedAt: string | null;
   liveAt: string | null;
   liveSource: "manual" | "meta" | null;
+  /** On hold (founders): late alerts and Home items stop, the editor can't send versions. */
+  holdAt?: string | null;
+  holdReason?: string | null;
 };
 /** What the Launch pop-up shows: the ad set name and one ad name per hook, ready to copy. */
 export type LaunchNames = { adSetName: string | null; ads: { v: number; name: string }[] };
@@ -226,6 +229,9 @@ export type ProdCard = {
 };
 export type ProdStage = "shoot" | "assign" | "editing";
 /** Where a confirmed script stands: waiting for footage (shoot), ready to assign, or with an editor. */
+/** On hold and not launched yet: late alerts and Home items pause, the editor can't send versions. */
+export const isHeld = (p: Production | undefined | null) => !!p?.holdAt && !p.launchedAt;
+
 export function prodStage(generate: boolean, p: Production | undefined): ProdStage {
   if (p?.assignedAt) return "editing";
   if (generate || p?.footageAt) return "assign";
