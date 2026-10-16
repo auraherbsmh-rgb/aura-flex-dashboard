@@ -97,7 +97,6 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
   const groups = groupByAngle(concepts);
   const [open, setOpen] = useState<Record<string, boolean>>(() => (groups[0] ? { [groups[0].angleId]: true } : {}));
   const [openC, setOpenC] = useState<Record<string, boolean>>({});
-  const m = mix(concepts);
   const counts = { test: 0, production: 0, writing: 0 };
   for (const c of concepts) counts[conceptState(c)]++;
   const title = `${avatar?.code ?? "?"} × ${cell.awareness}`;
@@ -170,19 +169,22 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
                     </div>
                   );
                 })}
+                {(() => {
+                  // Mix per angle (artboard "Mix in this angle"): the angle is what is tested, so formats and hooks are read inside it.
+                  const m = mix(g.concepts);
+                  return (
+                    <div className="cv-mix">
+                      <div className="lbl">Mix in this angle</div>
+                      <div className="cv-mix-row"><span className="unit">Video format per concept</span>{m.formats.map(([k, n]) => <span key={k} className="chip recess">{k} {n}/{g.concepts.length}</span>)}</div>
+                      <div className="cv-mix-row"><span className="unit">Hook type per variation</span>{m.hooks.length ? m.hooks.map(([k, n]) => <span key={k} className="chip recess">{k} {n}</span>) : <span className="unit">none yet</span>}</div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
         );
       })}
-
-      {concepts.length > 0 && (
-        <div className="cv-mix">
-          <div className="lbl">Mix in this cell</div>
-          <div className="cv-mix-row"><span className="unit">Video format per concept</span>{m.formats.map(([k, n]) => <span key={k} className="chip recess">{k} {n}/{concepts.length}</span>)}</div>
-          <div className="cv-mix-row"><span className="unit">Hook type per variation</span>{m.hooks.length ? m.hooks.map(([k, n]) => <span key={k} className="chip recess">{k} {n}</span>) : <span className="unit">none yet</span>}</div>
-        </div>
-      )}
       {concepts.length > 0 && pickers && (
         <div><ProposeButton pickers={pickers} label="+ Propose a new angle in this cell" className="btn b-ghost" prefill={{ avatarId: cell.avatarId, awareness: cell.awareness }} /></div>
       )}
