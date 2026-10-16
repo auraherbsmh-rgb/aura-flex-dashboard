@@ -130,7 +130,7 @@ export function MoneyForm({ money }: { money: MoneyRow | null }) {
           <span className="unit">ROAS health check</span>
         </label>
         <Field label="Exchange rate" name="exchange_rate" value={val("exchange_rate", plain)} unit="TND per USD" />
-        <Field label="Fixed costs" name="fixed_costs_tnd" value={val("fixed_costs_tnd", thousands)} unit="TND / month" />
+        <Field label="Salaries and fixed" name="fixed_costs_tnd" value={val("fixed_costs_tnd", thousands)} unit="TND · this month, editor incl." />
       </div>
 
       <div>

@@ -18,7 +18,9 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
   const groups = e.speed.groups[split];
   const scale = Math.max(1, ...groups.map((g) => g.total));
   const maxLine = Math.max(1, ...e.aliveLine.map((p) => p.n));
-  const pts = e.aliveLine.map((p, i) => `${(i / 11) * 200},${56 - (p.n / maxLine) * 50}`).join(" ");
+  const px = (i: number) => 10 + (i / 11) * 330, py = (n: number) => 46 - (n / maxLine) * 36;
+  const pts = e.aliveLine.map((p, i) => `${px(i)},${py(p.n)}`).join(" ");
+  const first = e.aliveLine[0], lastPt = e.aliveLine[11];
   const step0 = e.chain[0].n || 1;
   return (
     <section className="engine" aria-labelledby="h-engine">
@@ -41,8 +43,12 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
           <div className="engine-alive">
             <div className="engine-big">{e.alive}</div>
             <div className="engine-bf"><div><div className="lbl">Born</div><b>+{e.born}</b></div><div><div className="lbl">Faded or lost</div><b>−{e.faded}</b></div></div>
-            <svg viewBox="0 0 200 60" className="engine-spark" role="img" aria-label={`Winning concepts alive, last 12 weeks: ${e.aliveLine.map((p) => p.n).join(", ")}`}>
-              <polyline points={pts} fill="none" stroke="#1F8E4C" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+            <svg viewBox="0 0 360 70" className="engine-spark" role="img" aria-label={`Winning concepts alive, last 12 weeks: ${e.aliveLine.map((p) => p.n).join(", ")}`}>
+              <line x1="0" y1="69" x2="360" y2="69" stroke="#E3E3DE" />
+              <polyline points={pts} fill="none" stroke="#1F8E4C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={px(11)} cy={py(lastPt.n)} r="5" fill="#fff" stroke="#1F8E4C" strokeWidth="3" />
+              <text x="10" y="64" fontFamily="var(--mono)" fontSize="10" fill="#6B6B66">12 weeks ago · {first.n}</text>
+              <text x="350" y="64" textAnchor="end" fontFamily="var(--mono)" fontSize="10" fill="#6B6B66">now · {lastPt.n}</text>
             </svg>
           </div>
           <div className="unit">If this line falls, revenue follows a few weeks later, even while this week&apos;s CPA looks fine.</div>
@@ -52,13 +58,13 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><span className="engine-big">{e.pace.grow ?? "—"}</span><span className="unit" style={{ fontSize: 14 }}>launched / month to grow</span></div>
           <div>
             <div className="unit">To stand still · replace {e.pace.fadingPerMonth} fading a month{e.pace.winRate !== null ? ` at a ${Math.round(e.pace.winRate * 100)}% win rate` : ""}</div>
-            <div className="ebar"><div className="efill" style={{ width: `${Math.min(100, e.pace.standStill ? (e.pace.actual / e.pace.standStill) * 100 : 0)}%` }} /></div>
+            <div className="ebar"><div className="efill" style={{ width: `${e.pace.standBar}%`, background: "#8C8C86" }} /></div>
             <div className="conv">{e.pace.standStill ?? "—"} / month</div>
           </div>
           <div>
             <div className="unit">To grow +2 winners a month</div>
-            <div className="ebar"><div className="efill" style={{ width: `${Math.min(100, e.pace.grow ? (e.pace.actual / e.pace.grow) * 100 : 0)}%` }} /></div>
-            <div className="conv">{e.pace.grow ?? "—"} / month · you launch {e.pace.actual} / month</div>
+            <div className="ebar"><div className="efill" style={{ width: `${e.pace.growBar}%` }} /></div>
+            <div className="conv">{e.pace.grow ?? "—"} / month · {e.pace.grow !== null && e.pace.actual >= e.pace.grow ? `you're on it (${e.pace.actual} / month)` : `you launch ${e.pace.actual} / month`}</div>
           </div>
           <span className={`tag ${e.pace.word === "GROWING PACE" ? "t-green" : e.pace.word === "STANDING STILL" ? "t-amber" : e.pace.word === "FALLING BEHIND" ? "t-red" : "t-grey"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />{e.pace.word}</span>
         </div>
@@ -68,14 +74,14 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
         <div className="money-head" style={{ padding: "0 6px" }}><h3 id="h-chain">The chain · {period === "4w" ? "last 4 weeks" : "last 3 months"}</h3><span className="lbl">Click a step → its pipeline or the Library</span></div>
         <div className="funnel">
           {e.chain.map((s) => (
-            <Link key={s.key} href={s.href} className={`step ${s.bottleneck ? "bott" : ""}`}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+            <Link key={s.key} href={s.href} className={`estep ${s.bottleneck ? "bott" : ""}`}>
+              <div className="estep-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <span className="lbl">{s.label}</span>
                 {s.bottleneck && <span className="tag t-red" style={{ fontSize: 10, padding: "5px 8px" }}><i aria-hidden="true" />BOTTLENECK</span>}
               </div>
-              <div className="n">{s.n}</div>
-              <div className="ebar"><div className="efill" style={{ width: `${Math.min(100, (s.n / step0) * 100)}%` }} /></div>
-              <div className="conv">
+              <div className="n" style={s.key === "won" ? { color: "#135F33" } : undefined}>{s.n}</div>
+              <div className="ebar"><div className="efill" style={{ width: `${Math.min(100, (s.n / step0) * 100)}%`, ...(s.key === "won" ? { background: "#1F8E4C" } : {}) }} /></div>
+              <div className="conv" style={s.bottleneck ? { color: "#A1241A" } : undefined}>
                 {s.key === "won"
                   ? `${e.won.won} of ${e.won.settled} settled${e.won.settled ? ` · ${Math.round((e.won.won / e.won.settled) * 100)}%` : ""} · ${e.won.testing} still testing`
                   : `${s.conv === null ? "" : `${Math.round(s.conv * 100)}% · `}${s.daysLabel} ${s.days === null ? "—" : `${s.days} d`} median`}
@@ -90,7 +96,7 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
             <h3 id="h-speed">Speed · idea to live ad</h3>
             <span style={{ font: "600 26px var(--font)" }}>{e.speed.median === null ? "—" : `${e.speed.median} days`}</span>
-            <span className="unit">median{e.speed.before !== null ? ` · the period before ${e.speed.before}` : ""}</span>
+            <span className="unit">median{e.speed.before !== null ? ` · ${e.speed.beforeLabel} ${e.speed.before}` : ""}</span>
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span className="lbl">Split by</span>
@@ -114,7 +120,7 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           <span className="unit">Median days per step for each group. The slowest group and its slowest step update with the split.</span>
-          {e.speed.slowest[split] && <span className="tag t-red"><i aria-hidden="true" />SLOWEST · {e.speed.slowest[split]}</span>}
+          {e.speed.slowest[split] && <span className="tag t-red engine-wrap-tag"><i aria-hidden="true" />SLOWEST · {e.speed.slowest[split]}</span>}
         </div>
       </section>
 
@@ -122,7 +128,7 @@ export function Engine({ w4, m3, hasMeta }: { w4: EngineView; m3: EngineView; ha
         <div className="card engine-tile"><div className="lbl">Engine cost · month</div><div className="engine-mid">{n0(e.cost.month)} <small>TND</small></div><div className="unit">{e.cost.parts}</div></div>
         <div className="card engine-tile"><div className="lbl">Cost per launched concept</div><div className="engine-mid">{e.cost.perLaunched === null ? "—" : n0(e.cost.perLaunched)} <small>TND</small></div><div className="unit">engine cost ÷ {e.cost.launched} concepts launched</div></div>
         <div className="card engine-tile"><div className="lbl">Cost per winner</div><div className="engine-mid">{e.cost.perWinner === null ? "—" : n0(e.cost.perWinner)} <small>TND</small></div><div className="unit">engine cost ÷ {e.cost.winners} winners born</div></div>
-        <div className={`card engine-tile ${e.cost.ret !== null && e.cost.ret >= 1 ? "k-green" : e.cost.ret !== null ? "k-red" : ""}`}><div className="lbl">Return of the engine</div><div className="engine-mid">{e.cost.ret === null ? "—" : `×${e.cost.ret}`}</div><div className="unit">profit earned by winning concepts after ad spend ({e.cost.winnersProfit === null ? "with Meta" : `${n0(e.cost.winnersProfit)} TND`}) ÷ engine cost</div></div>
+        <div className={`card engine-tile ${e.cost.ret !== null && e.cost.ret >= 1 ? "k-green" : e.cost.ret !== null ? "k-red" : ""}`}><div className="lbl">Return of the engine</div><div className="engine-mid">{e.cost.ret === null ? "—" : `×${e.cost.ret}`}</div><div className="unit">profit earned by winning concepts after ad spend ({e.cost.winnersProfit === null ? "after the first Meta pull" : `${n0(e.cost.winnersProfit)} TND`}) ÷ engine cost</div></div>
       </section>
     </section>
   );

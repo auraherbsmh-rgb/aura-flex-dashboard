@@ -80,6 +80,12 @@ export function params(f: Funnel, meta: MetaPeriod, m: MoneyBase, fixedTnd: numb
 
 export const delivered = (p: Params) => (p.tau ? p.M / p.tau : 0) * p.c * p.r + p.M * p.dm * p.c * p.r;
 export const profitOf = (p: Params) => delivered(p) * (p.v - p.k) - p.F - p.M * p.cpa * p.X;
+/**
+ * Delivered orders and profit from the actual leads (equal to the model whenever Meta purchases > 0; still right when a
+ * month or week has Shipper orders but no Meta purchases pulled).
+ */
+export const deliveredFromLeads = (f: Funnel, p: Params) => (f.webLeads + f.dmLeads) * p.c * p.r;
+export const profitFromLeads = (f: Funnel, p: Params, spendUsd: number) => deliveredFromLeads(f, p) * (p.v - p.k) - p.F - spendUsd * p.X;
 
 export type Leak = { key: "ads" | "volume" | "tracking" | "conf" | "door" | "aov" | "delivery" | "fixed"; name: string; what: string; amount: number };
 
@@ -93,7 +99,7 @@ export function leakFinder(prev: Params, cur: Params): { stages: Leak[]; total: 
     ["door", ["r"], "Door rate", "Shipped → delivered"],
     ["aov", ["v"], "Order value", "Net of bottle cost"],
     ["delivery", ["k"], "Delivery cost", "Per delivered order"],
-    ["fixed", ["F"], "Salaries and fixed", "Fixed costs + editing"],
+    ["fixed", ["F"], "Salaries and fixed", "Fixed costs and salaries"],
   ];
   let p = { ...prev };
   const stages: Leak[] = [];
@@ -149,7 +155,9 @@ export type ClosedMonth = {
   label: string; prevLabel: string; profit: number; prevProfit: number | null; zone: ReturnType<typeof lineZone>; cpa: number | null; line: number;
   metaOrders: number; dmOrders: number; gross: number; grossPrev: number | null; delivered: number; open: number; provisional: boolean;
   aov: number; waterfall: Waterfall[]; leaks: LeakRow[] | null; leakTotal: number | null; leakWhy: string | null; tracking: number | null; lineStatus: string;
+  fixed: number; estimatedDelivered: number; noMeta: boolean;
 };
+export type TrendNote = { noMetaWeeks: number };
 export type WeekView = { label: string; profit: number; prevProfit: number; zone: ReturnType<typeof lineZone>; cpa: number | null; metaOrders: number; dmOrders: number | null; grossSoFar: number | null; pace: number | null; monthLabel: string; closedLabel: string };
 export type TrendPoint = { monday: string; profit: number; settling: boolean };
 export type MoneyView = { closed: ClosedMonth | null; week: WeekView; trend: TrendPoint[]; hasShipper: boolean };
@@ -171,6 +179,9 @@ export function baseFor(bases: MonthBase[], ym: string): MonthBase {
   const sorted = [...bases].sort((a, b) => a.month.localeCompare(b.month));
   return [...sorted].reverse().find((b) => b.month.slice(0, 7) <= ym) ?? sorted[0];
 }
+
+/** HOUSE RULE (not in File 1): tracking + delivery-cost moves this small stay one grey "normal swing" row. */
+const GREY_TND = 300, GREY_SHARE = 0.05;
 
 export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTotal[]; bases: MonthBase[]; now: number }): MoneyView {
   const { orders, metaDays, bases, now } = input;
@@ -194,9 +205,9 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
     const usable = (fx: Funnel, mx: MetaPeriod) => fx.webLeads > 0 && mx.purchases > 0 && fx.delivered + fx.returned > 0;
     const pPrev = usable(fPrev, metaPrev) ? params(fPrev, metaPrev, pb.base, pb.base.fixedCostsTnd) : null;
     // Profit = the model: equal to the books when every order has settled; open orders estimated (File 1) otherwise.
-    const profit = profitOf(p);
+    const profit = profitFromLeads(f, p, meta.spendUsd);
     const prevProfit = pPrev ? profitOf(pPrev) : null;
-    const dEst = delivered(p);
+    const dEst = deliveredFromLeads(f, p);
     const aov = f.delivered ? f.revenue / f.delivered : 0;
     const bpo = f.delivered ? f.bottles / f.delivered : 0;
     const gross = dEst * aov;
@@ -227,9 +238,9 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
       const g = lf.stages.filter((x) => x.key === "tracking" || x.key === "delivery");
       const gAmount = g.reduce((n, x) => n + x.amount, 0);
       // Grey ("inside normal swing") only while small; a big tracking or delivery-cost move is a real stage.
-      const small = Math.abs(gAmount) < Math.max(300, 0.05 * Math.abs(lf.total));
+      const small = Math.abs(gAmount) < Math.max(GREY_TND, GREY_SHARE * Math.abs(lf.total));
       const greyRow: LeakRow = {
-        key: "tracking", name: "Tracking and delivery cost", what: small ? "Inside normal swing" : "Tracking ratio or delivery cost moved",
+        key: "tracking", name: "Tracking and delivery cost", what: small ? `Inside normal swing (under ${GREY_TND} TND or ${GREY_SHARE * 100}% of the change · house rule)` : "Tracking ratio or delivery cost moved",
         amount: gAmount, rate: `${pPrev.tau.toFixed(3)} → ${p.tau.toFixed(3)}`, detail: small ? null : {
           head: "Meta purchases per website lead, DM orders per Meta purchase, and delivery cost per delivered order.",
           lines: [
@@ -287,6 +298,7 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
       metaOrders: meta.purchases, dmOrders: f.dmLeads, gross, grossPrev: pPrev ? delivered(pPrev) * (fPrev.delivered ? fPrev.revenue / fPrev.delivered : 0) : null,
       delivered: dEst, open: f.open + f.pending, provisional, aov, waterfall, leaks, leakTotal, leakWhy,
       tracking: f.webLeads ? meta.purchases / f.webLeads : null, lineStatus: mb.status,
+      fixed: mb.base.fixedCostsTnd, estimatedDelivered: Math.max(0, dEst - f.delivered), noMeta: meta.purchases === 0,
     };
   }
 
@@ -318,7 +330,8 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
     if (settling) return { monday: mon, profit: estimateProfit(meta, b), settling: true };
     const f = funnel(orders.filter((o) => inWeek(o, mon)), b);
     const fixedWeek = (b.fixedCostsTnd / daysIn(mon.slice(0, 7))) * 7;
-    return { monday: mon, profit: profitOf(params(f, meta, b, fixedWeek)), settling: false };
+    const pw = params(f, meta, b, fixedWeek);
+    return { monday: mon, profit: profitFromLeads(f, pw, meta.spendUsd), settling: false };
   });
 
   return { closed, week, trend, hasShipper };

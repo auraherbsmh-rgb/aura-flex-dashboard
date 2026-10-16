@@ -30,7 +30,8 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
   const w = view.week;
   const zone = isMonth ? closed!.zone : w.zone;
   const cpa = isMonth ? closed!.cpa : w.cpa;
-  const overPct = cpa !== null && line ? Math.round(((cpa - line) / line) * 100) : null;
+  const lineNow = isMonth ? closed!.line : line;
+  const overPct = cpa !== null && lineNow ? Math.round(((cpa - lineNow) / lineNow) * 100) : null;
   return (
     <section className="money" aria-labelledby="h-money">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
@@ -52,6 +53,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         </div>
       )}
       {!shipperMissing && shipperNote && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}>{shipperNote}</div>}
+      {isMonth && closed!.noMeta && <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}><b>No Meta purchases pulled for {closed!.label}.</b> Profit uses Shipper leads and ad spend; CPA, tracking and the leak finder wait for Meta.</div>}
       {!hasMeta && <div className="info">No Meta results yet: the numbers fill in after the first Meta pull.</div>}
 
       <section className="money-row3">
@@ -62,7 +64,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
           </div>
           <div className="money-big">{n0(isMonth ? closed!.profit : w.profit)} <small>TND</small></div>
           <div className="unit">
-            {isMonth ? "" : "Meta purchases × line − spend · "}CPA {cpa === null ? "—" : `$${cpa.toFixed(2)}`} vs line ${line.toFixed(2)}{overPct !== null ? ` · ${Math.abs(overPct)}% ${overPct >= 0 ? "over" : "under"}` : ""}
+            {isMonth ? "" : "Meta purchases × line − spend · "}CPA {cpa === null ? "—" : `$${cpa.toFixed(2)}`} vs line ${lineNow.toFixed(2)}{overPct !== null ? ` · ${Math.abs(overPct)}% ${overPct >= 0 ? "over" : "under"}` : ""}
           </div>
         </div>
         <div className="card money-tile">
@@ -101,7 +103,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
           {isMonth ? (
             <>
               <div className="money-big">{n0(closed!.gross)} <small>TND</small></div>
-              <div className="unit">{n0(closed!.delivered)} delivered × {closed!.aov.toFixed(2)}{closed!.grossPrev ? ` · ${closed!.prevLabel} ${n0(closed!.grossPrev)} (${signed(((closed!.gross - closed!.grossPrev) / closed!.grossPrev) * 100)}%)` : ""}</div>
+              <div className="unit">{n0(closed!.delivered)} delivered × {closed!.aov.toFixed(2)}{closed!.estimatedDelivered >= 0.5 ? ` · incl. ~${n0(closed!.estimatedDelivered)} still open, estimated` : ""}{closed!.grossPrev ? ` · ${closed!.prevLabel} ${n0(closed!.grossPrev)} (${signed(((closed!.gross - closed!.grossPrev) / closed!.grossPrev) * 100)}%)` : ""}</div>
             </>
           ) : w.grossSoFar === null ? <><div className="money-big money-muted">—</div><div className="unit">Delivered only · with Shipper</div></> : (
             <>
@@ -199,7 +201,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
           <span><span className={`tag ${closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "t-green" : "t-red"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />{closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "DATA OK" : "CHECK TRACKING"}</span>Tracking {closed.tracking.toFixed(3)} · band 0.89–0.95</span>
         )}
         {closed && <span><span className={`tag ${closed.lineStatus === "final" ? "t-green" : "t-amber"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />LINE {closed.lineStatus.toUpperCase()}</span>Business line ${closed.line.toFixed(2)} · Settings → Money</span>}
-        <span><b>Salaries and fixed</b> = {n0(fixed)} TND / month from Settings (editing included, as in File 1)</span>
+        <span><b>Salaries and fixed</b> = {n0(isMonth ? closed!.fixed : fixed)} TND / month from Settings (that month&apos;s row, editor pay included)</span>
         <span>Normal = last closed month · stages switched in fixed order: ad cost → volume → tracking → confirmation → door rate → order value → delivery cost → salaries and fixed</span>
       </section>
 
@@ -242,8 +244,9 @@ function Trend({ points }: { points: TrendPoint[] }) {
         </div>
       </div>
       <div className="trend-wrap">
-      <div className="trend-ticks" aria-hidden="true"><span>+{tick.toLocaleString("en-US")}</span><span>0</span><span>−{tick.toLocaleString("en-US")}</span></div>
-      <div style={{ position: "relative", minWidth: 0 }}>
+      <div className="trend-ticks" aria-hidden="true">{[tick, 0, -tick].map((t) => <span key={t} style={{ top: `${(y(t) / H) * 100}%` }}>{t > 0 ? "+" : t < 0 ? "−" : ""}{Math.abs(t).toLocaleString("en-US")}</span>)}</div>
+      <div style={{ minWidth: 0 }}>
+      <div style={{ position: "relative" }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="trend-svg" role="img" aria-label={`Weekly profit: ${points.map((p) => `${fmt(p.monday)} ${Math.round(p.profit)} TND${p.settling ? " (settling)" : ""}`).join(", ")}`}>
         <defs>
           <clipPath id="tr-up"><rect x="0" y="0" width={W} height={H / 2} /></clipPath>
@@ -258,6 +261,7 @@ function Trend({ points }: { points: TrendPoint[] }) {
         
       </svg>
       <span className="trend-end" style={{ top: `${(y(last.profit) / H) * 100}%` }}>{signed(last.profit)}{last.settling ? " · settling" : ""}</span>
+      </div>
       <div className="trend-axis">{points.map((p) => <span key={p.monday}>{fmt(p.monday)}</span>)}</div>
       </div>
       </div>

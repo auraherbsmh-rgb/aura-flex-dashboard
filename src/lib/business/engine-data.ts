@@ -12,7 +12,7 @@ export async function getEngineData(now: number) {
   type D = { ad_id: string; day: string; spend: number; purchases: number };
   const [tasks, productions, editRounds, results, money, logRows, people, pay, ads, days, vars] = await Promise.all([
     getTasks(), getProductions(), getEditRounds(), getResults(), getCurrentMoney(),
-    supabase.from("concept_state_log").select("task_id, state, at").order("at"),
+    supabase.from("concept_state_log").select("task_id, state, live, at").order("at"),
     supabase.from("people").select("id, role, active"),
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit"),
     allRows<{ ad_id: string; name: string; campaign_id: string }>("Meta ads", (a, b) => supabase.from("meta_ads").select("ad_id, name, campaign_id").order("ad_id").range(a, b) as unknown as PromiseLike<{ data: { ad_id: string; name: string; campaign_id: string }[] | null; error: unknown }>),
@@ -21,16 +21,16 @@ export async function getEngineData(now: number) {
   ]);
   const extras = await getBoardExtras(tasks);
   const lib = buildLibrary(tasks, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now, results);
-  const log: StateLog[] = (logRows.data ?? []).map((r) => ({ taskId: r.task_id as string, state: r.state as string, at: r.at as string }));
+  const log: StateLog[] = (logRows.data ?? []).map((r) => ({ taskId: r.task_id as string, state: r.state as string, live: r.live !== false, at: r.at as string }));
 
   // Engine cost per month from Settings → People and pay (copywriters per month or per script approved).
   const roleOf = new Map((people.data ?? []).filter((p) => p.active).map((p) => [p.id as string, p.role as string]));
   const sum = (role: string, unit: string) => (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === role && p.pay_unit === unit).reduce((n, p) => n + Number(p.pay_amount_tnd ?? 0), 0);
   const missingCw = (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "copywriter" && p.pay_amount_tnd === null).length;
   const perVideo = (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "editor" && p.pay_unit === "per_video" && p.pay_amount_tnd !== null).map((p) => Number(p.pay_amount_tnd));
-  const approvedLast30 = tasks.filter((t) => t.rounds.some((r) => r.decision === "approved" && r.decidedAt && Date.parse(r.decidedAt) >= now - 30 * 864e5)).length;
+  const cwPer = (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "copywriter" && p.pay_unit === "per_script" && p.pay_amount_tnd !== null).map((p) => Number(p.pay_amount_tnd));
   const cost: CostParts = {
-    copywriters: sum("copywriter", "per_month") + sum("copywriter", "per_script") * approvedLast30,
+    copywriters: sum("copywriter", "per_month"), copywriterPerScript: cwPer.length ? cwPer.reduce((a, b) => a + b, 0) / cwPer.length : 0,
     agency: sum("agency", "per_month"), strategist: sum("strategist", "per_month"),
     editingPerVideo: perVideo.length ? perVideo.reduce((a, b) => a + b, 0) / perVideo.length : 100,
     copywritersNote: missingCw ? ` (pay to fill for ${missingCw})` : "",
@@ -54,7 +54,13 @@ export async function getEngineData(now: number) {
   }
   const launchedAt = new Map([...productions.entries()].map(([id, p]) => [id, p.launchedAt ?? p.liveAt ?? null]));
   const line = money ? Number(money.business_line_usd) : 0, rate = money ? Number(money.exchange_rate) : 3.35;
-  const base = { now, tasks, lib, results, editRounds, launchedAt, log, cost, line, rate };
+  // Margin per Meta purchase before ads and before fixed costs: the business line + fixed costs spread over the last
+  // 30 days' Meta purchases (File 1: the line already carries the fixed costs per purchase).
+  const cut30 = new Date(now - 30 * 864e5 + 36e5).toISOString().slice(0, 10);
+  const purchases30 = days.filter((d) => d.day >= cut30).reduce((n, d) => n + d.purchases, 0);
+  const fixed = money ? Number(money.fixed_costs_tnd) : 0;
+  const marginUsd = line + (purchases30 ? fixed / rate / purchases30 : 0);
+  const base = { now, tasks, lib, results, editRounds, launchedAt, log, cost, marginUsd, rate, hasMeta: days.length > 0 };
   return {
     w4: buildEngine({ ...base, period: "4w", winnersMoney: money4w }),
     m3: buildEngine({ ...base, period: "3m", winnersMoney: money3m }),

@@ -29,7 +29,7 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
     db.from("money_settings").select("*").order("month", { ascending: false }).limit(1).maybeSingle(),
     all<{ task_id: string; v: number; ad_name: string }>((a, b) => db.from("ad_variations").select("task_id, v, ad_name").eq("active", true).order("task_id").range(a, b)),
     db.from("old_concepts").select("id, base_name"),
-    db.from("concept_results").select("task_id, state, ever_won, won_at, winner_noted_at"),
+    db.from("concept_results").select("task_id, state, ever_won, won_at, winner_noted_at, live"),
   ]);
   // A failed read must not look like "no data": it would reset every state_since (and the 48h covers).
   for (const r of [budgetRows, scopeRows, money, oldRows, existing]) if (r.error) throw new Error(r.error.message);
@@ -44,7 +44,7 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
   const generated = new Map(vars.map((v) => [v.ad_name.trim().toLowerCase(), { taskId: v.task_id, v: v.v }]));
   const old = new Map(((oldRows.data ?? []) as { id: string; base_name: string }[]).map((o) => [o.base_name, o.id]));
   const model = buildLive({ ads, daily, scope, budgets, generated, old, concepts: new Map(), money: toMoneyInputs(money.data as MoneyRow), now });
-  type Prev = { task_id: string; state: string; ever_won: boolean; won_at: string | null; winner_noted_at: string | null };
+  type Prev = { task_id: string; state: string; ever_won: boolean; won_at: string | null; winner_noted_at: string | null; live: boolean };
   const prev = new Map(((existing.data ?? []) as Prev[]).map((r) => [r.task_id, r]));
   // A concept whose ads have no spend in the loaded days keeps its last result (a win is never forgotten).
   const rows = conceptResultRows(model.states).filter((r) => !(prev.has(r.task_id) && r.variations.every((v) => v.spend7 === 0) && !r.live && quiet(model.states.get(`t:${r.task_id}`))));
@@ -70,10 +70,11 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
   if (changed.length) {
     const { error } = await db.from("concept_results").upsert(changed, { onConflict: "task_id" });
     if (error) throw new Error(error.message);
-    // History for the Creative engine (winning concepts alive per week, born / faded).
-    const { error: logErr } = await db.from("concept_state_log").insert(changed.map((r) => ({ task_id: r.task_id, state: r.state, at: stamp })));
-    if (logErr) throw new Error(logErr.message);
   }
+  // History for the Creative engine (winning concepts alive per week, born / faded): a row on every state change,
+  // and on every live ↔ paused flip (a paused winner is no longer alive).
+  const logRows = payload.filter((r) => "state_since" in r || (prev.has(r.task_id) && prev.get(r.task_id)!.live !== r.live)).map((r) => ({ task_id: r.task_id, state: r.state, live: r.live, at: stamp }));
+  if (logRows.length) { const { error: logErr } = await db.from("concept_state_log").insert(logRows); if (logErr) throw new Error(logErr.message); }
   if (same.length) { const { error } = await db.from("concept_results").upsert(same, { onConflict: "task_id" }); if (error) throw new Error(error.message); }
   // Concepts no longer matched to any ad (variations renamed or removed) drop out of the results.
   const matched = new Set([...model.states.keys()].filter((k) => k.startsWith("t:")).map((k) => k.slice(2)));
@@ -85,6 +86,8 @@ export async function refreshResults(db: SupabaseClient, now = Date.now()): Prom
     // In chunks: every id goes in the request address.
     for (let i = 0; i < drop.length; i += 100) { const { error } = await db.from("concept_results").delete().in("task_id", drop.slice(i, i + 100)); if (error) throw new Error(error.message); }
     for (let i = 0; i < keep.length; i += 100) { const { error } = await db.from("concept_results").update({ live: false, updated_at: stamp }).in("task_id", keep.slice(i, i + 100)); if (error) throw new Error(error.message); }
+    const nowPaused = stale.filter((p) => (p.ever_won || p.winner_noted_at) && p.live).map((p) => ({ task_id: p.task_id, state: p.state, live: false, at: stamp }));
+    if (nowPaused.length) { const { error } = await db.from("concept_state_log").insert(nowPaused); if (error) throw new Error(error.message); }
   }
   return rows.length;
 }
