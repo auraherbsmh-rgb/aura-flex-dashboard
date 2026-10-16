@@ -181,6 +181,8 @@ export function LaunchButton({
   const [open, setOpen] = useState(false);
   const [finalUrl, setFinalUrl] = useState("");
   const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
+  // Decision Oct 16: Done needs the final videos folder.
+  const noFolder = !finalUrl.trim() && !current?.finalUrl;
   const allNames = [names?.adSetName, ...(names?.ads ?? []).map((a) => a.name)].filter(Boolean).join("\n");
   return (
     <>
@@ -202,7 +204,7 @@ export function LaunchButton({
           {allNames && <div style={{ display: "flex", justifyContent: "flex-end" }}><CopyName text={allNames} label="Copy all" /></div>}
         </div>
         <label className="field">
-          <span className="lbl">Final videos · Drive folder</span>
+          <span className="lbl">Final videos · Drive folder ●</span>
           <input className="inp" type="url" value={finalUrl} onChange={(e) => setFinalUrl(e.target.value)} placeholder="https://drive.google.com/…" maxLength={1000} />
           {current?.finalUrl && <a className="tap" href={current.finalUrl} target="_blank" rel="noopener noreferrer">Open the folder ↗</a>}
         </label>
@@ -212,8 +214,8 @@ export function LaunchButton({
         </div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
-          <button type="button" className="btn b-ghost" disabled={pending || !!current?.liveAt} onClick={() => run(() => launchConcept(card.taskId, finalUrl, true))}>Mark live (fallback)</button>
-          <button type="button" className="btn b-primary" disabled={pending} onClick={() => run(() => launchConcept(card.taskId, finalUrl, false))}>{pending ? "Saving…" : current?.launchedAt ? "Save" : "Done"}</button>
+          <button type="button" className="btn b-ghost" disabled={pending || !!current?.liveAt || noFolder} title={noFolder ? "Paste the final videos folder first" : undefined} onClick={() => run(() => launchConcept(card.taskId, finalUrl, true))}>Mark live (fallback)</button>
+          <button type="button" className="btn b-primary" disabled={pending || noFolder} title={noFolder ? "Paste the final videos folder first" : undefined} onClick={() => run(() => launchConcept(card.taskId, finalUrl, false))}>{pending ? "Saving…" : current?.launchedAt ? "Save" : "Done"}</button>
         </div>
       </Modal>
     </>

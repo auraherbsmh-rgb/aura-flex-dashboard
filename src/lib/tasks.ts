@@ -163,6 +163,75 @@ export async function getTaskExtras(task: TaskRow): Promise<{
   return { history, line: num(m?.business_line_usd), details, pickers };
 }
 
+/**
+ * Everything the task view needs for every task in the board, read at once, so opening a task is instant.
+ * One read for money, lists, details and hooks; "Already tried" per task, in parallel.
+ */
+export async function getBoardExtras(tasks: TaskRow[]): Promise<{
+  line: number | null;
+  pickers: DetailsPickers;
+  details: Map<string, ScriptDetails>;
+  history: Map<string, AngleHistoryRow[]>;
+}> {
+  const supabase = await createClient();
+  type D = { task_id: string; face: string | null; shoot_on: string | null; generate: boolean; main_argument_id: string | null; offer_bottles: number | null; variations: unknown; ad_set_name: string | null; confirmed_at: string | null };
+  type A = { id: string; task_id: string; v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
+  type H = { avatar_code: string; awareness: string; format_label: string; status: string; created_at: string };
+  const [money, lists, dets, ads, hists] = await Promise.all([
+    supabase.from("money_settings").select("business_line_usd, price_1b_tnd, price_2b_tnd, price_3b_tnd").order("month", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("list_items").select("id, list, label").in("list", ["hook_type", "main_argument"]).eq("status", "approved").order("sort"),
+    allRows("script details", (a, b) =>
+      supabase.from("script_details").select("task_id, face, shoot_on, generate, main_argument_id, offer_bottles, variations, ad_set_name, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: D[] | null; error: unknown }>,
+    ),
+    allRows("hooks", (a, b) =>
+      supabase.from("ad_variations").select("id, task_id, v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)").eq("active", true).order("id").range(a, b) as unknown as PromiseLike<{ data: A[] | null; error: unknown }>,
+    ),
+    Promise.all(tasks.map((t) => supabase.rpc("angle_history", { p_angle: t.angleId, p_exclude: t.id }).then((r) => [t.id, (r.data ?? []) as H[]] as const))),
+  ]);
+  if (lists.error) throw new Error("Could not read the lists. Reload the page.");
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x));
+  const m = money.data;
+  const rows = lists.data ?? [];
+  const pickers: DetailsPickers = {
+    hookTypes: rows.filter((r) => r.list === "hook_type").map((r) => ({ id: r.id, label: r.label })),
+    mainArguments: rows.filter((r) => r.list === "main_argument").map((r) => ({ id: r.id, label: r.label })),
+    prices: [num(m?.price_1b_tnd), num(m?.price_2b_tnd), num(m?.price_3b_tnd)],
+  };
+  const adsBy = new Map<string, ScriptDetails["ads"]>();
+  for (const a of ads) {
+    const l = adsBy.get(a.task_id) ?? [];
+    l.push({ v: a.v, hookType: a.hook?.label ?? "—", hookLine: a.hook_line, headline: a.headline, adName: a.ad_name });
+    adsBy.set(a.task_id, l);
+  }
+  type V = { hook_type_id?: string | null; hook_line?: string | null; headline?: string | null };
+  const details = new Map<string, ScriptDetails>();
+  for (const d of dets) {
+    details.set(d.task_id, {
+      face: d.face ?? "",
+      shootOn: d.shoot_on ?? "",
+      generate: d.generate,
+      mainArgumentId: d.main_argument_id ?? "",
+      offer: d.offer_bottles,
+      variations: ((d.variations ?? []) as V[]).map((x) => ({ hookTypeId: x.hook_type_id ?? "", hookLine: x.hook_line ?? "", headline: x.headline ?? "" })),
+      adSetName: d.ad_set_name,
+      confirmedAt: d.confirmed_at,
+      ads: (adsBy.get(d.task_id) ?? []).sort((x, y) => x.v - y.v),
+    });
+  }
+  const history = new Map<string, AngleHistoryRow[]>(
+    hists.map(([id, hs]) => [
+      id,
+      hs.map((h) => ({
+        cell: `${h.avatar_code} × ${h.awareness.replace("-Aware", "")}`,
+        format: h.format_label,
+        status: h.status,
+        month: new Date(h.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "Africa/Tunis" }),
+      })),
+    ]),
+  );
+  return { line: num(m?.business_line_usd), pickers, details, history };
+}
+
 /** Script details of the tasks the viewer may see (face, shoot, confirmed), for the Scripts pipeline. */
 export async function getDetailsLite(): Promise<DetailsLite[]> {
   const supabase = await createClient();
@@ -308,5 +377,27 @@ export async function getLaunchNames(): Promise<Map<string, LaunchNames>> {
     m.set(v.task_id, x);
   }
   for (const x of m.values()) x.ads.sort((a, b) => a.v - b.v);
+  return m;
+}
+
+/** Hooks (V#) of every task the viewer may see, with their ad names (one query), by task. */
+export async function getAllHooks(): Promise<Map<string, { v: number; type: string; line: string; headline: string | null; name: string }[]>> {
+  const supabase = await createClient();
+  type A = { id: string; task_id: string; v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
+  const rows = await allRows("hooks", (a, b) =>
+    supabase
+      .from("ad_variations")
+      .select("id, task_id, v, hook_line, headline, ad_name, hook:list_items!ad_variations_hook_type_id_fkey(label)")
+      .eq("active", true)
+      .order("id")
+      .range(a, b) as unknown as PromiseLike<{ data: A[] | null; error: unknown }>,
+  );
+  const m = new Map<string, { v: number; type: string; line: string; headline: string | null; name: string }[]>();
+  for (const a of rows) {
+    const list = m.get(a.task_id) ?? [];
+    list.push({ v: a.v, type: a.hook?.label ?? "—", line: a.hook_line, headline: a.headline, name: a.ad_name });
+    m.set(a.task_id, list);
+  }
+  for (const l of m.values()) l.sort((x, y) => x.v - y.v);
   return m;
 }

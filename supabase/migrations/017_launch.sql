@@ -5,3 +5,4 @@
 --   first launch time kept; Mark live sets live_at once.
 -- Live test (rolled back): not-approved, http link and editor launching refused; Done → launched; Mark live → live (manual).
 -- v2 (checker round 1): save_script_details refuses once launched (names are in Meta).
+-- v3 (Oct 16): launch_concept needs the final videos folder (decision).

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
-import { Inbox, TaskView } from "@/components/TaskView";
+import { CopyBoard, Inbox, TaskView } from "@/components/TaskView";
 import { buildNeeds } from "@/lib/needs";
 import { NeedsMe } from "@/components/Proposals";
 import { ScriptsPipeline } from "@/components/Pipeline";
@@ -61,6 +61,19 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       <div className="slab">
         <div className="band"><AppHeader viewer={v1} active="copywriting" /><h1 className="h1" style={{ marginTop: 28 }}>Copywriting</h1></div>
         <div className="body">
+          {view === "board" && (
+            <CopyBoard
+              tasks={tasks}
+              writers={[["c1", "Copywriter 1"], ["c2", "Copywriter 2"]]}
+              initialCw={null}
+              initialSelected={null}
+              forFounder
+              viewerId="f1"
+              now={Date.parse("2026-10-15T15:00:00Z")}
+              side={<div className="info">side</div>}
+              data={{ line: 4.18, pickers: dp, details: { t7: det }, history: {}, productions: {}, cards: {}, editors: [] }}
+            />
+          )}
           {view === "pipeline" && (
             <ScriptsPipeline
               forFounder

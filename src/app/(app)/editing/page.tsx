@@ -1,11 +1,11 @@
 import { TabPage, NotBuiltYet } from "@/components/TabPage";
 import { CreateTaskButton } from "@/components/Tasks";
 import { getPickers } from "@/lib/proposals";
-import { EditBoard, EditTask, type EditView } from "@/components/Editing";
+import { EditBoard, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getHookCounts, getHooks, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
+  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import { buildQueue, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
@@ -69,26 +69,29 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   }
   const [ctx, pickers] = founder ? await Promise.all([getCreateTaskContext(), getPickers()]) : [null, null];
 
-  let view: EditView | null = null;
-  if (selectedId) {
-    const t = tasks.find((x) => x.id === selectedId)!;
-    const p = productions.get(selectedId)!;
-    const r = rounds.get(selectedId) ?? [];
-    const c = cards.get(selectedId)!;
-    view = {
-      taskId: selectedId,
+  // Every video in the queue is prepared here, so opening one is instant (no page load).
+  const allHooks = await getAllHooks();
+  const views: Record<string, EditView> = {};
+  for (const q of mine) {
+    const t = tasks.find((x) => x.id === q.taskId);
+    const p = productions.get(q.taskId);
+    const c = cards.get(q.taskId);
+    if (!t || !p || !c) continue;
+    const r = rounds.get(q.taskId) ?? [];
+    views[q.taskId] = {
+      taskId: q.taskId,
       title: c.face,
       cellLine: `${c.cell} · ${c.angle} · ${c.format}`,
       state: editState(p, r)!,
       rounds: r,
       production: p,
       scriptUrl: t.scriptUrl,
-      hooks: await getHooks(selectedId),
+      hooks: allHooks.get(q.taskId) ?? [],
       generate: c.generate,
       payPerVideo: pay.get(p.editorId ?? "")?.perVideo ?? null,
       editorName: p.editorName ?? "Editor",
-      card: pcards.get(selectedId),
-      names: launchNames?.get(selectedId),
+      card: pcards.get(q.taskId),
+      names: launchNames?.get(q.taskId),
     };
   }
 
@@ -115,13 +118,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         forFounder={founder}
         createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
         pipeline={<NotBuiltYet phase="screen 11" what="The Videos pipeline (Shoot → Footage → Editing → Review → Launch, late first) comes after the Launch pop-up." />}
-        task={
-          view ? (
-            <EditTask key={view.taskId} v={view} isFounder={founder} isEditor={isEditor && view.production.editorId === viewer.personId} editors={editors} />
-          ) : (
-            <section className="card sec"><div className="info">{founder ? "Pick a video in the queue." : "Nothing assigned to you yet."}</div></section>
-          )
-        }
+        views={views}
+        isEditorId={isEditor ? viewer.personId : null}
+        editorLoads={editors}
       />
     </TabPage>
   );

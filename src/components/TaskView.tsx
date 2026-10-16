@@ -18,7 +18,7 @@ const STATUS_TAG: Record<string, { word: string; tone: string }> = {
 };
 
 /** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
-export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number }) {
+export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void }) {
   const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now) })).sort((a, b) => a.l.rank - b.l.rank || a.t.dueOn.localeCompare(b.t.dueOn));
   if (!lines.length) return <div className="info">{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</div>;
   return (
@@ -28,7 +28,12 @@ export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: Ta
           key={t.id}
           href={`/copywriting?${query}${query ? "&" : ""}task=${t.id}#task-view`}
           scroll={false}
-          prefetch={true}
+          prefetch={onOpen ? false : true}
+          onClick={(e) => {
+            if (!onOpen || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            onOpen(t.id);
+          }}
           className={`inrow ${t.id === selectedId ? "inrow-on" : ""}`}
           aria-current={t.id === selectedId ? "true" : undefined}
         >
@@ -43,34 +48,28 @@ export function Inbox({ tasks, selectedId, forFounder, query, now }: { tasks: Ta
   );
 }
 
-/**
- * Inbox with the founders' copywriter switch (Copywriter 1 · 2 · All). Switching filters right here in the browser,
- * with no trip to the server, and only rewrites the address so a reload keeps the choice.
- */
+/** Inbox with the founders' copywriter switch (Copywriter 1 · 2 · All). Filters in the browser, no trip to the server. */
 export function BoardInbox({
   tasks,
   writers,
-  initialCw,
+  cw,
+  pick,
   selectedId,
   forFounder,
   now,
   action,
+  onOpen,
 }: {
   tasks: TaskRow[];
   writers: [string, string][];
-  initialCw: string | null;
+  cw: string | null;
+  pick: (id: string | null) => void;
   selectedId: string | null;
   forFounder: boolean;
   now: number;
   action?: React.ReactNode;
+  onOpen?: (id: string) => void;
 }) {
-  const [cw, setCw] = useState<string | null>(initialCw);
-  const pick = (id: string | null) => {
-    setCw(id);
-    const q = new URLSearchParams(window.location.search);
-    if (id) q.set("cw", id); else q.delete("cw");
-    window.history.replaceState(null, "", `/copywriting${q.size ? `?${q}` : ""}`);
-  };
   const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
   return (
     <section className="tray" style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }} aria-labelledby="h-inbox">
@@ -86,8 +85,99 @@ export function BoardInbox({
           <button type="button" className={!cw ? "seg-on" : ""} aria-pressed={!cw} onClick={() => pick(null)}>All</button>
         </div>
       )}
-      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} />
+      <Inbox tasks={shown} selectedId={selectedId} forFounder={forFounder} query={cw ? `cw=${cw}` : ""} now={now} onOpen={onOpen} />
     </section>
+  );
+}
+
+export type BoardData = {
+  line: number | null;
+  pickers: DetailsPickers;
+  details: Record<string, ScriptDetails>;
+  history: Record<string, AngleHistoryRow[]>;
+  productions: Record<string, Production>;
+  cards: Record<string, ProdCard>;
+  editors: EditorLoad[];
+};
+
+/**
+ * Copywriting board: inbox (left) + task view (right). Every task's data is already on the page, so opening a task
+ * or switching copywriter is instant; the address keeps the choice for a reload or a shared link.
+ */
+export function CopyBoard({
+  tasks,
+  writers,
+  initialCw,
+  initialSelected,
+  forFounder,
+  viewerId,
+  now,
+  action,
+  side,
+  data,
+}: {
+  tasks: TaskRow[];
+  writers: [string, string][];
+  initialCw: string | null;
+  initialSelected: string | null;
+  forFounder: boolean;
+  viewerId: string;
+  now: number;
+  action?: React.ReactNode;
+  side: React.ReactNode;
+  data: BoardData;
+}) {
+  const [cw, setCw] = useState<string | null>(initialCw);
+  const [sel, setSel] = useState<string | null>(initialSelected);
+  const setAddress = (patch: Record<string, string | null>) => {
+    const q = new URLSearchParams(window.location.search);
+    for (const [k, v] of Object.entries(patch)) { if (v) q.set(k, v); else q.delete(k); }
+    window.history.replaceState(null, "", `/copywriting${q.size ? `?${q}` : ""}`);
+  };
+  const shown = cw ? tasks.filter((t) => t.copywriterId === cw) : tasks;
+  const urgent = [...shown].sort((a, b) => inboxLine(a, forFounder, now).rank - inboxLine(b, forFounder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
+  const selected = shown.find((t) => t.id === sel) ?? urgent ?? null;
+  const open = (id: string) => {
+    setSel(id);
+    setAddress({ task: id });
+    if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("task-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  return (
+    <div className="board">
+      <aside className="board-side">
+        <BoardInbox
+          tasks={tasks}
+          writers={writers}
+          cw={cw}
+          pick={(id) => { setCw(id); setAddress({ cw: id }); }}
+          selectedId={selected?.id ?? null}
+          forFounder={forFounder}
+          now={now}
+          action={action}
+          onOpen={open}
+        />
+        {side}
+      </aside>
+      <div className="board-main">
+        {selected ? (
+          <TaskView
+            key={selected.id}
+            task={selected}
+            history={data.history[selected.id] ?? []}
+            line={data.line}
+            isFounder={forFounder}
+            isOwner={selected.copywriterId === viewerId}
+            details={data.details[selected.id] ?? null}
+            detailsPickers={data.pickers}
+            production={data.productions[selected.id]}
+            prodCard={data.cards[selected.id]}
+            editors={data.editors}
+          />
+        ) : (
+          <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
+        )}
+      </div>
+    </div>
   );
 }
 

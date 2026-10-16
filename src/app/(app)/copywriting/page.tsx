@@ -1,10 +1,10 @@
 import { TabPage, NotBuiltYet } from "@/components/TabPage";
 import { ProposeButton, ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
-import { BoardInbox, TaskView } from "@/components/TaskView";
+import { CopyBoard } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
-import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getTaskExtras, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
+import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getBoardExtras, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
 import { buildPipeline } from "@/lib/pipeline-shared";
 import { CopyViews } from "@/components/CopyViews";
@@ -46,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const now = requestTime();
   const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
-  const extras = selected ? await getTaskExtras(selected) : null;
+  const extras = await getBoardExtras(allTasks);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   return (
@@ -55,50 +55,38 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} />}
         library={<NotBuiltYet phase="phase 2" what="The Library (every script, searchable, with its results) comes after the production screens." />}
         board={
-      <div className="board">
-        <aside className="board-side">
-          <BoardInbox
+          <CopyBoard
             tasks={allTasks}
             writers={writers}
             initialCw={cw}
-            selectedId={selected?.id ?? null}
+            initialSelected={selected?.id ?? null}
             forFounder={founder}
+            viewerId={viewer.personId}
             now={now}
             action={ctx ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
+            data={{
+              line: extras.line,
+              pickers: extras.pickers,
+              details: Object.fromEntries(extras.details),
+              history: Object.fromEntries(extras.history),
+              productions: Object.fromEntries(productions),
+              cards: Object.fromEntries(cards),
+              editors,
+            }}
+            side={
+              <>
+                <section className="card sec" aria-labelledby="h-prop">
+                  <div className="sh">
+                    <h2 id="h-prop">{founder ? "Proposals" : "My proposals"}</h2>
+                    <span className="lbl">{founder ? "Every proposal and its answer" : "Founder 1’s answers come back here"}</span>
+                  </div>
+                  <div><ProposeButton pickers={pickers} /></div>
+                  <ProposalList proposals={proposals} showAuthor={founder} taskCtx={ctx ? { ctx, pickers } : undefined} />
+                </section>
+                <NotBuiltYet phase="phase 2–3" what="The map and the recap come next; the map fills with results once Meta is connected." />
+              </>
+            }
           />
-
-          <section className="card sec" aria-labelledby="h-prop">
-            <div className="sh">
-              <h2 id="h-prop">{founder ? "Proposals" : "My proposals"}</h2>
-              <span className="lbl">{founder ? "Every proposal and its answer" : "Founder 1’s answers come back here"}</span>
-            </div>
-            <div><ProposeButton pickers={pickers} /></div>
-            <ProposalList proposals={proposals} showAuthor={founder} taskCtx={ctx ? { ctx, pickers } : undefined} />
-          </section>
-
-          <NotBuiltYet phase="phase 2–3" what="The map and the recap come next; the map fills with results once Meta is connected." />
-        </aside>
-
-        <div className="board-main">
-          {selected && extras ? (
-            <TaskView
-              key={selected.id}
-              task={selected}
-              history={extras.history}
-              line={extras.line}
-              isFounder={founder}
-              isOwner={selected.copywriterId === viewer.personId}
-              details={extras.details}
-              detailsPickers={extras.pickers}
-              production={productions.get(selected.id)}
-              prodCard={cards.get(selected.id)}
-              editors={editors}
-            />
-          ) : (
-            <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
-          )}
-        </div>
-      </div>
         }
       />
     </TabPage>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
-import { EditBoard, EditTask, type EditView } from "@/components/Editing";
+import { EditBoard, type EditView } from "@/components/Editing";
 import { buildQueue, editorStats, type EditRound } from "@/lib/editing-shared";
 import type { Production, TaskRow } from "@/lib/tasks-shared";
 
@@ -57,7 +57,9 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             forFounder={founder}
             createTask={founder ? <button type="button" className="add">+ Create task</button> : undefined}
             pipeline={<div className="info">Videos pipeline: screen 11.</div>}
-            task={<EditTask key={sel} v={view} isFounder={founder} isEditor={!founder} editors={[]} />}
+            views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}
+            isEditorId={founder ? null : "eb"}
+            editorLoads={[]}
           />
         </div>
       </div>

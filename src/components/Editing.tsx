@@ -51,7 +51,9 @@ export function EditBoard({
   editors,
   initialEd,
   forFounder,
-  task,
+  views,
+  isEditorId,
+  editorLoads,
   createTask,
   pipeline,
 }: {
@@ -62,12 +64,28 @@ export function EditBoard({
   editors: [string, string][];
   initialEd: string | null;
   forFounder: boolean;
-  task: React.ReactNode;
+  /** Every video of the queue, ready to open instantly. */
+  views: Record<string, EditView>;
+  /** The viewer's person id when she is an editor (her own edits get the editor controls). */
+  isEditorId: string | null;
+  editorLoads: EditorLoad[];
   createTask?: React.ReactNode;
   pipeline?: React.ReactNode;
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
   const [view, setView] = useState<"queue" | "pipeline">("queue");
+  const [sel, setSel] = useState<string | null>(selectedId);
+  const open = (taskId: string) => {
+    setSel(taskId);
+    const q = new URLSearchParams(window.location.search);
+    q.set("task", taskId);
+    window.history.replaceState(null, "", `/editing?${q}`);
+    // On a phone the task sits under the queue: bring it into view.
+    if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("edit-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const shownItems = ed ? items.filter((i) => i.editorId === ed) : items;
+  const current = sel && shownItems.some((i) => i.taskId === sel) ? sel : shownItems[0]?.taskId ?? null;
+  const v = current ? views[current] : undefined;
   const pick = (id: string | null) => {
     setEd(id);
     const q = new URLSearchParams(window.location.search);
@@ -93,12 +111,13 @@ export function EditBoard({
           Private to the editor and the founders. No ad results here: performance depends on the script and the acting, not on the edit.
         </div>
         <div className="ed-layout">
-          <EditQueue items={items} selectedId={selectedId} editors={editors} ed={ed} pick={pick} forFounder={forFounder} />
+          <EditQueue items={items} selectedId={current} editors={editors} ed={ed} pick={pick} forFounder={forFounder} onOpen={open} />
           <div style={{ minWidth: 0 }}>
-            {/* The open task belongs to the queue shown: switching to another editor shows the prompt instead. */}
-            {ed && items.find((i) => i.taskId === selectedId)?.editorId !== ed
-              ? <section className="card sec"><div className="info">Pick a video in the queue.</div></section>
-              : task}
+            {v ? (
+              <EditTask key={v.taskId} v={v} isFounder={forFounder} isEditor={!!isEditorId && v.production.editorId === isEditorId} editors={editorLoads} />
+            ) : (
+              <section className="card sec"><div className="info">{forFounder ? "Pick a video in the queue." : "Nothing assigned to you yet."}</div></section>
+            )}
           </div>
         </div>
       </div>
@@ -114,6 +133,7 @@ export function EditQueue({
   ed,
   pick,
   forFounder,
+  onOpen,
 }: {
   items: QueueItem[];
   selectedId: string | null;
@@ -121,6 +141,8 @@ export function EditQueue({
   ed: string | null;
   pick: (id: string | null) => void;
   forFounder: boolean;
+  /** Opens a video right here (no page load); the link still works in a new tab. */
+  onOpen: (taskId: string) => void;
 }) {
   const shown = ed ? items.filter((i) => i.editorId === ed) : items;
   return (
@@ -141,7 +163,12 @@ export function EditQueue({
           key={q.taskId}
           href={`/editing?${ed ? `ed=${ed}&` : ""}task=${q.taskId}#edit-view`}
           scroll={false}
-          prefetch={true}
+          prefetch={false}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            onOpen(q.taskId);
+          }}
           className={`qi ${q.taskId === selectedId ? "qi-on" : ""} ${q.dim ? "qi-dim" : ""}`}
           aria-current={q.taskId === selectedId ? "true" : undefined}
         >
