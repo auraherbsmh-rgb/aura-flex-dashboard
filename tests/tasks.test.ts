@@ -213,6 +213,13 @@ test("Production order: founders' order kept, new scripts land at their suggeste
   assert.equal(why.head, "Replaces Boulbeba, a winner that is fading.");
   assert.equal(why.facts.find((x) => x.k === "CPA, last 7 days")?.tone, "red");
   assert.equal(why.facts.find((x) => x.k === "Fading since")?.v, "6 days");
+  // Two new scripts and a duplicate rank: still one place each, new ones at their suggested place.
+  const g = finalOrder([{ id: "a", sug: 3, rank: 1 }, { id: "b", sug: 4, rank: 1 }, { id: "n1", sug: 1, rank: null }, { id: "n2", sug: 2, rank: null }]);
+  assert.deepEqual([...g.entries()].sort((x, y) => x[1] - y[1]).map((x) => x[0]), ["n1", "n2", "a", "b"]);
+  const { movedCount } = await import("../src/lib/tasks-shared");
+  const P = (sug: number) => ({ pos: 0, sug, grp: 3 as const, manual: true, dueOn: "2026-10-20", why: { winner: null, cell: { alive: 0, bestCpa: null, spendDay: null, tested: 0, won: 0, lost: 0 } } });
+  assert.equal(movedCount(["x", "y", "z"], { x: P(2), y: P(1), z: P(3) }), 2);
+  assert.equal(movedCount(["y", "x", "z"], { x: P(2), y: P(1), z: P(3) }), 0);
 });
 
 import { buildVideoPipeline } from "../src/lib/editing-shared";

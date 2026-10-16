@@ -54,16 +54,17 @@ language sql stable security definer set search_path = public as $$
     select x.*, w.state as w_state, w.cpa7 as w_cpa, w.line as w_line, w.spend7 / 7 as w_spend, w.sales7::numeric / 7 as w_sales, w.state_since as w_since,
       (select d.face from public.script_details d where d.task_id = x.win_id) as w_face,
       case when x.origin = 'successor' then 1 when x.alive > 0 then 2 when x.origin = 'testimonial' then 4 else 3 end as g
-    from x left join public.concept_results w on w.task_id = x.win_id
+    from x left join public.concept_results w on w.task_id = x.win_id and w.state in ('fading', 'deteriorating')
   )
   select y.id,
     (row_number() over (order by least(y.g, 3),
        case when y.g = 1 then -coalesce(y.w_spend, 0) when y.g = 2 then coalesce(y.best_cpa, 999) else 0 end,
        y.due_on, y.created_at, y.id))::int,
     y.g, y.order_rank, y.due_on,
-    case when fz.f then y.win_id end, case when fz.f then y.w_face end, case when fz.f then y.w_state end, case when fz.f then y.w_cpa end, case when fz.f then y.w_line end,
+    case when fz.f and y.w_state is not null then y.win_id end, case when fz.f then y.w_face end, case when fz.f then y.w_state end, case when fz.f then y.w_cpa end, case when fz.f then y.w_line end,
     case when fz.f then y.w_spend end, case when fz.f then y.w_sales end, case when fz.f then y.w_since end,
-    y.alive, case when fz.f then y.best_cpa end, case when fz.f then y.cell_spend end, y.tested, y.won, y.lost
+    y.alive, case when fz.f then y.best_cpa end, case when fz.f then y.cell_spend end,
+    case when fz.f then y.tested else 0 end, case when fz.f then y.won else 0 end, case when fz.f then y.lost else 0 end
   from y cross join (select private.is_founder() as f) fz
   where auth.uid() is not null;
 $$;

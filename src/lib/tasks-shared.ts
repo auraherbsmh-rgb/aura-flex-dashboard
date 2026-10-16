@@ -277,7 +277,7 @@ export function orderWhy(p: Prio, now: number): { head: string; facts: { k: stri
   const due = { k: "Due", v: new Date(`${p.dueOn}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) };
   const c = p.why.cell, w = p.why.winner;
   if (p.grp === 1) {
-    if (!w) return { head: "Successor for a fading winner.", facts: [due], note: "The winner's numbers show once Meta is connected and the successor was created from its alert." };
+    if (!w) return { head: "Successor, not linked to a fading winner right now.", facts: [due], note: "No winner numbers: it was created before the link existed, the winner recovered or stopped, or Meta isn't connected yet." };
     const days = w.since ? Math.max(0, Math.floor((now - Date.parse(w.since)) / 864e5)) : null;
     return {
       head: `Replaces ${w.face ?? "a winner"}, a winner that is ${w.state ?? "fading"}.`,
@@ -310,6 +310,13 @@ export function orderWhy(p: Prio, now: number): { head: string; facts: { k: stri
     facts: [due],
     note: "No current revenue depends on it: it comes after successors and winning cells, earliest due date first.",
   };
+}
+
+/** How many scripts sit somewhere else than their suggested place (the yellow line). */
+export function movedCount(order: string[], prio: Record<string, Prio>): number {
+  const sug = [...order].sort((a, b) => prio[a].sug - prio[b].sug);
+  const at = new Map(sug.map((id, i) => [id, i]));
+  return order.filter((id, i) => at.get(id) !== i).length;
 }
 
 export const prioLabel = (p: Prio | undefined) => (!p ? "" : `#${p.pos} · ${GROUP_WORD[p.grp]}`);

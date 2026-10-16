@@ -7,7 +7,7 @@ import { EditBoard, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getAllTestimonials, getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getPriority, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
+  getAllTestimonials, getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getOrderVersion, getPriority, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import type { ProdCard, Production } from "@/lib/tasks-shared";
 import type { TestimonialVideo } from "@/components/TestimonialsList";
@@ -36,6 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     founder ? Promise.all([getCreateTaskContext(), getPickers(), getAllTestimonials()]) : Promise.resolve(null),
     getAllHooks(),
     getPriority(),
+    founder ? getOrderVersion() : Promise.resolve(0),
   ]);
   const [tasks, details, productions, rounds, hookCounts, pay, notStartedDays, roundAlert, footageLateDays, reviewHours, launchLateDays] = await Promise.all([
     getTasks(),
@@ -51,7 +52,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("launch_waiting_days", 2),
   ]);
   mark("data 2");
-  const [editors, [launchNames, founderBits, allHooks, prio]] = await Promise.all([founder ? getEditors(productions, tasks) : Promise.resolve([]), early]);
+  const [editors, [launchNames, founderBits, allHooks, prio, orderVersion]] = await Promise.all([founder ? getEditors(productions, tasks) : Promise.resolve([]), early]);
   mark("data 3");
   const pcards = prodCards(tasks, details, hookCounts);
   const cards = new Map<string, EditCard>(
@@ -172,6 +173,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}
         prio={prio}
+        orderVersion={orderVersion}
         now={now}
       />
     </TabPage>

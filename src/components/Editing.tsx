@@ -65,8 +65,10 @@ export function EditBoard({
   pipeCurrent,
   testimonials,
   prio,
+  orderVersion = 0,
   now = 0,
 }: {
+  orderVersion?: number;
   /** Production order (founders' panel above the Videos pipeline). */
   prio?: Record<string, Prio>;
   now?: number;
@@ -131,7 +133,7 @@ export function EditBoard({
         </div>
       )}
       {view === "pipeline" && pipelineRows && prio && forFounder && (
-        <ProductionOrder items={pipelineRows.map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }))} prio={prio} now={now} />
+        <ProductionOrder items={pipelineRows.map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }))} prio={prio} version={orderVersion} now={now} />
       )}
       {view === "pipeline" && pipelineRows && (
         <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onTestimonials={testimonials ? () => setView("testimonials") : undefined} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />

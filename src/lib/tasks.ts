@@ -490,6 +490,13 @@ export async function getPriority(): Promise<Record<string, Prio>> {
   } satisfies Prio]));
 }
 
+/** Version of the founders' production order (refuses a save from a page loaded before the other founder's save). */
+export async function getOrderVersion(): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("production_order_version").select("v").eq("id", 1).maybeSingle();
+  return Number(data?.v ?? 0);
+}
+
 export async function getMapData(): Promise<{ concepts: MapConcept[]; start: string | null; results: Record<string, ConceptResult>; bands: Bands | null; prio: Record<string, Prio> }> {
   const supabase = await createClient();
   type R = {
