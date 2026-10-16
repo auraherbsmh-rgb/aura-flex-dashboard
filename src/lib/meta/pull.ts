@@ -152,9 +152,15 @@ export async function runMetaPull(): Promise<{ ok: boolean; message: string }> {
     if (budgets.length) await db.from("meta_budgets").upsert(budgets, { onConflict: "entity_id,day" });
 
     // 4. Results for the map, Library, copywriter inbox and Home (one row per dashboard concept).
-    const concepts = await refreshResults(db);
+    let resultsNote: string;
+    try {
+      const concepts = await refreshResults(db);
+      resultsNote = `${concepts} concept result${concepts === 1 ? "" : "s"}`;
+    } catch (e) {
+      resultsNote = `results not updated: ${e instanceof Error ? e.message : "error"}`;
+    }
 
-    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}); ${concepts} concept result${concepts === 1 ? "" : "s"}.`, ads.length, rows.length);
+    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}); ${resultsNote}.`, ads.length, rows.length);
   } catch (e) {
     return finish(false, e instanceof Error ? e.message.replace(token, "…") : "The pull failed.");
   }

@@ -286,4 +286,6 @@ export type ConceptResult = {
   cpa7: number | null; line: number; sales7: number; spend7: number; bestV: number | null; live: boolean;
   variations: { v: number | null; state: string; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean }[];
   seenState: string | null; winnerNotedAt: string | null;
+  /** First time it won (set once; WINNER items count from it). */
+  wonAt: string | null;
 };

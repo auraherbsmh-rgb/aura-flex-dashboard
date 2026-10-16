@@ -64,7 +64,7 @@ export default async function Page() {
   const results = map.results;
   const faceOf = new Map(map.concepts.filter((c) => c.face).map((c) => [c.taskId, c.face as string]));
   const hooksOf = new Map(map.concepts.map((c) => [c.taskId, c.variations.map((v) => ({ v: v.v, type: v.type, line: v.line }))]));
-  const avatarIdOf = new Map(pickers.avatars.map((a) => [a.code ?? a.label, a.id]));
+  const avatarIdOf = new Map(pickers.avatars.map((a) => [a.code ?? "?", a.id])); // same key as TaskRow.avatarCode
   const winners = winnersToNote(tasks, results, faceOf, hooksOf);
   // The fading winner's ad set name is the successor's reference ad.
   const adSetOf = new Map(map.concepts.filter((c) => c.variations.length).map((c) => [c.taskId, c.variations[0].name.replace(/_V\d+$/i, "")]));

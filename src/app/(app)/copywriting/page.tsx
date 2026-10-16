@@ -48,10 +48,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
 
   // Selected task: the one clicked, else the most urgent line.
   const now = requestTime();
-  const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
-  const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   // Board extras for every task (testimonials too: the Library lists them), the map, and edit versions (Library looms / days).
   const [extras, mapData, editRounds] = await Promise.all([getBoardExtras(everyTask), getMapData(), getEditRounds()]);
+  // With results, so a new RESULT (top of her inbox) is the default line, as in the browser.
+  const line = (t: (typeof tasks)[number]) => inboxLine(t, founder, now, mapData.results[t.id]).rank;
+  const urgent = [...tasks].sort((a, b) => line(a) - line(b) || a.dueOn.localeCompare(b.dueOn))[0];
+  const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now, mapData.results);
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 

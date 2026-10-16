@@ -42,7 +42,6 @@ export function WinnerModal({ w, current, who, onClose, onDone }: {
       <div className="unit">Saved on the angle {w.angle}: every new task in this angle starts with it in KEEP.{current ? " It replaces the current one." : ""}</div>
       <div className="acts">
         {error && <span className="formmsg err" role="alert">{error}</span>}
-        {!ok && <span className="formmsg err">Write the core message (one sentence).</span>}
         <button type="button" className="btn b-ghost" onClick={onClose}>Cancel</button>
         <button type="button" className="btn b-primary" disabled={pending || !ok} onClick={save}>{pending ? "Saving…" : "Save core message"}</button>
       </div>

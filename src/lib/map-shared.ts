@@ -39,8 +39,6 @@ export type MapConcept = {
 export type ConceptState = "won" | "deteriorating" | "fading" | "recovering" | "test" | "production" | "writing" | "lost";
 /** Best first (handoff §7 cell order: Winning > Deteriorating > Fading > Recovering > Testing > … > Lost > Empty). */
 export const STATE_ORDER: ConceptState[] = ["won", "deteriorating", "fading", "recovering", "test", "production", "writing", "lost"];
-/** States that are a Meta result: a cell holding one takes its colour even when mixed (founder decision Oct 16). */
-export const RESULT_STATES = new Set<ConceptState>(["won", "deteriorating", "fading", "recovering", "lost"]);
 export const STATE_WORD: Record<ConceptState, string> = {
   won: "WON", deteriorating: "DETERIORATING", fading: "FADING", recovering: "RECOVERING", test: "TESTING", production: "IN PRODUCTION", writing: "WRITING", lost: "LOST",
 };
@@ -94,9 +92,11 @@ export function buildMap(concepts: MapConcept[], avatars: { id: string; code: st
       const counts = zeroCounts();
       for (const c of list) counts[conceptState(c)]++;
       const present = STATE_ORDER.filter((st) => counts[st] > 0);
-      const state = (present.length ? present[0] : "empty") as MapCell["state"];
-      const several = present.length > 1;
-      const mixed = several && !present.some((st) => RESULT_STATES.has(st));
+      // Once a concept here has a Meta result, the box takes the best Meta state (testing included); before that the
+      // best state, and a mix of pre-Meta states stays neutral (founder decision Oct 16).
+      const metaStates = STATE_ORDER.filter((st) => list.some((c) => c.resultState && conceptState(c) === st));
+      const state = (metaStates[0] ?? present[0] ?? "empty") as MapCell["state"];
+      const mixed = present.length > 1 && metaStates.length === 0;
       const parts = present.map((st) => `${counts[st]} ${STATE_PLAIN[st]}`);
       return {
         avatarId: a.id, avatarCode: a.code ?? a.label, awareness: lvl, state, mixed,

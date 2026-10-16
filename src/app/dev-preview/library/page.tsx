@@ -18,7 +18,7 @@ export default function Preview() {
   const rows = [
     R("1", "Mervet"),
     R("2", "Yassine", { cell: "CGS × Problem", avatarCode: "CGS", angle: "Father-Suffer", angleId: "fs", state: "won", launchedAt: "2026-10-18T10:00:00Z", days: [3, 1, 1, 5, 2, 1], done: true,
-      result: { taskId: "2", state: "won", stateSince: "2026-10-20T05:00:00Z", everWon: true, cpa7: 3.12, line: 4.18, sales7: 22, spend7: 68.6, bestV: 2, live: true, seenState: null, winnerNotedAt: null,
+      result: { taskId: "2", state: "won", stateSince: "2026-10-20T05:00:00Z", everWon: true, cpa7: 3.12, line: 4.18, sales7: 22, spend7: 68.6, bestV: 2, live: true, seenState: null, winnerNotedAt: null, wonAt: null,
         variations: [1, 2, 3].map((v) => ({ v, state: v === 2 ? "won" : "testing", cpa7: v === 2 ? 3.12 : v === 1 ? 5.4 : null, sales7: v === 2 ? 22 : v === 1 ? 3 : 0, spend7: v === 2 ? 68.6 : 16.2, line: 4.18, hookRate: 0.31, hold: 0.42, ctr: 0.0124, live: true })) } }),
     R("3", "Samia", { format: "Testimonial", formatKey: "Testimonial", copywriter: "Support call", testimonial: true, days: [0, 0, 0, 0, 2, 0], state: "hold" }),
   ];

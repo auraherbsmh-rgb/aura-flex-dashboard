@@ -14,6 +14,8 @@ export type TaskPrefill = {
   proposalId: string | null;
   /** Reference ad, e.g. the fading winner a successor follows. */
   reference?: string;
+  /** From an ALERT item: the task is saved as a successor. */
+  successor?: boolean;
   avatarId: string;
   awareness: string;
   angleId: string | null;
@@ -92,6 +94,7 @@ export function CreateTaskButton({
       >
         <form key={openedAt ?? 0} onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {prefill?.proposalId && <input type="hidden" name="proposal_id" value={prefill.proposalId} />}
+          {prefill?.successor && <input type="hidden" name="successor" value="1" />}
           <div className="row2">
             <label className="field">
               <span className="lbl">Avatar</span>

@@ -13,7 +13,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
   const unmapped = { base: "vsl_brd_most-aware_old-test", example: "VSL_BRD_Most-Aware_Old-Test_V4", adIds: ["9"], live: true, spend7: 30, sales7: 6, formatGuess: "VSL", campaignTrack: "knee" };
   const L = (id: string, label: string, code?: string) => ({ id, code: code ?? label, label });
   const tagPickers = { avatars: ["FSB", "FSS", "MSB", "MSP", "CGD", "CGS"].map((c) => L(c, c)), angles: [L("kb", "Knee-Broad")], formats: [L("ugc", "UGC"), L("vsl", "VSL"), L("img", "Image", "IMG")] };
-  const wres = { taskId: "w1", state: "won" as const, stateSince: "2026-10-15T05:00:00Z", everWon: true, cpa7: 3.12, line: 4.18, sales7: 22, spend7: 68.6, bestV: 2, live: true, seenState: null, winnerNotedAt: null,
+  const wres = { taskId: "w1", state: "won" as const, stateSince: "2026-10-15T05:00:00Z", everWon: true, cpa7: 3.12, line: 4.18, sales7: 22, spend7: 68.6, bestV: 2, live: true, seenState: null, winnerNotedAt: null, wonAt: null,
     variations: [{ v: 2, state: "won", cpa7: 3.12, sales7: 22, spend7: 68.6, line: 4.18, hookRate: 0.29, hold: 0.41, ctr: 0.013, live: true }] };
   const winner = { taskId: "w1", face: "Mervet", cell: "FSB × Problem", angle: "Knee-Prayer", angleId: "g1", since: "2026-10-15T05:00:00Z", result: wres, hook: { v: 2, type: "Storytelling", line: "I couldn't kneel to pray anymore" } };
   const alert = { taskId: "a1", avatarCode: "MSB", awareness: "Solution-Aware", angleId: "g2", angle: "Knee-Broad", state: "fading" as const, since: "2026-10-13T05:00:00Z", face: "Hedi", avatarId: "MSB", reference: "UGC_MSB_Solution-Aware_Knee-Broad_Hedi" };

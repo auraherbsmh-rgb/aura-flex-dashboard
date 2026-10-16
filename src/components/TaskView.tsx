@@ -152,17 +152,19 @@ export function CopyBoard({
   const rawCw = params.get("cw");
   const urlCw = rawCw && writers.some(([id]) => id === rawCw) ? rawCw : null;
   const [sel, setSel] = useState<string | null>(urlTask ?? initialSelected);
+  // A task the copywriter chose (a click, or a link with ?task=): only then does opening it mark a RESULT as seen.
+  const [chosen, setChosen] = useState<string | null>(urlTask);
   const [cw, setCw] = useState<string | null>(urlCw);
   const [seen, setSeen] = useState({ task: urlTask, cw: urlCw });
   // A Pipeline row for the task already in the address: no address change, so the Pipeline says it directly.
   useEffect(() => {
-    const on = (e: Event) => { setCell(null); setSel((e as CustomEvent<string>).detail); };
+    const on = (e: Event) => { const id = (e as CustomEvent<string>).detail; setCell(null); setSel(id); setChosen(id); };
     window.addEventListener("aura:open-task", on);
     return () => window.removeEventListener("aura:open-task", on);
   }, []);
   if (seen.task !== urlTask || seen.cw !== urlCw) {
     setSeen({ task: urlTask, cw: urlCw });
-    if (urlTask && urlTask !== seen.task) { setSel(urlTask); setCell(null); }
+    if (urlTask && urlTask !== seen.task) { setSel(urlTask); setChosen(urlTask); setCell(null); }
     if (urlCw !== seen.cw) setCw(urlCw);
   }
   const setAddress = (patch: Record<string, string | null>) => {
@@ -180,6 +182,7 @@ export function CopyBoard({
   const open = (id: string) => {
     setCell(null);
     setSel(id);
+    setChosen(id);
     setAddress({ task: id });
     if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("task-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
@@ -222,7 +225,7 @@ export function CopyBoard({
             prodCard={data.cards[selected.id]}
             editors={data.editors}
             result={results[selected.id] ?? null}
-            onSeen={markSeen}
+            onSeen={chosen === selected.id ? markSeen : undefined}
           />
         ) : (
           <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
@@ -266,7 +269,7 @@ export function TaskView({
   const [pending, setPending] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
   // Opening a new verdict marks the RESULT item as seen (her own concept only).
-  const unseen = !!result && isOwner && result.state !== "testing" && result.state !== result.seenState;
+  const unseen = !!onSeen && !!result && isOwner && result.state !== "testing" && result.state !== result.seenState;
   const resultState = result?.state ?? null;
   useEffect(() => {
     if (!unseen || !resultState) return;

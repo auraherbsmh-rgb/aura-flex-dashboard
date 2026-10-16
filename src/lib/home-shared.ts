@@ -189,7 +189,7 @@ export type WinnerToNote = {
 export function winnersToNote(tasks: TaskRow[], results: Record<string, ConceptResult>, faces: Map<string, string>, hooks: Map<string, { v: number; type: string | null; line: string }[]> = new Map()): WinnerToNote[] {
   return tasks.filter((t) => results[t.id]?.everWon && !results[t.id].winnerNotedAt).map((t) => ({
     taskId: t.id, face: faces.get(t.id) ?? t.angle, cell: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`, angle: t.angle, angleId: t.angleId,
-    since: results[t.id].stateSince, result: results[t.id],
+    since: results[t.id].wonAt ?? results[t.id].stateSince, result: results[t.id],
     hook: (hooks.get(t.id) ?? []).find((h) => h.v === results[t.id].bestV) ?? null,
   }));
 }

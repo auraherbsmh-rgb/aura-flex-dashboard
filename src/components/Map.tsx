@@ -97,7 +97,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
         <span className="part s-test">TEST</span><span className="part s-prod">IN PROD</span><span className="part s-writing">WRITING</span><span className="part s-lost">LOST</span><span className="part s-empty">EMPTY</span>
       </div>
       <div className="unit">
-        Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. The box takes the best state in the cell, ×N = how many concepts are in it; the dots show every state. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written. Won, fading, lost… come from the daily Meta pull.
+        Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. The box takes the best Meta result in the cell (before Meta: the best state; a mix stays white), ×N = how many concepts are in that state; the dots show every state. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written. Won, fading, lost… come from the daily Meta pull.
         {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to {createCtx ? "create a task" : "propose a test"}.
       </div>
     </section>

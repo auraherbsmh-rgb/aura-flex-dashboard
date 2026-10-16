@@ -68,7 +68,7 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
   }));
   const facts = changeFacts(lite, { avatarId, awareness, angleId: angle }, (formats.data ?? []).filter((f) => f.code !== "IMG"));
 
-  const { error } = await supabase.rpc("create_task", {
+  const { data: newId, error } = await supabase.rpc("create_task", {
     p_copywriter: copywriterId,
     p_avatar: avatarId,
     p_awareness: awareness,
@@ -83,6 +83,8 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
     p_proposal: proposalId,
   });
   if (error) return fail(error.code === "23505" ? "This proposal already has a task. Reload the page." : plain(error));
+  // Created from an ALERT item: saved as the fading winner's successor.
+  if (form.get("successor") === "1" && newId) await supabase.rpc("mark_successor", { p_task: newId as string });
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");
 }

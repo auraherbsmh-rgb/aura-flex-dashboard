@@ -444,13 +444,13 @@ export async function getAllTestimonials(): Promise<TestimonialRow[]> {
 /** Meta results the viewer may read (RLS: founders all, a copywriter her own concepts). */
 export async function getResults(): Promise<Record<string, ConceptResult>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("concept_results").select("task_id, state, state_since, ever_won, cpa7, line, sales7, spend7, best_v, live, variations, seen_state, winner_noted_at");
+  const { data } = await supabase.from("concept_results").select("task_id, state, state_since, ever_won, cpa7, line, sales7, spend7, best_v, live, variations, seen_state, winner_noted_at, won_at");
   const out: Record<string, ConceptResult> = {};
   for (const r of data ?? []) {
     out[r.task_id as string] = {
       taskId: r.task_id as string, state: r.state as ConceptResult["state"], stateSince: r.state_since as string, everWon: !!r.ever_won,
       cpa7: r.cpa7 === null ? null : Number(r.cpa7), line: Number(r.line), sales7: r.sales7 as number, spend7: Number(r.spend7), bestV: r.best_v as number | null,
-      live: !!r.live, variations: (r.variations ?? []) as ConceptResult["variations"], seenState: r.seen_state as string | null, winnerNotedAt: r.winner_noted_at as string | null,
+      live: !!r.live, variations: (r.variations ?? []) as ConceptResult["variations"], seenState: r.seen_state as string | null, winnerNotedAt: r.winner_noted_at as string | null, wonAt: r.won_at as string | null,
     };
   }
   return out;

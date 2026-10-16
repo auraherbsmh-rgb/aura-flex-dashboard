@@ -177,10 +177,15 @@ test("Meta 5: concept results, map cells with results, RESULT inbox, winners and
   assert.equal(neutral.mixed, true);
   assert.equal(neutral.word, "2 CONCEPTS");
   assert.equal(cell([C("1", { resultState: "testing", launchedAt: "x" })]).word, "TEST");
+  // Once a Meta result exists, the box is the best Meta state: Meta testing + writing → yellow TEST; in prod + lost → LOST.
+  const mt = cell([C("1", { resultState: "testing", launchedAt: "x" }), C("2", { status: "writing" })]);
+  assert.equal(mt.state, "test");
+  assert.equal(mt.mixed, false);
+  assert.equal(cell([C("1", {}), C("2", { resultState: "lost", launchedAt: "x" })]).state, "lost");
 
   // Inbox: a new verdict is a RESULT item on top for the copywriter until seen; founders see the state only.
   const t = { id: "t1", status: "details_done", dueOn: "2026-10-10", createdAt: "2026-10-01T10:00:00Z", copywriter: "C1", copywriterId: "c1", avatarCode: "FSB", awareness: "Problem-Aware", angleId: "g", angle: "Knee-Prayer", angleCode: "Knee-Prayer", format: "UGC", formatCode: "UGC", keep: null, note: null, reference: null, scriptUrl: null, origin: "manual", changeFacts: null, rounds: [] };
-  const res = { taskId: "t1", state: "won" as const, stateSince: "2026-10-15T05:00:00Z", everWon: true, cpa7: 3.33, line: 4.18, sales7: 21, spend7: 70, bestV: 1, live: true, variations: [], seenState: null, winnerNotedAt: null };
+  const res = { taskId: "t1", state: "won" as const, stateSince: "2026-10-15T05:00:00Z", everWon: true, cpa7: 3.33, line: 4.18, sales7: 21, spend7: 70, bestV: 1, live: true, variations: [], seenState: null, winnerNotedAt: null, wonAt: null };
   assert.equal(inboxLine(t, false, NOW, res).tag, "RESULT · WON");
   assert.equal(inboxLine(t, false, NOW, res).rank, 0);
   assert.equal(inboxLine(t, false, NOW, { ...res, seenState: "won" }).tag, "WON");

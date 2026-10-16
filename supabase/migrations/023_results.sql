@@ -53,3 +53,15 @@ revoke execute on function public.see_result(uuid) from public, anon;
 revoke execute on function public.save_winner(uuid, text) from public, anon;
 revoke execute on function public.map_concepts2() from public, anon;
 grant execute on function public.see_result(uuid), public.save_winner(uuid, text), public.map_concepts2() to authenticated;
+
+-- meta_results_v2: won_at (set once, WINNER items count from it) + successor marking.
+alter table public.concept_results add column won_at timestamptz;
+create or replace function public.mark_successor(p_task uuid) returns text
+language plpgsql security definer set search_path to '' as $function$
+begin
+  if not private.is_founder() then raise exception 'Only founders create successors.'; end if;
+  update public.tasks set origin = 'successor' where id = p_task and origin = 'manual';
+  return 'marked';
+end $function$;
+revoke execute on function public.mark_successor(uuid) from public, anon;
+grant execute on function public.mark_successor(uuid) to authenticated;
