@@ -28,7 +28,9 @@ export async function getEngineData(now: number) {
   const sum = (role: string, unit: string) => (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === role && p.pay_unit === unit).reduce((n, p) => n + Number(p.pay_amount_tnd ?? 0), 0);
   const missingCw = (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "copywriter" && p.pay_amount_tnd === null).length;
   const perVideo = (pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "editor" && p.pay_unit === "per_video" && p.pay_amount_tnd !== null).map((p) => Number(p.pay_amount_tnd));
-  const cwPer = Object.fromEntries((pay.data ?? []).filter((p) => roleOf.get(p.person_id as string) === "copywriter" && p.pay_unit === "per_script" && p.pay_amount_tnd !== null).map((p) => [p.person_id as string, Number(p.pay_amount_tnd)]));
+  // Per-script rates for every copywriter, active or not (approvals in the period by someone since deactivated still cost).
+  const roleAll = new Map((people.data ?? []).map((p) => [p.id as string, p.role as string]));
+  const cwPer = Object.fromEntries((pay.data ?? []).filter((p) => roleAll.get(p.person_id as string) === "copywriter" && p.pay_unit === "per_script" && p.pay_amount_tnd !== null).map((p) => [p.person_id as string, Number(p.pay_amount_tnd)]));
   const cost: CostParts = {
     copywriters: sum("copywriter", "per_month"), copywriterPerScript: cwPer,
     agency: sum("agency", "per_month"), strategist: sum("strategist", "per_month"),
