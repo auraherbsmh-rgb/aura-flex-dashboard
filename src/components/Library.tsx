@@ -35,6 +35,7 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
 }) {
   const [f, setF] = useState<LibFilter>(NO_FILTER);
   const [sel, setSel] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const shown = filterLibrary(rows, f);
   const rec = rows.find((r) => r.taskId === sel) ?? null;
   const argLabel = (id: string) => mainArguments.find((a) => a.id === id)?.label ?? "—";
@@ -53,11 +54,14 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
         {count("hold") > 0 && <span className="pill raise"><b>{count("hold")}</b>on hold</span>}
         <span className="pill raise" style={{ color: "#8c8c86" }}>won / lost · with Meta</span>
       </div>
-      <div className="tray lib-filters">
+      <div className={`tray lib-filters ${showFilters ? "lib-open" : ""}`}>
         <label className="lib-f lib-q">
           <span className="lbl">Search hook lines, headlines, faces</span>
           <input className="inp" type="search" value={f.q} onChange={set("q")} placeholder="e.g. mosque, stairs, Sami" />
         </label>
+        <button type="button" className="btn b-ghost lib-toggle" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}>
+          Filters{Object.entries(f).filter(([k, v]) => k !== "q" && v).length ? ` · ${Object.entries(f).filter(([k, v]) => k !== "q" && v).length}` : ""}
+        </button>
         <Sel value={f.avatar} onChange={(v) => setF({ ...f, avatar: v })} label="Avatar" opts={avatars.map((a) => ({ id: a, label: a }))} />
         <Sel value={f.awareness} onChange={(v) => setF({ ...f, awareness: v })} label="Awareness" opts={AWARENESS.map((a) => ({ id: a, label: a.replace("-Aware", "") }))} />
         <Sel value={f.angle} onChange={(v) => setF({ ...f, angle: v })} label="Angle" opts={angles} />
@@ -67,26 +71,26 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
         <Sel value={f.state} onChange={(v) => setF({ ...f, state: v })} label="State" opts={(["production", "hold", "testing"] as const).map((s) => ({ id: s, label: LIB_STATE[s].word.toLowerCase().replace(/^./, (c) => c.toUpperCase()) }))} />
         {active && <button type="button" className="btn b-ghost" style={{ alignSelf: "flex-end" }} onClick={() => setF(NO_FILTER)}>Clear</button>}
       </div>
-      <div className="tray pipe lib-table" role="table" aria-label="Scripts">
-        <div className="lib-row lib-head" role="row">
-          <span className="lbl" role="columnheader">Script · newest first</span>
-          <span className="lbl" role="columnheader">Format</span>
-          <span className="lbl" role="columnheader">Main argument</span>
-          <span className="lbl" role="columnheader">Copywriter</span>
-          <span className="lbl" role="columnheader">Approved → live</span>
-          <span className="lbl" role="columnheader">State</span>
-          <span className="lbl" role="columnheader" style={{ textAlign: "right" }}>Best CPA / line</span>
+      <div className="tray pipe lib-table" aria-label="Scripts">
+        <div className="lib-row lib-head" aria-hidden="true">
+          <span className="lbl">Script · newest first</span>
+          <span className="lbl">Format</span>
+          <span className="lbl">Main argument</span>
+          <span className="lbl">Copywriter</span>
+          <span className="lbl">Approved → live</span>
+          <span className="lbl">State</span>
+          <span className="lbl" style={{ textAlign: "right" }}>Best CPA / line</span>
         </div>
         {shown.length === 0 && <div className="info">{rows.length ? "No script matches these filters." : "No script has reached production yet."}</div>}
         {shown.map((r) => (
-          <button type="button" key={r.taskId} className="row lib-row" role="row" onClick={() => setSel(r.taskId)} aria-label={`${r.name}, ${r.cell}, ${r.angle}: open its record`}>
-            <span role="cell" style={{ minWidth: 0 }}><b className="pipe-name">{r.name}</b><span className="pipe-meta" style={{ display: "block" }}>{r.cell} · {r.angle}</span></span>
-            <span role="cell" className="lib-c">{r.format}</span>
-            <span role="cell" className="lib-c">{argLabel(r.mainArgumentId)}</span>
-            <span role="cell" className="lib-c">{r.copywriter}</span>
-            <span role="cell" className="lib-c mono">{fmt(r.approvedAt)} → {r.launchedAt ? fmt(r.launchedAt) : "—"}</span>
-            <span role="cell"><span className={`tag ${LIB_STATE[r.state].tone}`}><i aria-hidden="true" />{LIB_STATE[r.state].word}</span></span>
-            <span role="cell" className="lib-c mono" style={{ textAlign: "right", color: "#8c8c86" }}>—</span>
+          <button type="button" key={r.taskId} className="row lib-row" onClick={() => setSel(r.taskId)}>
+            <span style={{ minWidth: 0 }}><b className="pipe-name">{r.name}</b><span className="pipe-meta" style={{ display: "block" }}>{r.cell} · {r.angle}</span></span>
+            <span className="lib-c">{r.format}</span>
+            <span className="lib-c">{argLabel(r.mainArgumentId)}</span>
+            <span className="lib-c">{r.copywriter}</span>
+            <span className="lib-c mono">{fmt(r.approvedAt)} → {r.launchedAt ? fmt(r.launchedAt) : "—"}</span>
+            <span><span className={`tag ${LIB_STATE[r.state].tone}`}><i aria-hidden="true" />{LIB_STATE[r.state].word}</span></span>
+            <span className="lib-c mono" style={{ textAlign: "right", color: "#8c8c86" }}>—</span>
           </button>
         ))}
       </div>
@@ -108,6 +112,7 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
                 <span className="lbl">Days per step · {Math.round(total * 10) / 10} d {rec.done ? "to launch" : "so far"}</span>
                 <div className="recess lib-steps" role="img" aria-label={STEP_NAMES.map((s, i) => `${s} ${rec.days[i]} days`).join(", ")}>
                   {rec.days.map((x, i) => x > 0 ? <span key={i} style={{ flex: x, background: STEP_COLORS[i] }} title={`${STEP_NAMES[i]} ${x} d`}>{x >= 1 ? `${x} d` : ""}</span> : null)}
+                  {total === 0 && <span style={{ flex: 1, background: "transparent", color: "#8c8c86" }}>less than a few hours so far</span>}
                 </div>
                 <div className="lib-legend">{STEP_NAMES.map((s, i) => <span key={s}><i style={{ background: STEP_COLORS[i] }} />{s} <b>{rec.days[i]}</b></span>)}</div>
               </div>
@@ -116,7 +121,7 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
                 {rec.hooks.map((h) => (
                   <div className="lib-hook" key={h.v}>
                     <span className="mono" style={{ fontWeight: 600 }}>V{h.v}</span>
-                    <span className="tag t-grey" style={{ justifySelf: "start" }}>{h.type || "Testimonial"}</span>
+                    <span className="tag t-grey" style={{ justifySelf: "start" }}>{rec.testimonial && (!h.type || h.type === "—") ? "Testimonial" : h.type || "—"}</span>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 14 }}>“{h.line}”{h.headline ? <span className="unit"> · on screen: {h.headline}</span> : null}</span>
                       <span className="copy" style={{ marginTop: 4 }}><span>{h.name}</span><CopyName text={h.name} /></span>

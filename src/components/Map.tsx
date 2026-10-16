@@ -65,7 +65,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
                       // A fresh pop-up every click (also after a proposal was sent for this cell).
                       if (c.state === "empty" && pickers) { setPropose(null); requestAnimationFrame(() => setPropose(k)); }
                     }}>
-                    <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : (
+                    <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{createCtx ? "+ Create a task" : c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : (
                       // Each count with its own colour dot, so a cell holding several states shows them all.
                       <>
                         {c.counts.test > 0 && <span className="cl"><i className="d-test" aria-hidden="true" />{c.counts.test} testing</span>}
