@@ -55,7 +55,7 @@ export function TestimonialsList({
         <span className="pill raise"><b>{thisMonth.length}</b>call{thisMonth.length === 1 ? "" : "s"} this month</span>
         <span className="pill raise"><b>{count("used")}</b>used</span>
         <span className={`pill ${count("not_usable") ? "pill-r" : "raise"}`}><b>{count("not_usable")}</b>not usable</span>
-        <span className="pill raise"><b>{count("new")}</b>waiting</span>
+        <span className="pill raise"><b>{rows.filter((r) => r.status === "new").length}</b>waiting (all months)</span>
       </div>
       {msg && <div className="notice notice-green" role="status">{msg}</div>}
       {assign && <AssignButton key={assign.card.taskId} startOpen card={assign.card} editors={editors} current={assign.current} who="Founder 2 · Assign" onClose={() => setAssign(null)} onDone={setMsg} />}
@@ -77,7 +77,7 @@ export function TestimonialsList({
                 {v && <div className="pipe-meta">Video: <b>{v.name}</b> · {v.where}</div>}
               </div>
               <div className="testi-acts">
-                <a className="btn b-ghost" href={r.url} target="_blank" rel="noopener noreferrer">Listen ↗</a>
+                <a className="btn b-ghost" href={r.url} target="_blank" rel="noopener noreferrer" aria-label={`Listen to the support call of ${fmtWhen(r.addedAt)} (opens a new tab)`}>Listen ↗</a>
                 {r.status === "new" && (
                   <TestimonialButton item={{ id: r.id, url: r.url, note: r.note, addedAt: r.addedAt }} pickers={pickers} editors={editors} label="Tag" className="btn b-primary" onDone={setMsg} onCreated={(card, current) => setAssign({ card, current })} />
                 )}
