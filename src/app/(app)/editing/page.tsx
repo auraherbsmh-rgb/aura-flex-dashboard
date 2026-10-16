@@ -1,3 +1,4 @@
+import { perf } from "@/lib/perf";
 import { TabPage } from "@/components/TabPage";
 import { CreateTaskButton } from "@/components/Tasks";
 import { TestimonialButton } from "@/components/Testimonial";
@@ -22,11 +23,19 @@ function greeting(now: number, name: string) {
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
+  const mark = perf("editing");
   const viewer = await requireTab("editing");
+  mark("auth");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
   const isEditor = viewer.role === "editor";
   const sp = await searchParams;
   const now = requestTime();
+  // Started now, awaited below: none of them waits for the tasks.
+  const early = Promise.all([
+    founder ? getLaunchNames() : Promise.resolve(undefined),
+    founder ? Promise.all([getCreateTaskContext(), getPickers(), getAllTestimonials()]) : Promise.resolve(null),
+    getAllHooks(),
+  ]);
   const [tasks, details, productions, rounds, hookCounts, pay, notStartedDays, roundAlert, footageLateDays, reviewHours, launchLateDays] = await Promise.all([
     getTasks(),
     getDetailsLite(),
@@ -40,7 +49,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("review_waiting_hours", 48),
     getRule("launch_waiting_days", 2),
   ]);
-  const [editors, launchNames] = founder ? await Promise.all([getEditors(productions, tasks), getLaunchNames()]) : [[], undefined];
+  mark("data 2");
+  const [editors, [launchNames, founderBits, allHooks]] = await Promise.all([founder ? getEditors(productions, tasks) : Promise.resolve([]), early]);
+  mark("data 3");
   const pcards = prodCards(tasks, details, hookCounts);
   const cards = new Map<string, EditCard>(
     [...pcards.values()].map((c) => [c.taskId, { face: c.face, cell: c.cell, angle: c.angle, format: c.format, generate: c.generate, vo: c.vo }]),
@@ -73,10 +84,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       aiBy[e.id] = e.doesAi;
     }
   }
-  const [ctx, pickers, testimonialRows] = founder ? await Promise.all([getCreateTaskContext(), getPickers(), getAllTestimonials()]) : [null, null, []];
+  const [ctx, pickers, testimonialRows] = founderBits ?? [null, null, []];
 
   // Every video in the queue is prepared here, so opening one is instant (no page load).
-  const allHooks = await getAllHooks();
   const views: Record<string, EditView> = {};
   for (const q of mine) {
     const t = tasks.find((x) => x.id === q.taskId);
@@ -130,6 +140,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
 
   const queueCount = mine.filter((q) => !q.dim && !q.hold).length;
   const needNow = mine.filter((q) => !q.hold).filter((q) => q.state === "changes" || q.state === "ready" || (q.alert && q.alertTone === "red" && q.state !== "submitted")).length;
+  mark("computed");
   return (
     <TabPage
       tab="editing"

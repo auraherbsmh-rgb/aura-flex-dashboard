@@ -1,3 +1,4 @@
+import { perf } from "@/lib/perf";
 import { TabPage } from "@/components/TabPage";
 import { ProposeButton, ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
@@ -19,9 +20,13 @@ export const metadata = { title: "Copywriting · Aura Flex" };
 type Search = { task?: string; cw?: string };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
+  const mark = perf("copywriting");
   const viewer = await requireTab("copywriting");
+  mark("auth");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
   const sp = await searchParams;
+  // Started now, awaited below: none of them waits for the tasks.
+  const early = Promise.all([getMapData(), getEditRounds()]);
   const [pickers, proposals, everyTask, ctx, detailsLite, reviewHours, detailsDays, productions, hooks] = await Promise.all([
     getPickers(),
     getProposals(),
@@ -33,9 +38,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getProductions(),
     getHookCounts(),
   ]);
+  mark("data 3");
   // Testimonial edit tasks have no script: they live in Editing only.
   const allTasks = everyTask.filter((t) => t.origin !== "testimonial");
-  const editors = founder ? await getEditors(productions, everyTask) : [];
   const cards = prodCards(allTasks, detailsLite, hooks);
 
   // Founders switch between copywriters (Copywriter 1 · 2 · All); a copywriter only ever has her own tasks.
@@ -51,7 +56,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   // Selected task: the one clicked, else the most urgent line.
   const now = requestTime();
   // Board extras for every task (testimonials too: the Library lists them), the map, and edit versions (Library looms / days).
-  const [extras, mapData, editRounds] = await Promise.all([getBoardExtras(everyTask), getMapData(), getEditRounds()]);
+  const [extras, [mapData, editRounds], editors] = await Promise.all([getBoardExtras(everyTask), early, founder ? getEditors(productions, everyTask) : Promise.resolve([])]);
+  mark("data 4");
   // With results, so a new RESULT (top of her inbox) is the default line, as in the browser.
   const line = (t: (typeof tasks)[number]) => inboxLine(t, founder, now, mapData.results[t.id]).rank;
   const urgent = [...tasks].sort((a, b) => line(a) - line(b) || a.dueOn.localeCompare(b.dueOn))[0];
@@ -70,6 +76,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     ? Object.fromEntries(writers.map(([id, name]) => [id, scoreFor(id, name)]))
     : viewer.role === "copywriter" ? { [viewer.personId]: scoreFor(viewer.personId, viewer.name) } : {};
 
+  mark("computed");
   return (
     <TabPage tab="copywriting" title="Copywriting">
       <CopyViews

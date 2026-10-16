@@ -1,3 +1,4 @@
+import { perf } from "@/lib/perf";
 import { TabPage } from "@/components/TabPage";
 import { BusinessTabs } from "@/components/BusinessTabs";
 import { Money } from "@/components/Money";
@@ -11,13 +12,17 @@ export const metadata = { title: "Business · Aura Flex" };
 
 /** Business (founders): Money | Creative engine (handoff §10). */
 export default async function Page() {
+  const mark = perf("business");
   await requireTab("business");
+  mark("auth");
   const now = requestTime();
   const [money, engine] = await Promise.all([getMoneyData(now), getEngineData(now)]);
+  mark("data 2");
   const st = money.status;
   const shipperMissing = st.ready ? null : !st.mapped
     ? "The Shipper API link is set up before launch, from Shipper's API documentation."
     : `Add in Vercel: ${[!st.key && "SHIPPER_API_KEY", !st.url && "SHIPPER_API_URL", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ")}.`;
+  mark("computed");
   return (
     <TabPage tab="business" title="Business">
       <BusinessTabs

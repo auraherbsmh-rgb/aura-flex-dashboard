@@ -1,3 +1,4 @@
+import { perf } from "@/lib/perf";
 import { TabPage } from "@/components/TabPage";
 import { MapTabs, type LiveView } from "@/components/MapTabs";
 import { requireTab } from "@/lib/viewer";
@@ -10,14 +11,18 @@ export const metadata = { title: "Map & performance · Aura Flex" };
 
 /** Map & performance (founders): Map | Live ads. Live ads reads the daily Meta pull (phase 3). */
 export default async function Page() {
+  const mark = perf("map");
   await requireTab("map");
+  mark("auth");
   const now = requestTime();
   const supabase = await createClient();
+  mark("data 2");
   const mapP = getMapData();
   const [pickers, map, ctx, liveData, formats] = await Promise.all([
     getPickers(), mapP, getCreateTaskContext(), getLiveData(now, mapP),
     supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
   ]);
+  mark("data 3");
   const st = liveData.status;
   const live: LiveView = st.ready && liveData.model && liveData.hasData
     ? {
@@ -31,6 +36,7 @@ export default async function Page() {
         noMoney: liveData.noMoney,
         lastError: liveData.lastPull && !liveData.lastPull.ok ? liveData.lastPull.message : null,
       };
+  mark("computed");
   return (
     <TabPage tab="map" title="Map & performance">
       <MapTabs map={{ ...map, avatars: pickers.avatars }} pickers={pickers} tagPickers={{ ...pickers, formats: (formats.data ?? []) as { id: string; code: string | null; label: string }[] }} createCtx={ctx} live={live} />

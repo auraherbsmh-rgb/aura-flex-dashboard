@@ -1,3 +1,4 @@
+import { perf } from "@/lib/perf";
 import { TabPage } from "@/components/TabPage";
 import { NeedsMe } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
@@ -30,7 +31,9 @@ function tunisClock(now: number) {
 }
 
 export default async function Page() {
+  const mark = perf("home");
   const viewer = await requireTab("home");
+  mark("auth");
   const [proposals, hours, reviewHours, footageLateDays, assignLateDays, launchLateDays, roundAlert, videoTarget, pickers, ctx, tasks, details, productions, hooks, editRounds, launchNames, testimonials] = await Promise.all([
     getProposals(),
     getRule("proposal_unanswered_hours", 48),
@@ -50,8 +53,10 @@ export default async function Page() {
     getLaunchNames(),
     getTestimonials(),
   ]);
+  mark("data 2");
   const now = requestTime();
   const supabase = await createClient();
+  mark("data 3");
   // Live ads (daily Meta pull): KILL and UNMAPPED items. Empty until Meta is connected.
   const mapP = getMapData();
   const [editors, live, formats, map] = await Promise.all([
@@ -60,6 +65,7 @@ export default async function Page() {
     supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
     mapP,
   ]);
+  mark("data 4");
   // Meta results (concept_results): WINNER and ALERT items and Founder 1's two Meta numbers.
   const results = map.results;
   const faceOf = new Map(map.concepts.filter((c) => c.face).map((c) => [c.taskId, c.face as string]));
@@ -94,6 +100,7 @@ export default async function Page() {
   const videoRows = buildVideoPipeline(tasks, productions, editRounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert });
   const clock = tunisClock(now);
 
+  mark("computed");
   return (
     <TabPage
       tab="home"
