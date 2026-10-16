@@ -9,7 +9,7 @@ import { AssignButton, FootageButton, HoldButton } from "./Production";
 import { reviewScript, submitScript } from "@/app/tasks/actions";
 import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
 import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
@@ -118,6 +118,7 @@ export function CopyBoard({
   data,
   map,
   proposePickers,
+  createCtx,
 }: {
   tasks: TaskRow[];
   writers: [string, string][];
@@ -131,6 +132,8 @@ export function CopyBoard({
   /** The map under the inbox (artboard order Inbox → Map); a cell opens the cell view on the right. */
   map?: MapData;
   proposePickers?: Pickers;
+  /** Founders: empty cells open Create task instead of Propose. */
+  createCtx?: CreateTaskContext | null;
 }) {
   const [track, setTrack] = useState<"knee" | "hips">("knee");
   const [cell, setCell] = useState<CellKey | null>(null);
@@ -182,7 +185,7 @@ export function CopyBoard({
           action={action}
           onOpen={open}
         />
-        {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} pickers={proposePickers} onPick={(k) => {
+        {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} pickers={proposePickers} createCtx={createCtx} onPick={(k) => {
           setCell(k);
           if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("cell-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
         }} />}
@@ -190,7 +193,7 @@ export function CopyBoard({
       </aside>
       <div className="board-main">
         {cell && map ? (
-          <CellView key={`${cell.avatarId}-${cell.awareness}-${track}`} data={map} cell={cell} track={track} pickers={proposePickers}
+          <CellView key={`${cell.avatarId}-${cell.awareness}-${track}`} data={map} cell={cell} track={track} pickers={proposePickers} createCtx={createCtx}
             onBack={selected ? () => setCell(null) : undefined} backLabel={selected?.copywriterId === viewerId ? "← Back to my task" : "← Back to the task"} />
         ) : selected ? (
           <TaskView

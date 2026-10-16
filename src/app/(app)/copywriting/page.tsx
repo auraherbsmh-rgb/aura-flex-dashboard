@@ -80,6 +80,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
             action={ctx ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
             map={{ ...mapData, avatars: pickers.avatars }}
             proposePickers={pickers}
+            createCtx={ctx}
             data={{
               line: extras.line,
               pickers: extras.pickers,

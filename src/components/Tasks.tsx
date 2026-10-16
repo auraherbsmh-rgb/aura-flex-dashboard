@@ -27,18 +27,26 @@ export function CreateTaskButton({
   prefill,
   label = "+ Create task",
   className = "add",
+  cell,
+  autoOpen = false,
+  onClose,
 }: {
   ctx: CreateTaskContext;
   pickers: Pickers;
   prefill?: TaskPrefill;
+  /** From a map cell (founders): avatar and awareness pre-picked, no proposal behind it. */
+  cell?: { avatarId: string; awareness: string };
+  /** Opened by a click on the map: no trigger button, the pop-up shows at once. */
+  autoOpen?: boolean;
+  onClose?: () => void;
   label?: string;
   className?: string;
 }) {
-  const [openedAt, setOpenedAt] = useState<number | null>(null);
+  const [openedAt, setOpenedAt] = useState<number | null>(autoOpen ? 0 : null);
   const [state, action, pending] = useActionState(createTask, empty);
   const start = () => ({
-    avatar: prefill?.avatarId ?? "",
-    awareness: prefill?.awareness ?? "",
+    avatar: prefill?.avatarId ?? cell?.avatarId ?? "",
+    awareness: prefill?.awareness ?? cell?.awareness ?? "",
     angle: prefill?.angleId ?? "",
     format: prefill?.formatId ?? "",
     writer: suggestCopywriter(ctx.copywriters) ?? "",
@@ -50,6 +58,7 @@ export function CreateTaskButton({
   const setOpen = (v: boolean) => {
     setOpenedAt(v ? Date.now() : null);
     if (v) setF(start());
+    else onClose?.();
   };
   const shownError = state.error && (state.at ?? 0) > (openedAt ?? 0) ? state.error : "";
 
@@ -70,8 +79,8 @@ export function CreateTaskButton({
 
   return (
     <>
-      <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>
-      {state.ok && !open && <span className="formmsg ok" role="status" style={{ marginLeft: 12 }}>{state.ok}</span>}
+      {!autoOpen && <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>}
+      {state.ok && !open && <span className="formmsg ok" role="status" style={{ marginLeft: autoOpen ? 0 : 12 }}>{state.ok}</span>}
       <Modal
         open={open}
         onClose={() => setOpen(false)}

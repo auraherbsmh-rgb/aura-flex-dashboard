@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ProposeButton } from "./Proposals";
+import { CreateTaskButton } from "./Tasks";
+import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { LEVEL_SHORT, STATE_WORD, buildMap, conceptState, groupByAngle, mapConcepts, mix, type MapCell, type MapConcept } from "@/lib/map-shared";
 import type { Pickers } from "@/lib/proposals-shared";
 
@@ -11,7 +13,7 @@ export type CellKey = { avatarId: string; awareness: string };
 const CELL_CLASS: Record<MapCell["state"], string> = { test: "s-test", production: "s-prod", writing: "s-writing", empty: "s-empty" };
 
 /** Knee | Hips switch + the avatar × awareness grid (Copywriting artboard "Map"). Click a cell → its cell view. */
-export function MapGrid({ data, track, setTrack, selected, onPick, big = false, pickers }: {
+export function MapGrid({ data, track, setTrack, selected, onPick, big = false, pickers, createCtx }: {
   data: MapData;
   track: "knee" | "hips";
   setTrack: (t: "knee" | "hips") => void;
@@ -20,6 +22,8 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
   big?: boolean;
   /** With pickers, a click on an empty cell opens the Propose pop-up for that cell at once. */
   pickers?: Pickers;
+  /** Founders: an empty cell opens Create task (a founder needs no approval) instead of Propose. */
+  createCtx?: CreateTaskContext | null;
 }) {
   const [propose, setPropose] = useState<CellKey | null>(null);
   const rows = buildMap(mapConcepts(data.concepts, track, data.start), data.avatars);
@@ -34,8 +38,9 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
           ))}
         </div>
       </div>
-      {propose && pickers && (
-        <ProposeButton key={`${propose.avatarId}-${propose.awareness}`} pickers={pickers} autoOpen prefill={propose} onClose={() => setPropose(null)} />
+      {propose && pickers && (createCtx
+        ? <CreateTaskButton key={`${propose.avatarId}-${propose.awareness}`} ctx={createCtx} pickers={pickers} autoOpen cell={propose} onClose={() => setPropose(null)} />
+        : <ProposeButton key={`${propose.avatarId}-${propose.awareness}`} pickers={pickers} autoOpen prefill={propose} onClose={() => setPropose(null)} />
       )}
       <div className="map-grid" role="table" aria-label={`Map · ${track}`}>
         <div className="map-row" role="row">
@@ -54,7 +59,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
               return (
                 <span role="cell" key={c.awareness} style={{ display: "flex" }}>
                   <button type="button" className={`cell ${c.mixed ? "s-mixed" : CELL_CLASS[c.state]} ${on ? "cell-on" : ""}`} aria-pressed={on}
-                    aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? "empty, click to propose a test" : c.line}`} onClick={() => {
+                    aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? `empty, click to ${createCtx ? "create a task" : "propose a test"}` : c.line}`} onClick={() => {
                       const k = { avatarId: c.avatarId, awareness: c.awareness };
                       onPick(k);
                       // A fresh pop-up every click (also after a proposal was sent for this cell).
@@ -82,7 +87,7 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
       </div>
       <div className="unit">
         Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written.
-        {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to propose a test. Won, fading and lost come with the Meta results.
+        {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to {createCtx ? "create a task" : "propose a test"}. Won, fading and lost come with the Meta results.
       </div>
     </section>
   );
@@ -102,13 +107,14 @@ function StateChips({ counts }: { counts: Record<"test" | "production" | "writin
 const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-writing" };
 
 /** Cell view (handoff §7): grouped by angle → concepts → ad variations. Results (CPA, script parts) come with Meta. */
-export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
+export function CellView({ data, cell, track, pickers, onBack, backLabel, createCtx }: {
   data: MapData;
   cell: CellKey;
   track: "knee" | "hips";
   pickers?: Pickers;
   onBack?: () => void;
   backLabel?: string;
+  createCtx?: CreateTaskContext | null;
 }) {
   const avatar = data.avatars.find((a) => a.id === cell.avatarId);
   const concepts = mapConcepts(data.concepts, track, data.start).filter((c) => c.avatarId === cell.avatarId && c.awareness === cell.awareness);
@@ -135,7 +141,9 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
       {concepts.length === 0 && (
         <div className="info" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
           <span>Nothing tested here yet.</span>
-          {pickers && <ProposeButton pickers={pickers} className="btn b-primary" prefill={{ avatarId: cell.avatarId, awareness: cell.awareness }} />}
+          {pickers && (createCtx
+            ? <CreateTaskButton ctx={createCtx} pickers={pickers} label="+ Create task in this cell" className="btn b-primary" cell={{ avatarId: cell.avatarId, awareness: cell.awareness }} />
+            : <ProposeButton pickers={pickers} className="btn b-primary" prefill={{ avatarId: cell.avatarId, awareness: cell.awareness }} />)}
         </div>
       )}
 
@@ -203,24 +211,26 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
         );
       })}
       {concepts.length > 0 && pickers && (
-        <div><ProposeButton pickers={pickers} label="+ Propose a new angle in this cell" className="btn b-ghost" prefill={{ avatarId: cell.avatarId, awareness: cell.awareness }} /></div>
+        <div>{createCtx
+          ? <CreateTaskButton ctx={createCtx} pickers={pickers} label="+ Create task in this cell" className="btn b-ghost" cell={{ avatarId: cell.avatarId, awareness: cell.awareness }} />
+          : <ProposeButton pickers={pickers} label="+ Propose a new angle in this cell" className="btn b-ghost" prefill={{ avatarId: cell.avatarId, awareness: cell.awareness }} />}</div>
       )}
     </section>
   );
 }
 
 /** Map & performance tab: the map with its cell view beside it. */
-export function MapPage({ data, pickers }: { data: MapData; pickers?: Pickers }) {
+export function MapPage({ data, pickers, createCtx }: { data: MapData; pickers?: Pickers; createCtx?: CreateTaskContext | null }) {
   const [track, setTrack] = useState<"knee" | "hips">("knee");
   const [cell, setCell] = useState<CellKey | null>(null);
   return (
     <div className="map-page">
-      <MapGrid data={data} track={track} setTrack={setTrack} selected={cell} pickers={pickers} onPick={(k) => {
+      <MapGrid data={data} track={track} setTrack={setTrack} selected={cell} pickers={pickers} createCtx={createCtx} onPick={(k) => {
         setCell(k);
         if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("cell-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
       }} big />
       <div style={{ minWidth: 0 }}>
-        {cell ? <CellView key={`${cell.avatarId}-${cell.awareness}-${track}`} data={data} cell={cell} track={track} pickers={pickers} /> : (
+        {cell ? <CellView key={`${cell.avatarId}-${cell.awareness}-${track}`} data={data} cell={cell} track={track} pickers={pickers} createCtx={createCtx} /> : (
           <section className="card sec"><div className="info">Click a cell to see its angles, concepts and ad variations.</div></section>
         )}
       </div>
