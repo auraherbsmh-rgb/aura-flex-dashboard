@@ -28,7 +28,7 @@ function tunisClock(now: number) {
 
 export default async function Page() {
   const viewer = await requireTab("home");
-  const [proposals, hours, reviewHours, footageLateDays, assignLateDays, launchLateDays, roundAlert, pickers, ctx, tasks, details, productions, hooks, editRounds, launchNames, testimonials] = await Promise.all([
+  const [proposals, hours, reviewHours, footageLateDays, assignLateDays, launchLateDays, roundAlert, videoTarget, pickers, ctx, tasks, details, productions, hooks, editRounds, launchNames, testimonials] = await Promise.all([
     getProposals(),
     getRule("proposal_unanswered_hours", 48),
     getRule("review_waiting_hours", 48),
@@ -36,6 +36,7 @@ export default async function Page() {
     getRule("edit_not_started_days", 2),
     getRule("launch_waiting_days", 2),
     getRule("revision_round_alert", 3),
+    getRule("videos_weekly_target", 0),
     getPickers(),
     getCreateTaskContext(),
     getTasks(),
@@ -61,7 +62,8 @@ export default async function Page() {
   const waits = items.filter((i) => i.type !== "OVERDUE");
   const oldest = waits.length ? waits.reduce((a, b) => (b.hours > a.hours ? b : a)).age : null;
 
-  // The three numbers. Weekly target = the copywriters' weekly targets (Settings → People); videos follow scripts.
+  // The three numbers. Scripts target = the copywriters' weekly targets (Settings → People);
+  // videos target = Settings → Alerts → "Videos to deliver per week" (founder decision Oct 16).
   const target = ctx.copywriters.reduce((n, c) => n + (c.target ?? 0), 0) || null;
   const scriptTasks = tasks.filter((t) => t.origin !== "testimonial");
   const faces = new Map(details.map((d) => [d.taskId, d.face ?? ""]).filter(([, f]) => f) as [string, string][]);
@@ -77,7 +79,7 @@ export default async function Page() {
       <FounderNumbers
         initial={viewer.role === "founder_2" ? "f2" : "f1"}
         f1={{ scripts: pace(scriptsApprovedThisWeek(scriptTasks, now), target, now) }}
-        f2={{ videos: pace(videosApprovedThisWeek(editRounds, now), target, now), speed: speedSplit(tasks, productions, editRounds, now), waiting: waitingToLaunch(tasks, productions, editRounds, faces, hooks, now) }}
+        f2={{ videos: pace(videosApprovedThisWeek(editRounds, now), videoTarget || null, now), speed: speedSplit(tasks, productions, editRounds, now), waiting: waitingToLaunch(tasks, productions, editRounds, faces, hooks, now) }}
         blocked1={buildBlocked(scriptTasks, videoRows, now, true)}
         blocked2={buildBlocked(scriptTasks, videoRows, now, false)}
       >

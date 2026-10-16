@@ -111,18 +111,19 @@ const ago = (fromMs: number, now: number) => {
 /**
  * Blocked (read-only): what waits on someone else.
  *  Scripts (Founder 1's side): changes asked and not sent back yet · approved, details not confirmed.
- *  Videos (both): waiting on the agency (shoot / footage) or an editor (not started, editing, changes), and on hold.
+ *  Videos (both): waiting on the agency for a shoot, or an editor (not started, editing, changes), and on hold.
+ *  Footage after the shoot day is a FOOTAGE item in Needs me (Founder 1 sees it as COVERING after 48h), so it is not here.
  */
 export function buildBlocked(tasks: TaskRow[], videoRows: VideoRow[], now: number, withScripts: boolean): BlockedItem[] {
   const out: BlockedItem[] = [];
+  const today = new Date(now + 36e5).toISOString().slice(0, 10);
   if (withScripts) {
     for (const t of tasks) {
       const last = t.rounds[t.rounds.length - 1];
       const cell = `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`;
-      const today = new Date(now + 36e5).toISOString().slice(0, 10);
       if (t.status === "changes" && last?.decidedAt && t.dueOn >= today) { // past due = OVERDUE in Needs me
         const since = Date.parse(last.decidedAt);
-        out.push({ key: `s-${t.id}`, what: `${cell} · ${t.angle} · revision`, who: t.copywriter, since, text: ago(since, now), late: t.dueOn < new Date(now + 36e5).toISOString().slice(0, 10) });
+        out.push({ key: `s-${t.id}`, what: `${cell} · ${t.angle} · revision`, who: t.copywriter, since, text: ago(since, now), late: false });
       } else if (t.status === "approved" && last?.decidedAt) {
         const since = Date.parse(last.decidedAt);
         out.push({ key: `s-${t.id}`, what: `${cell} · ${t.angle} · script approved, details not confirmed`, who: t.copywriter, since, text: ago(since, now), late: now - since >= 864e5 });
@@ -138,7 +139,7 @@ export function buildBlocked(tasks: TaskRow[], videoRows: VideoRow[], now: numbe
     // Waiting on Founder 2 (Needs me), or footage after the shoot day (a FOOTAGE item): not Blocked.
     if (r.waitingOn === "You" || r.waitingWhat === "footage") continue;
     const who = r.waitingOn === "Agency" ? "the agency" : r.waitingName;
-    const ahead = r.waitingWhat.startsWith("shoot");
+    const ahead = r.waitingWhat.startsWith("shoot ") && r.waitingWhat !== "shoot date not set";
     out.push({ key: `v-${r.taskId}`, what: `${r.name} · ${r.meta} · ${r.waitingWhat}`, who, since: ahead ? now : r.sinceMs, text: ahead ? r.nowLabel : ago(r.sinceMs, now), late: r.late });
   }
   // Late first, then the longest waiting.
