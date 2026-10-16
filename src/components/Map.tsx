@@ -59,14 +59,14 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false }
         <span className="part s-meta">WIN · FADING · LOST → WITH META</span>
       </div>
       <div className="unit">
-        Counts are concepts{data.start ? ` launched from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written.
+        Counts are concepts{data.start ? ` created from ${new Date(`${data.start}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} (Settings)` : ""}. Test = launched, no verdict yet · In prod = script done, in production · Writing = a task is being written.
         {" "}{empty} empty cell{empty === 1 ? "" : "s"}: click one to propose a test. Won, fading and lost come with the Meta results.
       </div>
     </section>
   );
 }
 
-const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-blue" };
+const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-grey" };
 
 /** Cell view (handoff §7): grouped by angle → concepts → ad variations. Results (CPA, script parts) come with Meta. */
 export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
