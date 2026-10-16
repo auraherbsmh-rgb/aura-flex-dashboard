@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite, type TestimonialRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -416,4 +416,24 @@ export async function getTestimonials(): Promise<TestimonialLite[]> {
   const { data, error } = await supabase.from("testimonials").select("id, recording_url, note, added_at").eq("status", "new").order("added_at").limit(200);
   if (error) throw new Error("Could not read the testimonials. Reload the page.");
   return (data ?? []).map((r) => ({ id: r.id, url: r.recording_url, note: r.note, addedAt: r.added_at }));
+}
+
+/** Every testimonial (waiting, used, not usable), newest first, for the Editing → Testimonials list. Founders only. */
+export async function getAllTestimonials(): Promise<TestimonialRow[]> {
+  const supabase = await createClient();
+  type R = {
+    id: string; recording_url: string; note: string | null; status: TestimonialRow["status"]; reason: string | null; task_id: string | null;
+    added_at: string; decided_at: string | null; decider: { display_name: string } | null;
+  };
+  const rows = await allRows("testimonials", (a, b) =>
+    supabase
+      .from("testimonials")
+      .select("id, recording_url, note, status, reason, task_id, added_at, decided_at, decider:people!testimonials_decided_by_fkey(display_name)")
+      .order("added_at", { ascending: false })
+      .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
+  );
+  return rows.map((r) => ({
+    id: r.id, url: r.recording_url, note: r.note, status: r.status, reason: r.reason, taskId: r.task_id, addedAt: r.added_at,
+    decidedAt: r.decided_at, decidedBy: r.decider?.display_name ?? null,
+  }));
 }

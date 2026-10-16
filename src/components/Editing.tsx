@@ -8,7 +8,9 @@ import { AssignButton, HoldButton, LaunchButton } from "./Production";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
 import { VideosPipeline } from "./VideosPipeline";
-import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
+import { TestimonialsList, type TestimonialVideo } from "./TestimonialsList";
+import type { Pickers } from "@/lib/proposals-shared";
+import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
 
 /** The three private tiles (Editing artboard) + the 3D tile for the AI / 3D editor. */
 export function EditorTiles({ s, showAi }: { s: EditorStats; showAi: boolean }) {
@@ -59,6 +61,7 @@ export function EditBoard({
   pipelineRows,
   pipeCards,
   pipeCurrent,
+  testimonials,
 }: {
   statsBy: Record<string, EditorStats>;
   aiBy: Record<string, boolean>;
@@ -77,9 +80,11 @@ export function EditBoard({
   pipelineRows?: VideoRow[];
   pipeCards?: Record<string, ProdCard>;
   pipeCurrent?: Record<string, Production>;
+  /** Editing → Testimonials (founders). */
+  testimonials?: { rows: TestimonialRow[]; videos: Record<string, TestimonialVideo>; pickers: Pickers };
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
-  const [view, setView] = useState<"queue" | "pipeline">("queue");
+  const [view, setView] = useState<"queue" | "pipeline" | "testimonials">("queue");
   const [sel, setSel] = useState<string | null>(selectedId);
   const open = (taskId: string) => {
     setSel(taskId);
@@ -106,12 +111,16 @@ export function EditBoard({
           <div className="recess wseg" role="group" aria-label="View">
             <button type="button" className={view === "queue" ? "seg-on" : ""} aria-pressed={view === "queue"} onClick={() => setView("queue")}>Queue</button>
             <button type="button" className={view === "pipeline" ? "seg-on" : ""} aria-pressed={view === "pipeline"} onClick={() => setView("pipeline")}>Pipeline</button>
+            {testimonials && <button type="button" className={view === "testimonials" ? "seg-on" : ""} aria-pressed={view === "testimonials"} onClick={() => setView("testimonials")}>Testimonials</button>}
           </div>
           {createTask}
         </div>
       )}
       {view === "pipeline" && pipelineRows && (
         <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
+      )}
+      {view === "testimonials" && testimonials && (
+        <TestimonialsList rows={testimonials.rows} videos={testimonials.videos} pickers={testimonials.pickers} editors={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
       )}
       <div hidden={view !== "queue"} style={{ display: view === "queue" ? "flex" : "none", flexDirection: "column", gap: 20 }}>
         {statsBy[key] && <EditorTiles s={statsBy[key]} showAi={!!aiBy[key]} />}

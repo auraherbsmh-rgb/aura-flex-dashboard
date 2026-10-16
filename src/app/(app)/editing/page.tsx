@@ -6,9 +6,10 @@ import { EditBoard, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
 import { getRule } from "@/lib/needs";
 import {
-  getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
+  getAllTestimonials, getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import type { ProdCard, Production } from "@/lib/tasks-shared";
+import type { TestimonialVideo } from "@/components/TestimonialsList";
 import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
 export const metadata = { title: "Editing · Aura Flex" };
@@ -72,7 +73,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       aiBy[e.id] = e.doesAi;
     }
   }
-  const [ctx, pickers] = founder ? await Promise.all([getCreateTaskContext(), getPickers()]) : [null, null];
+  const [ctx, pickers, testimonialRows] = founder ? await Promise.all([getCreateTaskContext(), getPickers(), getAllTestimonials()]) : [null, null, []];
 
   // Every video in the queue is prepared here, so opening one is instant (no page load).
   const allHooks = await getAllHooks();
@@ -113,6 +114,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     if (r.action && p) pipeCurrent[r.taskId] = p;
   }
 
+  // Each used testimonial's video and where it is now (Editing → Testimonials).
+  const testimonialVideos: Record<string, TestimonialVideo> = {};
+  for (const r of testimonialRows) {
+    if (!r.taskId) continue;
+    const p = productions.get(r.taskId);
+    const c = pcards.get(r.taskId);
+    testimonialVideos[r.taskId] = {
+      name: c?.face ?? "Testimonial",
+      where: p?.liveAt ? "live" : p?.launchedAt ? "launched" : p?.assignedAt ? `with ${p.editorName ?? "an editor"}` : "to assign",
+      inQueue: mine.some((q) => q.taskId === r.taskId),
+    };
+  }
+
   const queueCount = mine.filter((q) => !q.dim && !q.hold).length;
   const needNow = mine.filter((q) => !q.hold).filter((q) => q.state === "changes" || q.state === "ready" || (q.alert && q.alertTone === "red" && q.state !== "submitted")).length;
   return (
@@ -138,6 +152,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         pipelineRows={pipelineRows}
         pipeCards={pipeCards}
         pipeCurrent={pipeCurrent}
+        testimonials={founder && pickers ? { rows: testimonialRows, videos: testimonialVideos, pickers } : undefined}
         views={views}
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}

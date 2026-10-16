@@ -63,6 +63,15 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             editorLoads={[{ id: "ea", name: "Editor A", doesAi: true, queue: 1 }, { id: "eb", name: "Editor B", doesAi: false, queue: 4 }]}
             pipeCards={{ lina: { taskId: "lina", face: "Lina", cell: "MSB × Problem", angle: "Knee-Broad", format: "UGC", copywriter: "Copywriter 1", shootOn: "2026-10-12", generate: false, vo: false, hooks: 5, confirmedAt: "2026-10-11T08:00:00Z" } }}
             pipeCurrent={{ lina: prods.get("lina")! }}
+            testimonials={founder ? {
+              rows: [
+                { id: "w1", url: "https://drive.google.com/a", note: "repeat buyer, 2 min", addedAt: "2026-10-15T09:00:00Z", status: "new", reason: null, taskId: null, decidedAt: null, decidedBy: null },
+                { id: "u1", url: "https://drive.google.com/b", note: "knee, stairs story", addedAt: "2026-10-12T09:00:00Z", status: "used", reason: null, taskId: "hedi", decidedAt: "2026-10-12T10:00:00Z", decidedBy: "Founder 2" },
+                { id: "n1", url: "https://drive.google.com/c", note: null, addedAt: "2026-10-10T09:00:00Z", status: "not_usable", reason: "sound too low", taskId: null, decidedAt: "2026-10-10T11:00:00Z", decidedBy: "Founder 2" },
+              ],
+              videos: { hedi: { name: "Hedi", where: "with Editor B", inQueue: true } },
+              pickers: { avatars: [{ id: "FSB", code: "FSB", label: "FSB" }], angles: [{ id: "kb", code: "Knee-Broad", label: "Knee-Broad" }], formats: [] },
+            } : undefined}
           />
         </div>
       </div>

@@ -443,3 +443,12 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .need > :first-child { grid-column: 1 / -1; }
   .need > .btn { width: auto; }
 }
+
+/* Editing → Testimonials (founders) */
+.testi-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 18px; }
+.testi-row .tag { justify-self: start; }
+.testi-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 700px) {
+  .testi-row { grid-template-columns: minmax(0, 1fr); }
+  .testi-acts { justify-content: flex-start; }
+}
