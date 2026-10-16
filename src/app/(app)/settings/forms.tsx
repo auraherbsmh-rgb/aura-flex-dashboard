@@ -568,7 +568,7 @@ export function MapStartForm({ value }: { value: string | null }) {
     <form onSubmit={keepValues(action)} className="ar" style={{ flexWrap: "wrap", gap: 12 }}>
       <label htmlFor="map_start" style={{ fontSize: 14, lineHeight: 1.35, flex: "1 1 260px" }}>
         Map counts concepts from
-        <span className="unit" style={{ display: "block" }}>Older tests stay out of the map, the win rate and the scorecards. Empty = count everything.</span>
+        <span className="unit" style={{ display: "block" }}>Older tests stay out of the map (and, once built, the win rate and the scorecards). Empty = count everything.</span>
       </label>
       <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <input id="map_start" name="map_start" type="date" className="fi" style={{ width: 170 }} defaultValue={value ?? ""} />

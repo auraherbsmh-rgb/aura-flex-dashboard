@@ -547,3 +547,13 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .cv-var .tag { grid-column: 2; justify-self: start; }
   .cv-var > span:last-child { grid-column: 1 / -1; }
 }
+
+.map-col-short { display: none; }
+@media (max-width: 700px) {
+  .map-row { grid-template-columns: 36px repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .map-col-long { display: none; }
+  .map-col-short { display: inline; }
+  .cell { padding: 6px 5px; min-height: 58px; }
+  .cell b { font-size: 9px; letter-spacing: 0.02em; }
+  .cell-line { font-size: 10px; overflow-wrap: normal; word-break: normal; hyphens: auto; }
+}

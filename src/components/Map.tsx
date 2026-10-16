@@ -11,14 +11,17 @@ export type CellKey = { avatarId: string; awareness: string };
 const CELL_CLASS: Record<MapCell["state"], string> = { test: "s-test", production: "s-prod", writing: "s-writing", empty: "s-empty" };
 
 /** Knee | Hips switch + the avatar × awareness grid (Copywriting artboard "Map"). Click a cell → its cell view. */
-export function MapGrid({ data, track, setTrack, selected, onPick, big = false }: {
+export function MapGrid({ data, track, setTrack, selected, onPick, big = false, pickers }: {
   data: MapData;
   track: "knee" | "hips";
   setTrack: (t: "knee" | "hips") => void;
   selected: CellKey | null;
   onPick: (k: CellKey) => void;
   big?: boolean;
+  /** With pickers, a click on an empty cell opens the Propose pop-up for that cell at once. */
+  pickers?: Pickers;
 }) {
+  const [propose, setPropose] = useState<CellKey | null>(null);
   const rows = buildMap(mapConcepts(data.concepts, track, data.start), data.avatars);
   const empty = rows.reduce((n, r) => n + r.cells.filter((c) => c.state === "empty").length, 0);
   return (
@@ -31,10 +34,17 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false }
           ))}
         </div>
       </div>
+      {propose && pickers && (
+        <ProposeButton key={`${propose.avatarId}-${propose.awareness}`} pickers={pickers} autoOpen prefill={propose} onClose={() => setPropose(null)} />
+      )}
       <div className="map-grid" role="table" aria-label={`Map · ${track}`}>
         <div className="map-row" role="row">
           <span role="columnheader" />
-          {Object.values(LEVEL_SHORT).map((l) => <span key={l} role="columnheader" className="lbl" style={{ textAlign: "center", padding: "4px 0" }}>{l}</span>)}
+          {Object.values(LEVEL_SHORT).map((l) => (
+            <span key={l} role="columnheader" className="lbl map-col" style={{ textAlign: "center", padding: "4px 0" }}>
+              <span className="map-col-long">{l}</span><span className="map-col-short" aria-hidden="true">{l === "Product" ? "Prod" : l === "Solution" ? "Sol" : l === "Problem" ? "Prob" : "Most"}</span>
+            </span>
+          ))}
         </div>
         {rows.map((r) => (
           <div className="map-row" role="row" key={r.avatarId}>
@@ -44,7 +54,11 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false }
               return (
                 <span role="cell" key={c.awareness} style={{ display: "flex" }}>
                   <button type="button" className={`cell ${CELL_CLASS[c.state]} ${on ? "cell-on" : ""}`} aria-pressed={on}
-                    aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? "empty" : c.line}`} onClick={() => onPick({ avatarId: c.avatarId, awareness: c.awareness })}>
+                    aria-label={`${r.avatarCode} × ${LEVEL_SHORT[c.awareness]}: ${c.state === "empty" ? "empty, click to propose a test" : c.line}`} onClick={() => {
+                      const k = { avatarId: c.avatarId, awareness: c.awareness };
+                      onPick(k);
+                      if (c.state === "empty" && pickers) setPropose(k);
+                    }}>
                     <b>{c.word}</b><span className="cell-line">{c.line}</span>
                   </button>
                 </span>
@@ -181,7 +195,7 @@ export function MapPage({ data, pickers }: { data: MapData; pickers?: Pickers })
   const [cell, setCell] = useState<CellKey | null>(null);
   return (
     <div className="map-page">
-      <MapGrid data={data} track={track} setTrack={setTrack} selected={cell} onPick={(k) => {
+      <MapGrid data={data} track={track} setTrack={setTrack} selected={cell} pickers={pickers} onPick={(k) => {
         setCell(k);
         if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("cell-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
       }} big />

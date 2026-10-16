@@ -22,12 +22,15 @@ function Msg({ s }: { s: ProposeState }) {
 }
 
 /** "+ Propose a test" → Propose pop-up (Pop-ups artboard). */
-export function ProposeButton({ pickers, label = "+ Propose a test", className = "add", sendTo = "Founder 1", prefill }: {
+export function ProposeButton({ pickers, label = "+ Propose a test", className = "add", sendTo = "Founder 1", prefill, autoOpen = false, onClose }: {
   pickers: Pickers; label?: string; className?: string; sendTo?: string;
   /** From a map cell: the cell's avatar and awareness are pre-picked. */
   prefill?: { avatarId: string; awareness: string };
+  /** Opened by a click on an empty map cell: no trigger button, the pop-up shows at once. */
+  autoOpen?: boolean;
+  onClose?: () => void;
 }) {
-  const [openedAt, setOpenedAt] = useState<number | null>(null);
+  const [openedAt, setOpenedAt] = useState<number | null>(autoOpen ? 0 : null);
   const [state, action, pending] = useActionState(propose, empty);
   const [angle, setAngle] = useState("");
   // Open until a save succeeds after it was opened (the message then shows next to the button).
@@ -35,6 +38,7 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
   const setOpen = (v: boolean) => {
     setOpenedAt(v ? Date.now() : null);
     if (v) setAngle("");
+    else onClose?.();
   };
   const shownError = state.error && (state.at ?? 0) > (openedAt ?? 0) ? state : {};
 
@@ -46,8 +50,8 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
 
   return (
     <>
-      <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>
-      {state.ok && !open && <span className="formmsg ok" role="status" style={{ marginLeft: 12 }}>{state.ok}</span>}
+      {!autoOpen && <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>}
+      {state.ok && !open && <span className="formmsg ok" role="status" style={{ marginLeft: autoOpen ? 0 : 12 }}>{state.ok}</span>}
       <Modal open={open} onClose={() => setOpen(false)} who={`Copywriter · “+ Propose” on the map or in a cell`} title="Propose a test">
         <form key={openedAt ?? 0} onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="row2">

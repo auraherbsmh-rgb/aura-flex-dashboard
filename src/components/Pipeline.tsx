@@ -14,6 +14,8 @@ function openOnBoard(e: React.MouseEvent, id: string, copywriterId: string) {
   q.set("task", id);
   if (q.get("cw") && q.get("cw") !== copywriterId) q.delete("cw");
   window.history.replaceState(null, "", `/copywriting?${q}`);
+  // Same task as already in the address: tell the Board directly (closes an open map cell).
+  window.dispatchEvent(new CustomEvent("aura:open-task", { detail: id }));
   // The Board shows once the address change has rendered: wait until the task view is visible, then scroll to it.
   let tries = 0;
   const scroll = () => {

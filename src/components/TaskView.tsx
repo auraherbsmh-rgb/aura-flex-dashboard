@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
@@ -143,9 +143,15 @@ export function CopyBoard({
   const [sel, setSel] = useState<string | null>(urlTask ?? initialSelected);
   const [cw, setCw] = useState<string | null>(urlCw);
   const [seen, setSeen] = useState({ task: urlTask, cw: urlCw });
+  // A Pipeline row for the task already in the address: no address change, so the Pipeline says it directly.
+  useEffect(() => {
+    const on = (e: Event) => { setCell(null); setSel((e as CustomEvent<string>).detail); };
+    window.addEventListener("aura:open-task", on);
+    return () => window.removeEventListener("aura:open-task", on);
+  }, []);
   if (seen.task !== urlTask || seen.cw !== urlCw) {
     setSeen({ task: urlTask, cw: urlCw });
-    if (urlTask && urlTask !== seen.task) setSel(urlTask);
+    if (urlTask && urlTask !== seen.task) { setSel(urlTask); setCell(null); }
     if (urlCw !== seen.cw) setCw(urlCw);
   }
   const setAddress = (patch: Record<string, string | null>) => {
@@ -176,7 +182,7 @@ export function CopyBoard({
           action={action}
           onOpen={open}
         />
-        {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} onPick={(k) => {
+        {map && <MapGrid data={map} track={track} setTrack={setTrack} selected={cell} pickers={proposePickers} onPick={(k) => {
           setCell(k);
           if (window.innerWidth < 1000) requestAnimationFrame(() => document.getElementById("cell-view")?.scrollIntoView({ behavior: "smooth", block: "start" }));
         }} />}
