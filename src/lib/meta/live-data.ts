@@ -29,7 +29,7 @@ export async function getLiveData(now: number, mapData?: ReturnType<typeof getMa
     mapData ?? getMapData(),
     supabase.from("productions").select("task_id, launched_at, editor:people!productions_editor_id_fkey(display_name)"),
     supabase.from("pause_answers").select("ad_id, answer, reason, answered_at").gte("answered_at", new Date(now - 90 * 864e5).toISOString()),
-    supabase.from("meta_sync").select("started_at").eq("ok", true).order("id", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("meta_sync").select("started_at").eq("ok", true).order("id", { ascending: false }).limit(2),
   ]);
   const status = metaStatus();
   if (!moneyRow) return { status, lastPull: (lastPull.data as LastPull) ?? null, d3Min, model: null, noMoney: true as const, hasData: false, kills: [] as KillNeed[], unmappedItems: [] as UnmappedNeed[] };
@@ -70,8 +70,8 @@ export async function getLiveData(now: number, mapData?: ReturnType<typeof getMa
   const answers: PauseAnswer[] = (answerRows.data ?? []).map((a) => ({ adId: a.ad_id as string, answer: a.answer as "paused" | "not_now", reason: a.reason as string | null, answeredAt: a.answered_at as string }));
   const money = toMoneyInputs(moneyRow);
   const model = buildLive({ ads, daily, scope, budgets, generated, old, concepts, money, now });
-  const okPullAt = (okPull.data?.started_at as string | undefined) ?? null;
-  const kills = killNeeds({ live: model.live, daily, adNames: new Map(ads.map((a) => [a.adId, a.name])), answers, lastPullAt: okPullAt, money, now });
+  const okPulls = (okPull.data ?? []).map((r) => r.started_at as string);
+  const kills = killNeeds({ live: model.live, daily, adNames: new Map(ads.map((a) => [a.adId, a.name])), answers, lastPullAt: okPulls[0] ?? null, prevPullAt: okPulls[1] ?? null, money, now });
   const unmappedItems = unmappedNeeds(model.unmapped, new Map(adsRows.map((a) => [a.ad_id, a.first_seen])), now);
   return { status, lastPull: (lastPull.data as LastPull) ?? null, d3Min, model, noMoney: false as const, hasData: ads.length > 0, kills, unmappedItems };
 }

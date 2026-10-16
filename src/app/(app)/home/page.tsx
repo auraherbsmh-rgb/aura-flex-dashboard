@@ -66,7 +66,9 @@ export default async function Page() {
   const allGroups = mergeNeeds(asRole("founder_1"), asRole("founder_2"));
   const items = groups.flatMap((g) => g.items);
   const total = items.length;
-  const late = groups.filter((g) => g.name.startsWith("LATE")).reduce((n, g) => n + g.items.length, 0);
+  // Late = the late group plus KILL items (their own group on top) waiting 48h or more.
+  const late = groups.filter((g) => g.name.startsWith("LATE")).reduce((n, g) => n + g.items.length, 0)
+    + items.filter((i) => i.type === "KILL" && i.hours >= Math.min(hours, reviewHours)).length;
   // Oldest waiting = the longest wait on the founder (OVERDUE measures the copywriter's lateness, not a wait).
   const waits = items.filter((i) => i.type !== "OVERDUE");
   const oldest = waits.length ? waits.reduce((a, b) => (b.hours > a.hours ? b : a)).age : null;
@@ -99,7 +101,7 @@ export default async function Page() {
         <NeedsMe groups={groups} total={total} editors={editors} allGroups={allGroups} pickers={pickers} tagPickers={tagPickers} />
       </FounderNumbers>
       <div className="unit" style={{ padding: "0 8px" }}>
-        {live.hasData ? "Coming next with Meta: won / settled, cells needing a successor, and the ALERT and WINNER items." : "KILL and UNMAPPED items arrive with the first Meta pull (Meta not connected yet). Then: won / settled, cells needing a successor, ALERT and WINNER."}
+        {live.hasData ? "Coming next with Meta: won / settled, cells needing a successor, and the ALERT and WINNER items." : live.noMoney ? "KILL and UNMAPPED items need the money numbers: fill Settings → Money." : "KILL and UNMAPPED items arrive with the first Meta pull (Meta not connected yet). Then: won / settled, cells needing a successor, ALERT and WINNER."}
       </div>
     </TabPage>
   );

@@ -121,7 +121,8 @@ export function buildLive(input: {
       cpa7: c7.cpa, line, cpa3: t3.sales ? t3.spend / t3.sales : null, sales3: t3.sales, spend7: c7.spend, sales7: c7.sales,
       daysLive: Math.max(...liveRes.map((r) => r.daysLive)),
       live: liveVars, paused: pausedList.length ? `Paused: ${pausedList.join(", ")}` : "",
-      isStatic: info.formatCode === "IMG", frozen,
+      // Partly frozen and not flagged: show "no verdict" rather than a state it cannot be grouped under.
+      isStatic: info.formatCode === "IMG", frozen: frozen || (anyFrozen && !attention),
     });
   }
   const order = { attention: 0, testing: 1, recovering: 2, won: 3 };
@@ -153,11 +154,12 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T12:00:00Z`) + 864e5).to
  */
 export function killNeeds(input: {
   live: LiveConcept[]; daily: MetaDay[]; adNames: Map<string, string>; answers: PauseAnswer[];
-  lastPullAt: string | null; money: MoneyInputs; now: number;
+  lastPullAt: string | null; prevPullAt?: string | null; money: MoneyInputs; now: number;
 }): KillNeed[] {
-  const { live, daily, adNames, answers, lastPullAt, money: m, now } = input;
+  const { live, daily, adNames, answers, lastPullAt, prevPullAt, money: m, now } = input;
   const w = windows(now);
   const pulled = lastPullAt ? Date.parse(lastPullAt) : 0;
+  const prevPulled = prevPullAt ? Date.parse(prevPullAt) : 0;
   const rowsBy = new Map<string, MetaDay[]>();
   for (const r of daily) rowsBy.set(r.adId, [...(rowsBy.get(r.adId) ?? []), r]);
   const lastAnswer = new Map<string, PauseAnswer>();
@@ -171,14 +173,31 @@ export function killNeeds(input: {
       const sides = v.res.sides.filter((s) => s.live && (flag !== "twin" || (cpa(s.t7) ?? Infinity) > v.res.line));
       // When it started: the kill table crossing day, else this week's Monday pull (weekly verdicts), else the last pull.
       let since = pulled || now;
+      const rowsOf = (ids: string[]) => ids.flatMap((id) => rowsBy.get(id) ?? []).filter((r) => r.day <= w.yesterday).sort((a, b) => a.day.localeCompare(b.day));
       if (flag === "kill") {
-        const rows = v.adIds.flatMap((id) => rowsBy.get(id) ?? []).sort((a, b) => a.day.localeCompare(b.day));
-        let spend = 0, sales = 0;
-        for (const r of rows) {
+        // The last day the running total went from under its kill-table spend to over it (a sale raises the limit).
+        let spend = 0, sales = 0, over = false;
+        for (const r of rowsOf(v.adIds)) {
           spend += r.spend; sales += r.purchases;
-          if (sales < 10 && spend >= m.killTableUsd[sales]) { since = pullMs(nextDay(r.day)); break; }
+          const now_over = sales < 10 && spend >= m.killTableUsd[sales];
+          if (now_over && !over) since = pullMs(nextDay(r.day));
+          over = now_over;
         }
       } else if (flag === "fading" || flag === "deteriorating") since = pullMs(nextDay(w.weeks[0][1]));
+      else if (flag === "twin") {
+        // Twin split: from the first day (up to 14 back) since which the two sides' 7d results have stayed split.
+        const sideRows = v.res.sides.map((sd) => rowsOf([sd.adId]));
+        let first: string | null = null;
+        for (let j = 0; j < 14; j++) {
+          const end = new Date(Date.parse(`${w.yesterday}T12:00:00Z`) - j * 864e5).toISOString().slice(0, 10);
+          const start = new Date(Date.parse(`${end}T12:00:00Z`) - 6 * 864e5).toISOString().slice(0, 10);
+          const t = sideRows.map((rs) => rs.filter((r) => r.day >= start && r.day <= end).reduce((a, r) => ({ spend: a.spend + r.spend, sales: a.sales + r.purchases }), { spend: 0, sales: 0 }));
+          const split = t.length === 2 && t.every((x) => x.sales >= 5) && ((t[0].spend / t[0].sales > v.res.line) !== (t[1].spend / t[1].sales > v.res.line));
+          if (!split) break;
+          first = end;
+        }
+        if (first) since = pullMs(nextDay(first));
+      }
       for (const s of sides) {
         const ans = lastAnswer.get(s.adId);
         let recheck: string | null = null;
@@ -186,7 +205,8 @@ export function killNeeds(input: {
         if (ans) {
           const at = Date.parse(ans.answeredAt);
           if (at >= pulled) continue; // answered since the last pull: wait for the next one
-          if (ans.answer === "paused") recheck = `Marked paused ${new Date(at + 36e5).toISOString().slice(5, 10).replace("-", "/")}, still active in Meta`;
+          // "Still active" only right after the answer (between the previous pull and the latest one); an older answer is history.
+          if (ans.answer === "paused") { if (at >= prevPulled) recheck = `Marked paused ${new Date(at + 36e5).toISOString().slice(5, 10).replace("-", "/")}, still active in Meta`; }
           else start = Math.max(start, at);
         }
         out.push({

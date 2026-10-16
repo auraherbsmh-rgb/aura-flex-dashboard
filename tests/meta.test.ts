@@ -128,6 +128,9 @@ test("KILL items: kill line ad → Founder 2 first, answers hide until the next 
   assert.equal(k([{ adId: "1", answer: "paused", reason: null, answeredAt: "2026-10-16T08:00:00Z" }]).length, 0, "answered after the pull: wait");
   const back = k([{ adId: "1", answer: "paused", reason: null, answeredAt: "2026-10-15T08:00:00Z" }]);
   assert.match(back[0].recheck ?? "", /still active/);
+  // An old "paused" answer (before the previous pull) is history: the item is new, no "still active".
+  const old = killNeeds({ live: model.live, daily, adNames: new Map(), answers: [{ adId: "1", answer: "paused", reason: null, answeredAt: "2026-09-20T08:00:00Z" }], lastPullAt: pull, prevPullAt: "2026-10-15T05:00:00Z", money: SEP, now: NOW });
+  assert.equal(old[0].recheck, null);
   const v = (role: "founder_1" | "founder_2") => ({ personId: "p", name: "F", role, email: "" });
   const um = unmappedNeeds(model.unmapped, new Map([["9", "2026-10-10T05:00:00Z"]]), NOW);
   assert.equal(um.length, 1);
