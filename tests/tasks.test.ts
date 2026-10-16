@@ -194,3 +194,39 @@ test("Editing: state, queue order and alerts, private tiles", () => {
   assert.equal(s.onTimeOf, 1);
   assert.equal(s.avgRounds, 1);
 });
+
+import { buildVideoPipeline } from "../src/lib/editing-shared";
+
+test("Videos pipeline: one row per video, steps, late rules, AI skips shoot", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const base = { taskId: "", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
+  const T = (id: string, extra: object = {}) => ({ ...t0, id, status: "details_done", ...extra });
+  const tasks = [T("shoot"), T("foot"), T("assign"), T("edit"), T("rev"), T("launch"), T("ai", { formatCode: "AI" }), T("done")];
+  const D = (shootOn: string | null, generate = false) => ({ shootOn, generate, face: "F", confirmedAt: "2026-10-14T08:00:00Z" });
+  const details = new Map([
+    ["shoot", D("2026-10-20")], ["foot", D("2026-10-13")], ["assign", D("2026-10-12")], ["edit", D("2026-10-10")],
+    ["rev", D("2026-10-10")], ["launch", D("2026-10-10")], ["ai", D(null, true)], ["done", D("2026-10-01")],
+  ]);
+  const prods = new Map([
+    ["assign", { ...base, taskId: "assign", footageAt: "2026-10-15T08:00:00Z" }],
+    ["edit", { ...base, taskId: "edit", footageAt: "2026-10-11T08:00:00Z", assignedAt: "2026-10-11T09:00:00Z", editorId: "e", editorName: "Editor B", editDue: "2026-10-15", editStartedAt: "2026-10-12T08:00:00Z" }],
+    ["rev", { ...base, taskId: "rev", footageAt: "x", assignedAt: "2026-10-11T09:00:00Z", editorId: "e" }],
+    ["launch", { ...base, taskId: "launch", footageAt: "x", assignedAt: "2026-10-11T09:00:00Z", editorId: "e" }],
+    ["done", { ...base, taskId: "done", footageAt: "x", assignedAt: "y", editorId: "e", launchedAt: "2026-10-15T08:00:00Z" }],
+  ]);
+  const R = (decision: "approved" | null, at: string) => ({ round: 1, videoUrl: "https://v.x", submittedAt: at, decision, loom: null, note: null, decidedBy: null, decidedAt: decision ? at : null });
+  const rounds = new Map([["rev", [R(null, "2026-10-13T08:00:00Z")]], ["launch", [R("approved", "2026-10-15T20:00:00Z")]]]);
+  const rows = buildVideoPipeline(tasks, prods, rounds, details, { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 });
+  const by = new Map(rows.map((r) => [r.taskId, r]));
+  assert.equal(rows.length, 7, "launched video leaves the pipeline");
+  assert.deepEqual(by.get("shoot")!.steps, ["now", "todo", "todo", "todo", "todo"]);
+  assert.equal(by.get("shoot")!.nowLabel, "in 4 d");
+  assert.deepEqual(by.get("foot")!.steps, ["done", "late", "todo", "todo", "todo"]);
+  assert.equal(by.get("assign")!.waitingWhat, "assign");
+  assert.deepEqual(by.get("edit")!.steps, ["done", "done", "late", "todo", "todo"]);
+  assert.equal(by.get("edit")!.due, "1 d late");
+  assert.deepEqual(by.get("rev")!.steps, ["done", "done", "done", "late", "todo"]);
+  assert.deepEqual(by.get("launch")!.steps, ["done", "done", "done", "done", "now"]);
+  assert.deepEqual(by.get("ai")!.steps, ["skip", "skip", "late", "todo", "todo"]); // confirmed 2 days ago, not assigned
+  assert.ok(rows.slice(0, 3).every((r) => r.late), "late first");
+});

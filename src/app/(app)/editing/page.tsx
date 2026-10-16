@@ -1,4 +1,4 @@
-import { TabPage, NotBuiltYet } from "@/components/TabPage";
+import { TabPage } from "@/components/TabPage";
 import { CreateTaskButton } from "@/components/Tasks";
 import { getPickers } from "@/lib/proposals";
 import { EditBoard, type EditView } from "@/components/Editing";
@@ -7,7 +7,8 @@ import { getRule } from "@/lib/needs";
 import {
   getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
-import { buildQueue, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
+import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
+import { VideosPipeline } from "@/components/VideosPipeline";
 
 export const metadata = { title: "Editing · Aura Flex" };
 
@@ -24,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const isEditor = viewer.role === "editor";
   const sp = await searchParams;
   const now = requestTime();
-  const [tasks, details, productions, rounds, hookCounts, pay, notStartedDays, roundAlert] = await Promise.all([
+  const [tasks, details, productions, rounds, hookCounts, pay, notStartedDays, roundAlert, footageLateDays, reviewHours, launchLateDays] = await Promise.all([
     getTasks(),
     getDetailsLite(),
     getProductions(),
@@ -33,6 +34,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getPay(),
     getRule("edit_not_started_days", 2),
     getRule("revision_round_alert", 3),
+    getRule("footage_late_days", 2),
+    getRule("review_waiting_hours", 48),
+    getRule("launch_waiting_days", 2),
   ]);
   const [editors, launchNames] = founder ? await Promise.all([getEditors(productions, tasks), getLaunchNames()]) : [[], undefined];
   const pcards = prodCards(tasks, details, hookCounts);
@@ -117,7 +121,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         initialEd={ed}
         forFounder={founder}
         createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
-        pipeline={<NotBuiltYet phase="screen 11" what="The Videos pipeline (Shoot → Footage → Editing → Review → Launch, late first) comes after the Launch pop-up." />}
+        pipeline={
+          founder ? (
+            <VideosPipeline
+              rows={buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert })}
+              editors={edList}
+              initialEd={ed}
+            />
+          ) : undefined
+        }
         views={views}
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}

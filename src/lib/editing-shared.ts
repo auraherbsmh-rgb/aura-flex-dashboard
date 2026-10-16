@@ -175,3 +175,123 @@ export function editorStats(
     daysPerVideo: avg(days), aiMonth, rate3d: pay.rate3d,
   };
 }
+
+/* ── Videos pipeline (handoff §8, Videos pipeline artboard) ── */
+
+export const VRAIL = ["Shoot", "Footage", "Editing", "Review", "Launch"] as const;
+export type VStep = "done" | "now" | "late" | "skip" | "todo";
+export type VideoRow = {
+  taskId: string;
+  editorId: string | null;
+  name: string; // face
+  meta: string; // cell · format · editor
+  origin: string; // script Copywriter 2 · approved Oct 6
+  steps: VStep[];
+  nowLabel: string;
+  waitingOn: "Agency" | "Editor" | "You";
+  waitingName: string;
+  waitingWhat: string;
+  due: string;
+  late: boolean;
+  href: string;
+  dueSort: string;
+};
+
+const ago = (fromMs: number, now: number) => {
+  const h = Math.max(0, (now - fromMs) / 36e5);
+  return h < 72 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} d`;
+};
+
+/**
+ * One row per video in production (script details confirmed, not launched yet), late first.
+ * Late rules (Settings): footage 2 days after the shoot · editing due passed or round 3 · review over 48h · launch over 2 days.
+ */
+export function buildVideoPipeline(
+  tasks: TaskRow[],
+  productions: Map<string, Production>,
+  rounds: Map<string, EditRound[]>,
+  details: Map<string, { shootOn: string | null; generate: boolean; face: string | null; confirmedAt: string | null }>,
+  opts: { now: number; footageLateDays: number; assignLateDays: number; reviewHours: number; launchLateDays: number; roundAlert: number },
+): VideoRow[] {
+  const { now } = opts;
+  const today = tunisDate(0, now);
+  const rows: VideoRow[] = [];
+  for (const t of tasks) {
+    if (t.status !== "details_done") continue;
+    const d = details.get(t.id);
+    if (!d) continue;
+    const p = productions.get(t.id);
+    if (p?.launchedAt) continue; // launched: out of production
+    const r = rounds.get(t.id) ?? [];
+    const last = r[r.length - 1];
+    const ok = r.find((x) => x.decision === "approved");
+    const gen = d.generate || t.formatCode === "AI";
+    const scriptOk = [...t.rounds].reverse().find((x) => x.decision === "approved");
+    const steps: VStep[] = gen ? ["skip", "skip", "todo", "todo", "todo"] : ["todo", "todo", "todo", "todo", "todo"];
+    let i = 0, since = now, late = false;
+    let waitingOn: VideoRow["waitingOn"] = "Agency", waitingWhat = "", due = "on track";
+    let label: string | null = null;
+    const editor = p?.editorName ?? "Editor";
+    const changes = r.filter((x) => x.decision === "changes").length;
+
+    if (ok) {
+      i = 4; since = Date.parse(ok.decidedAt ?? ok.submittedAt);
+      late = (now - since) / 864e5 >= opts.launchLateDays;
+      waitingOn = "You"; waitingWhat = "launch";
+      due = late ? `${Math.floor((now - since) / 864e5)} d waiting` : "names ready";
+    } else if (last && !last.decision) {
+      i = 3; since = Date.parse(last.submittedAt);
+      late = (now - since) / 36e5 >= opts.reviewHours;
+      waitingOn = "You"; waitingWhat = `edit review v${last.round}`;
+      due = late ? `over ${opts.reviewHours} h` : "on track";
+    } else if (p?.assignedAt) {
+      i = 2; since = Date.parse(last?.decidedAt ?? p.editStartedAt ?? p.assignedAt);
+      const dueOn = p.editDue ?? t.dueOn;
+      // Late: due date passed, round 3, or assigned and not started for the "edit not started" rule.
+      const notStarted = !p.editStartedAt && (now - Math.max(Date.parse(p.assignedAt), p.footageAt ? Date.parse(p.footageAt) : 0)) / 864e5 >= opts.assignLateDays;
+      late = dueOn < today || changes + 1 >= opts.roundAlert || notStarted;
+      waitingOn = "Editor";
+      waitingWhat = changes ? "changes" : p.editStartedAt ? (gen ? "generating" : "editing") : "not started";
+      if (changes) label = `R${changes + 1}`;
+      else if (gen && p.editStartedAt) label = "gen";
+      due = dueOn < today ? `${Math.round((Date.parse(today) - Date.parse(dueOn)) / 864e5)} d late` : dueOn === tunisDate(1, now) ? "due tomorrow" : `due ${fmtDay(dueOn).split(" ")[0]}`;
+    } else if (gen || p?.footageAt) {
+      // ready to assign: Editing is the step, waiting on Founder 2
+      i = 2;
+      since = p?.footageAt ? Date.parse(p.footageAt) : d.confirmedAt ? Date.parse(d.confirmedAt) : now;
+      late = (now - since) / 864e5 >= opts.assignLateDays;
+      waitingOn = "You"; waitingWhat = "assign";
+      due = late ? "assign late" : "to assign";
+    } else if (d.shootOn && d.shootOn <= today) {
+      i = 1; since = Date.parse(`${d.shootOn}T00:00:00+01:00`);
+      late = (now - since) / 864e5 >= opts.footageLateDays;
+      waitingOn = "Agency"; waitingWhat = "footage";
+      due = late ? `${Math.floor((now - since) / 864e5)} d late` : "on track";
+    } else {
+      i = 0; since = now;
+      waitingOn = "Agency"; waitingWhat = d.shootOn ? `shoot ${fmtDay(d.shootOn)}` : "shoot date not set";
+      const inDays = d.shootOn ? Math.round((Date.parse(d.shootOn) - Date.parse(today)) / 864e5) : null;
+      label = inDays !== null ? `in ${inDays} d` : "—";
+      due = "on track";
+    }
+    for (let k = 0; k < i; k++) if (steps[k] !== "skip") steps[k] = "done";
+    steps[i] = late ? "late" : "now";
+    rows.push({
+      taskId: t.id,
+      editorId: p?.editorId ?? null,
+      name: d.face ?? t.angle,
+      meta: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.format}${p?.editorName ? ` · ${p.editorName}` : ""}`,
+      origin: `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${fmtDay(scriptOk.decidedAt.slice(0, 10)).split(" ").slice(1).join(" ")}` : ""}`,
+      steps,
+      nowLabel: label ?? ago(since, now),
+      waitingOn,
+      waitingName: waitingOn === "Editor" ? editor : waitingOn,
+      waitingWhat,
+      due,
+      late,
+      href: p?.assignedAt ? `/editing?task=${t.id}#edit-view` : `/copywriting?task=${t.id}#task-view`,
+      dueSort: p?.editDue ?? d.shootOn ?? t.dueOn,
+    });
+  }
+  return rows.sort((a, b) => Number(b.late) - Number(a.late) || Number(b.waitingOn === "You") - Number(a.waitingOn === "You") || a.dueSort.localeCompare(b.dueSort));
+}

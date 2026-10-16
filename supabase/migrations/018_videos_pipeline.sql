@@ -1,0 +1,3 @@
+-- Oct 16, 2026 (screen 11: Videos pipeline). No schema change: the pipeline is computed from tasks, script_details,
+-- productions and edit_rounds (src/lib/editing-shared.ts buildVideoPipeline).
+-- Also applied Oct 16: concept tag may start with a digit (constraint script_details_tag_check + save_script_details).

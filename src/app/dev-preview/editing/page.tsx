@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { EditBoard, type EditView } from "@/components/Editing";
-import { buildQueue, editorStats, type EditRound } from "@/lib/editing-shared";
+import { buildQueue, buildVideoPipeline, editorStats, type EditRound } from "@/lib/editing-shared";
+import { VideosPipeline } from "@/components/VideosPipeline";
 import type { Production, TaskRow } from "@/lib/tasks-shared";
 
 /** Local-only preview of screen 9 (ENABLE_PREVIEW=1; never on Vercel). ?as=founder for the founder view. */
@@ -56,7 +57,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             initialEd={null}
             forFounder={founder}
             createTask={founder ? <button type="button" className="add">+ Create task</button> : undefined}
-            pipeline={<div className="info">Videos pipeline: screen 11.</div>}
+            pipeline={<VideosPipeline rows={buildVideoPipeline(tasks, prods, rounds, new Map(tasks.map((t) => [t.id, { shootOn: "2026-10-12", generate: false, face: cards.get(t.id)!.face, confirmedAt: "2026-10-11T08:00:00Z" }])), { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 })} editors={[["ea", "Editor A"], ["eb", "Editor B"]]} />}
             views={Object.fromEntries(q.map((x) => [x.taskId, { ...view, taskId: x.taskId, title: cards.get(x.taskId)!.face, state: x.state, rounds: rounds.get(x.taskId) ?? [], production: prods.get(x.taskId)! }]))}
             isEditorId={founder ? null : "eb"}
             editorLoads={[]}
