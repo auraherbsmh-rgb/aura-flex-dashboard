@@ -81,7 +81,8 @@ export function buildQueue(
     const c = cards.get(t.id);
     if (!state || !p || !c) continue;
     const last = r[r.length - 1];
-    if (state === "approved" && last?.decidedAt && opts.now - Date.parse(last.decidedAt) > 14 * 864e5) continue;
+    // Launched videos stay 14 days for the pay count; approved but not launched stays until launched.
+    if (state === "approved" && p.launchedAt && opts.now - Date.parse(p.launchedAt) > 14 * 864e5) continue;
     const due = p.editDue ?? t.dueOn;
     let alert: string | null = null;
     let alertTone: "red" | "amber" = "amber";
@@ -197,6 +198,11 @@ export type VideoRow = {
   dueSort: string;
 };
 
+/** "Oct 6" for a timestamp, as a Tunisia calendar day. */
+const monthDay = (iso: string) => new Date(`${tunisDate(0, Date.parse(iso))}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+/** "Sat Oct 18" for a YYYY-MM-DD day. */
+const dayMonthDay = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).replace(",", "");
+
 const ago = (fromMs: number, now: number) => {
   const h = Math.max(0, (now - fromMs) / 36e5);
   return h < 72 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} d`;
@@ -269,7 +275,7 @@ export function buildVideoPipeline(
       due = late ? `${Math.floor((now - since) / 864e5)} d late` : "on track";
     } else {
       i = 0; since = now;
-      waitingOn = "Agency"; waitingWhat = d.shootOn ? `shoot ${fmtDay(d.shootOn)}` : "shoot date not set";
+      waitingOn = "Agency"; waitingWhat = d.shootOn ? `shoot ${dayMonthDay(d.shootOn)}` : "shoot date not set";
       const inDays = d.shootOn ? Math.round((Date.parse(d.shootOn) - Date.parse(today)) / 864e5) : null;
       label = inDays !== null ? `in ${inDays} d` : "—";
       due = "on track";
@@ -281,7 +287,7 @@ export function buildVideoPipeline(
       editorId: p?.editorId ?? null,
       name: d.face ?? t.angle,
       meta: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.format}${p?.editorName ? ` · ${p.editorName}` : ""}`,
-      origin: `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${fmtDay(scriptOk.decidedAt.slice(0, 10)).split(" ").slice(1).join(" ")}` : ""}`,
+      origin: `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${monthDay(scriptOk.decidedAt)}` : ""}`,
       steps,
       nowLabel: label ?? ago(since, now),
       waitingOn,

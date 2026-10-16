@@ -8,7 +8,6 @@ import {
   getCreateTaskContext, getDetailsLite, getEditRounds, getEditors, getAllHooks, getHookCounts, getLaunchNames, getPay, getProductions, getTasks, prodCards, requestTime,
 } from "@/lib/tasks";
 import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
-import { VideosPipeline } from "@/components/VideosPipeline";
 
 export const metadata = { title: "Editing · Aura Flex" };
 
@@ -121,15 +120,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         initialEd={ed}
         forFounder={founder}
         createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
-        pipeline={
-          founder ? (
-            <VideosPipeline
-              rows={buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert })}
-              editors={edList}
-              initialEd={ed}
-            />
-          ) : undefined
-        }
+        pipelineRows={founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert }) : undefined}
         views={views}
         isEditorId={isEditor ? viewer.personId : null}
         editorLoads={editors}

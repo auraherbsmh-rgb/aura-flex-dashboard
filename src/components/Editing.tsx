@@ -6,7 +6,8 @@ import { NeedsChanges } from "./TaskView";
 import { CopyName } from "./ScriptDetails";
 import { AssignButton, LaunchButton } from "./Production";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
-import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem } from "@/lib/editing-shared";
+import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
+import { VideosPipeline } from "./VideosPipeline";
 import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type ProdCard, type Production } from "@/lib/tasks-shared";
 
 /** The three private tiles (Editing artboard) + the 3D tile for the AI / 3D editor. */
@@ -55,7 +56,7 @@ export function EditBoard({
   isEditorId,
   editorLoads,
   createTask,
-  pipeline,
+  pipelineRows,
 }: {
   statsBy: Record<string, EditorStats>;
   aiBy: Record<string, boolean>;
@@ -70,7 +71,8 @@ export function EditBoard({
   isEditorId: string | null;
   editorLoads: EditorLoad[];
   createTask?: React.ReactNode;
-  pipeline?: React.ReactNode;
+  /** Videos pipeline rows (founders). */
+  pipelineRows?: VideoRow[];
 }) {
   const [ed, setEd] = useState<string | null>(initialEd);
   const [view, setView] = useState<"queue" | "pipeline">("queue");
@@ -104,7 +106,9 @@ export function EditBoard({
           {createTask}
         </div>
       )}
-      {view === "pipeline" && pipeline}
+      {view === "pipeline" && pipelineRows && (
+        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
+      )}
       <div hidden={view !== "queue"} style={{ display: view === "queue" ? "flex" : "none", flexDirection: "column", gap: 20 }}>
         {statsBy[key] && <EditorTiles s={statsBy[key]} showAi={!!aiBy[key]} />}
         <div className="unit" style={{ padding: "0 8px", marginTop: -8 }}>

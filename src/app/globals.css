@@ -395,6 +395,7 @@ select.fi { font-family: var(--font); font-weight: 400; }
 /* Launched and Live cards read at a glance (founder request Oct 16): dark card = launched, green card = live. */
 .qi-launched { background: linear-gradient(180deg, #2a2a28 0%, #161615 100%); color: #fff; border-color: transparent; }
 .qi-launched:hover { color: #fff; }
+.qi-launched.qi-on { border-color: #fff; outline: 2px solid #111; outline-offset: 1px; }
 .qi-launched .unit, .qi-launched .mono { color: #c9c9c3; }
 .qi-launched .t-launched { background: #fff; color: #111; } .qi-launched .t-launched i { background: #111; }
 .qi-live { background: linear-gradient(180deg, #e6f5ec 0%, #d6efdf 100%); border-color: rgba(31, 142, 76, 0.35); }

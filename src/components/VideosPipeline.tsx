@@ -1,12 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { VRAIL, type VideoRow } from "@/lib/editing-shared";
 
 /** Videos pipeline (Founder 2): one row per video in production, late first. Click a row → its task. */
-export function VideosPipeline({ rows, editors, initialEd = null }: { rows: VideoRow[]; editors: [string, string][]; initialEd?: string | null }) {
-  const [ed, setEd] = useState<string | null>(initialEd);
+export function VideosPipeline({
+  rows,
+  editors,
+  ed,
+  pick,
+  onOpen,
+}: {
+  rows: VideoRow[];
+  editors: [string, string][];
+  /** Same Editor A · B · All choice as the queue (one switch for both views). */
+  ed: string | null;
+  pick: (id: string | null) => void;
+  /** Opens a video that is with an editor right in the queue (no page load). */
+  onOpen?: (taskId: string) => void;
+}) {
+  const setEd = pick;
   const shown = ed ? rows.filter((r) => r.editorId === ed) : rows;
   const late = shown.filter((r) => r.late).length;
   const onYou = shown.filter((r) => r.waitingOn === "You").length;
@@ -37,18 +50,27 @@ export function VideosPipeline({ rows, editors, initialEd = null }: { rows: Vide
         </div>
         {shown.length === 0 && <div className="info">No video in production.</div>}
         {shown.map((r) => (
-          <Link key={r.taskId} href={r.href} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
-            <span className="sr-only">
-              Steps: {VRAIL.map((s, i) => {
-                const st = r.steps[i];
-                return `${s} ${st === "todo" ? "to do" : st === "skip" ? "skipped" : st === "now" ? `now, ${r.nowLabel}` : st === "late" ? `late, ${r.nowLabel}` : st}`;
-              }).join(", ")}.
-            </span>
+          <Link
+            key={r.taskId}
+            href={r.href}
+            className={`row pipe-row ${r.late ? "row-late" : ""}`}
+            onClick={(e) => {
+              if (!onOpen || !r.editorId || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              onOpen(r.taskId);
+            }}
+          >
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
                 <div className="pipe-name">{r.name}</div>
                 <div className="pipe-meta">{r.meta}</div>
                 <div className="pipe-meta">{r.origin}</div>
+                <span className="sr-only">
+                  Steps: {VRAIL.map((s, i) => {
+                    const st = r.steps[i];
+                    return `${s} ${st === "todo" ? "to do" : st === "skip" ? "skipped" : st === "now" ? `now, ${r.nowLabel}` : st === "late" ? `late, ${r.nowLabel}` : st}`;
+                  }).join(", ")}.
+                </span>
               </div>
               <div className="rail" aria-hidden="true">
                 {r.steps.map((s, i) =>
