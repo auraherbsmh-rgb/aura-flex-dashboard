@@ -60,7 +60,14 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
                       // A fresh pop-up every click (also after a proposal was sent for this cell).
                       if (c.state === "empty" && pickers) { setPropose(null); requestAnimationFrame(() => setPropose(k)); }
                     }}>
-                    <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : c.line}</span>
+                    <b>{c.word}</b><span className="cell-line">{c.state === "empty" ? <><span className="map-col-long">{c.line}</span><span className="map-col-short" aria-hidden="true">+</span></> : (
+                      // Each count with its own colour dot, so a cell holding several states shows them all.
+                      <>
+                        {c.counts.test > 0 && <span className="cl"><i className="d-test" aria-hidden="true" />{c.counts.test} testing</span>}
+                        {c.counts.production > 0 && <span className="cl"><i className="d-prod" aria-hidden="true" />{c.counts.production} in prod</span>}
+                        {c.counts.writing > 0 && <span className="cl"><i className="d-writing" aria-hidden="true" />{c.counts.writing} writing</span>}
+                      </>
+                    )}</span>
                   </button>
                 </span>
               );
@@ -81,7 +88,18 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
   );
 }
 
-const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-grey" };
+/** One tag per state present: yellow testing · grey in production · white writing. */
+function StateChips({ counts }: { counts: Record<"test" | "production" | "writing", number> }) {
+  return (
+    <span className="state-chips">
+      {counts.test > 0 && <span className="tag t-amber"><i aria-hidden="true" />{counts.test} TESTING</span>}
+      {counts.production > 0 && <span className="tag t-grey"><i aria-hidden="true" />{counts.production} IN PROD</span>}
+      {counts.writing > 0 && <span className="tag t-writing"><i aria-hidden="true" />{counts.writing} WRITING</span>}
+    </span>
+  );
+}
+
+const TAG: Record<string, string> = { test: "t-amber", production: "t-grey", writing: "t-writing" };
 
 /** Cell view (handoff §7): grouped by angle → concepts → ad variations. Results (CPA, script parts) come with Meta. */
 export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
@@ -131,10 +149,8 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel }: {
                 <span className="lbl">Angle {gi + 1}</span>
                 <span className="cv-angle-name">{g.angle}</span>
               </span>
-              <span className={`tag ${g.counts.test ? "t-amber" : "t-grey"}`}><i aria-hidden="true" />
-                {/* Every state with its count, so a mix never reads as all testing. */}
-                {[g.counts.test ? `${g.counts.test} TESTING` : "", g.counts.production ? `${g.counts.production} IN PROD` : "", g.counts.writing ? `${g.counts.writing} WRITING` : ""].filter(Boolean).join(" · ")}
-              </span>
+              {/* One small tag per state, each in its own colour, so a mix reads as a mix (founder request Oct 16). */}
+              <StateChips counts={g.counts} />
             </button>
             {isOpen && (
               <div className="cv-concepts">

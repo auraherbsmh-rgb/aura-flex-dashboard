@@ -585,3 +585,12 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .lib-hook { grid-template-columns: 30px minmax(0, 1fr); }
   .lib-hook > span:last-child { grid-column: 1 / -1; }
 }
+
+/* Map: one colour per state, also when a cell or an angle holds several (founder request Oct 16) */
+.t-writing { background: #fff; color: #55564f; box-shadow: 0 0 0 1px #d6d6d1 inset; } .t-writing i { background: #b9b9b3; }
+.state-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.cell-line .cl { display: flex; align-items: center; gap: 5px; }
+.cell-line .cl i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.d-test { background: #e0a419; }
+.d-prod { background: #77776f; }
+.d-writing { background: #fff; box-shadow: 0 0 0 1.5px #a3a39c inset; }
