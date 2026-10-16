@@ -108,6 +108,11 @@ export async function runMetaPull(): Promise<{ ok: boolean; message: string }> {
     const filter = encodeURIComponent(JSON.stringify([{ field: "campaign.id", operator: "IN", value: ids }]));
     const auth = `access_token=${encodeURIComponent(token)}`;
 
+    // 0. Meta days must be Tunisia days (the money view joins them with Shipper days): check the account's time zone.
+    const acct = await fetch(`${GRAPH}/act_${META_ACCOUNT_ID}?fields=timezone_name&${auth}`).then((r) => r.json()).catch(() => null) as { timezone_name?: string } | null;
+    const tz = acct?.timezone_name ?? null;
+    const tzNote = tz && tz !== "Africa/Tunis" ? ` WARNING: the ad account's time zone is ${tz}, not Africa/Tunis; Meta days and Shipper days are shifted.` : "";
+
     // 1. Ads (every status, so paused ones are known too).
     type AdRow = { id: string; name: string; adset_id?: string; adset?: { name?: string; daily_budget?: string }; campaign_id: string; effective_status?: string; created_time?: string };
     const ads = await getAll<AdRow>(`${GRAPH}/act_${META_ACCOUNT_ID}/ads?fields=id,name,adset_id,adset{name,daily_budget},campaign_id,effective_status,created_time&filtering=${filter}&limit=500&${auth}`);
@@ -160,7 +165,7 @@ export async function runMetaPull(): Promise<{ ok: boolean; message: string }> {
       resultsNote = `results not updated: ${e instanceof Error ? e.message : "error"}`;
     }
 
-    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}); ${resultsNote}.`, ads.length, rows.length);
+    return finish(true, `Pulled ${ads.length} ads and ${rows.length} ad-days (${since} → ${until}); ${resultsNote}.${tzNote}`, ads.length, rows.length);
   } catch (e) {
     return finish(false, e instanceof Error ? e.message.replace(token, "…") : "The pull failed.");
   }
