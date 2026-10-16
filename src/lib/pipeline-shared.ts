@@ -3,7 +3,7 @@
  * Rail of 5 steps: Writing → Review → Changes → Approved → Details.
  * Pure functions, safe for server and browser; fed by tasks, their review rounds and their Script details.
  */
-import { fmtDay, tunisDate, type TaskRow } from "./tasks-shared";
+import { fmtDay, prodStage, tunisDate, type Production, type TaskRow } from "./tasks-shared";
 
 export const RAIL = ["Writing", "Review", "Changes", "Approved", "Details"] as const;
 export type StepState = "done" | "now" | "late" | "skip" | "todo";
@@ -39,6 +39,7 @@ export function buildPipeline(
   tasks: TaskRow[],
   details: DetailsLite[],
   opts: { forFounder: boolean; reviewHours: number; detailsDays: number; weekStart: string; now: number },
+  productions: Map<string, Production> = new Map(),
 ): Pipeline {
   const { forFounder, reviewHours, detailsDays, weekStart, now } = opts;
   const today = tunisDate(0, now);
@@ -121,7 +122,13 @@ export function buildPipeline(
   for (const t of tasks) {
     const d = det.get(t.id);
     if (t.status !== "details_done" || !d?.confirmedAt || Date.parse(d.confirmedAt) < Date.parse(weekStart)) continue;
-    const where = d.generate ? "AI / 3D" : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
+    // Where it is now in production: shoot day, footage in (to assign), or with an editor.
+    const p = productions.get(t.id);
+    const stage = prodStage(d.generate, p);
+    const where =
+      stage === "editing" ? "EDITING"
+      : stage === "assign" ? (d.generate ? "AI / 3D · TO ASSIGN" : "FOOTAGE IN")
+      : d.shootOn ? `SHOOT ${fmtDay(d.shootOn).split(" ")[0].toUpperCase()}` : "SHOOT";
     handed.push({ id: t.id, copywriterId: t.copywriterId, label: `${(d.face ?? t.angle).toUpperCase()} · ${where}` });
   }
   return { rows, handed };

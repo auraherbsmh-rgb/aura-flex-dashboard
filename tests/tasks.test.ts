@@ -138,3 +138,17 @@ test("Scripts pipeline: round 2, approved after changes, late changes", () => {
   assert.equal(by.get("cl")!.due, "late 3 d");
   assert.equal(by.get("cl")!.waitingWhat, "your note");
 });
+
+import { prodStage, suggestEditor } from "../src/lib/tasks-shared";
+
+test("production stage and ★ editor", () => {
+  const p = { taskId: "t", footageUrl: null, allHooksShot: null, footageGap: null, footageAt: null, editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null };
+  assert.equal(prodStage(false, undefined), "shoot");
+  assert.equal(prodStage(true, undefined), "assign");
+  assert.equal(prodStage(false, { ...p, footageAt: "2026-10-16T08:00:00Z" }), "assign");
+  assert.equal(prodStage(false, { ...p, footageAt: "x", assignedAt: "y" }), "editing");
+  const eds = [{ id: "a", name: "Editor A", doesAi: true, queue: 4 }, { id: "b", name: "Editor B", doesAi: false, queue: 2 }];
+  assert.equal(suggestEditor(eds, false), "b");
+  assert.equal(suggestEditor(eds, true), "a");
+  assert.equal(suggestEditor([], false), null);
+});

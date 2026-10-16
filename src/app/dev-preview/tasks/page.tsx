@@ -11,7 +11,7 @@ import type { Pickers, Proposal } from "@/lib/proposals-shared";
 import type { CreateTaskContext, TaskRow } from "@/lib/tasks-shared";
 
 /** Local-only preview of screen 4 (ENABLE_PREVIEW=1; never on Vercel). */
-export default async function Preview({ searchParams }: { searchParams: Promise<{ task?: string; view?: string }> }) {
+export default async function Preview({ searchParams }: { searchParams: Promise<{ task?: string; view?: string; prod?: string }> }) {
   if (process.env.ENABLE_PREVIEW !== "1") notFound();
   const sp = await searchParams;
   const view = sp.view ?? "founder";
@@ -78,6 +78,9 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
             </aside>
             <div className="board-main">
               <TaskView key={sel.id} task={sel} history={[{ cell: "FSS × Problem", format: "UGC", status: "approved", month: "Oct 2026" }]} line={4.18} isFounder={view !== "writer"} isOwner={view === "writer"}
+                production={sel.id === "t7" && sp.prod === "in" ? { taskId: "t7", footageUrl: "https://drive.google.com/x", allHooksShot: false, footageGap: "V5 not shot", footageAt: "2026-10-16T07:00:00Z", editorId: null, editorName: null, editDue: null, brief: null, reference: null, assignedAt: null } : undefined}
+                prodCard={{ taskId: sel.id, face: "Sami", cell: "FSS × Problem", angle: "Knee-Surgery-Fear", format: "UGC", copywriter: "Copywriter 2", shootOn: "2026-10-17", generate: false, hooks: 5, confirmedAt: "2026-10-15T12:00:00Z" }}
+                editors={[{ id: "ea", name: "Editor A", doesAi: true, queue: 3 }, { id: "eb", name: "Editor B", doesAi: false, queue: 1 }]}
                 details={sel.id === "t7" ? det : sel.id === "t6" ? { ...det, adSetName: null, confirmedAt: null, ads: [], variations: det.variations.slice(0, 2) } : null} detailsPickers={dp} />
             </div>
           </div>

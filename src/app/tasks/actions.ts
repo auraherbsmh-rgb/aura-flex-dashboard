@@ -166,3 +166,36 @@ export async function saveScriptDetails(taskId: string, input: DetailsInput, con
   revalidatePath("/", "layout");
   return done(confirm ? "Details confirmed. The ad names are ready and the script is handed to production." : "Draft saved.");
 }
+
+/** Footage received (founders): raw Drive link + "the agency shot all hooks", or one line on what is missing. */
+export async function markFootage(taskId: string, url: string, allHooks: boolean, gap: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders mark footage received.");
+  const link = url.trim();
+  if (!LINK.test(link)) return fail("Paste the full Drive link (starting with https://).");
+  if (link.length > 1000) return fail("That link is too long.");
+  if (!allHooks && gap.trim().length < 2) return fail("Say in one line what the agency did not shoot.");
+  if (gap.length > 500) return fail("Keep the missing-footage note short.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("mark_footage", { p_task: taskId, p_url: link, p_all_hooks: allHooks, p_gap: gap.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Footage received. It is now an ASSIGN item.");
+}
+
+/** Assign the edit (founders): editor, due date, one-box brief, optional reference. */
+export async function assignEdit(taskId: string, editorId: string, due: string, brief: string, reference: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders assign edits.");
+  if (!editorId) return fail("Pick the editor.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return fail("Pick the due date.");
+  if (due < tunisDate(0)) return fail("The due date is in the past.");
+  if (brief.trim().length < 3) return fail("Write the brief (one text box).");
+  if (brief.length > 2000) return fail("Keep the brief under 2,000 characters.");
+  if (reference.length > 1000) return fail("That reference is too long.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("assign_edit", { p_task: taskId, p_editor: editorId, p_due: due, p_brief: brief.trim(), p_ref: reference.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Assigned. It is in the editor’s queue.");
+}

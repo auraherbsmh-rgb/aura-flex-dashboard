@@ -187,3 +187,48 @@ export function missingDetails(d: Pick<ScriptDetails, "face" | "shootOn" | "gene
   });
   return miss;
 }
+
+/** Production of a confirmed script (screen 8): footage, then the edit assignment. */
+export type Production = {
+  taskId: string;
+  footageUrl: string | null;
+  allHooksShot: boolean | null;
+  footageGap: string | null;
+  footageAt: string | null;
+  editorId: string | null;
+  editorName: string | null;
+  editDue: string | null;
+  brief: string | null;
+  reference: string | null;
+  assignedAt: string | null;
+};
+export type EditorLoad = { id: string; name: string; doesAi: boolean; queue: number };
+/** What the Footage received and Assign pop-ups show about the script. */
+export type ProdCard = {
+  taskId: string;
+  face: string;
+  cell: string;
+  angle: string;
+  format: string;
+  copywriter: string;
+  shootOn: string | null;
+  generate: boolean;
+  hooks: number;
+  confirmedAt: string | null;
+};
+export type ProdStage = "shoot" | "assign" | "editing";
+/** Where a confirmed script stands: waiting for footage (shoot), ready to assign, or with an editor. */
+export function prodStage(generate: boolean, p: Production | undefined): ProdStage {
+  if (p?.assignedAt) return "editing";
+  if (generate || p?.footageAt) return "assign";
+  return "shoot";
+}
+/** ★ editor: full AI / 3D goes to the AI editor (Editor A); otherwise the shortest queue. */
+export function suggestEditor(list: EditorLoad[], generate: boolean): string | null {
+  if (!list.length) return null;
+  if (generate) {
+    const ai = list.filter((e) => e.doesAi).sort((a, b) => a.queue - b.queue)[0];
+    if (ai) return ai.id;
+  }
+  return [...list].sort((a, b) => a.queue - b.queue)[0].id;
+}

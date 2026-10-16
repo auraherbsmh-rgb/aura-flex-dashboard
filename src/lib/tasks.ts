@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -170,4 +170,67 @@ export async function getDetailsLite(): Promise<DetailsLite[]> {
     supabase.from("script_details").select("task_id, face, shoot_on, generate, confirmed_at").order("task_id").range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
   );
   return rows.map((r) => ({ taskId: r.task_id, face: r.face, shootOn: r.shoot_on, generate: r.generate, confirmedAt: r.confirmed_at }));
+}
+
+/** Productions the viewer may see, by task (founders all; a copywriter her own; an editor the ones assigned to her). */
+export async function getProductions(): Promise<Map<string, Production>> {
+  const supabase = await createClient();
+  type R = {
+    task_id: string; footage_url: string | null; all_hooks_shot: boolean | null; footage_gap: string | null; footage_at: string | null;
+    editor_id: string | null; edit_due: string | null; brief: string | null; edit_reference: string | null; assigned_at: string | null;
+    editor: { display_name: string } | null;
+  };
+  const rows = await allRows("production", (a, b) =>
+    supabase
+      .from("productions")
+      .select("task_id, footage_url, all_hooks_shot, footage_gap, footage_at, editor_id, edit_due, brief, edit_reference, assigned_at, editor:people!productions_editor_id_fkey(display_name)")
+      .order("task_id")
+      .range(a, b) as unknown as PromiseLike<{ data: R[] | null; error: unknown }>,
+  );
+  return new Map(
+    rows.map((r) => [
+      r.task_id,
+      {
+        taskId: r.task_id, footageUrl: r.footage_url, allHooksShot: r.all_hooks_shot, footageGap: r.footage_gap, footageAt: r.footage_at,
+        editorId: r.editor_id, editorName: r.editor?.display_name ?? (r.editor_id ? "an editor" : null), editDue: r.edit_due,
+        brief: r.brief, reference: r.edit_reference, assignedAt: r.assigned_at,
+      },
+    ]),
+  );
+}
+
+/** Active editors with their queue (edits assigned to them), for the Assign pop-up. Founders only. */
+export async function getEditors(productions: Map<string, Production>): Promise<EditorLoad[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("people").select("id, display_name, does_ai_3d").eq("role", "editor").eq("active", true).order("display_name");
+  if (error) throw new Error("Could not read the editors. Reload the page.");
+  const queue = new Map<string, number>();
+  for (const p of productions.values()) if (p.editorId && p.assignedAt) queue.set(p.editorId, (queue.get(p.editorId) ?? 0) + 1);
+  return (data ?? []).map((e) => ({ id: e.id, name: e.display_name, doesAi: !!e.does_ai_3d, queue: queue.get(e.id) ?? 0 }));
+}
+
+/** Pop-up cards for confirmed scripts (needs the tasks and their Script details). */
+export function prodCards(tasks: TaskRow[], details: DetailsLite[], hooksByTask: Map<string, number>): Map<string, ProdCard> {
+  const det = new Map(details.map((d) => [d.taskId, d]));
+  const out = new Map<string, ProdCard>();
+  for (const t of tasks) {
+    const d = det.get(t.id);
+    if (t.status !== "details_done" || !d) continue;
+    out.set(t.id, {
+      taskId: t.id, face: d.face ?? t.angle, cell: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`, angle: t.angle, format: t.format,
+      copywriter: t.copywriter, shootOn: d.shootOn, generate: d.generate, hooks: hooksByTask.get(t.id) ?? 0, confirmedAt: d.confirmedAt,
+    });
+  }
+  return out;
+}
+
+/** Number of active ad variations (hooks) per task. */
+export async function getHookCounts(): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const rows = await allRows("ad variations", (a, b) =>
+    supabase.from("ad_variations").select("id, task_id").eq("active", true).order("id").range(a, b) as unknown as PromiseLike<{ data: { task_id: string }[] | null; error: unknown }>,
+  );
+  const m = new Map<string, number>();
+  for (const r of rows) m.set(r.task_id, (m.get(r.task_id) ?? 0) + 1);
+  return m;
 }

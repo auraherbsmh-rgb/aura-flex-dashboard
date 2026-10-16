@@ -4,9 +4,10 @@ import Link from "next/link";
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
 import { CopyName, ScriptDetailsButton } from "./ScriptDetails";
+import { AssignButton, FootageButton } from "./Production";
 import { reviewScript, submitScript } from "@/app/tasks/actions";
 import { shortAwareness } from "@/lib/proposals-shared";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type ScriptDetails, type TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
@@ -98,6 +99,9 @@ export function TaskView({
   isOwner,
   details,
   detailsPickers,
+  production,
+  prodCard,
+  editors = [],
 }: {
   task: TaskRow;
   history: AngleHistoryRow[];
@@ -106,6 +110,9 @@ export function TaskView({
   isOwner: boolean;
   details: ScriptDetails | null;
   detailsPickers: DetailsPickers;
+  production?: Production;
+  prodCard?: ProdCard;
+  editors?: EditorLoad[];
 }) {
   const [url, setUrl] = useState(task.scriptUrl ?? "");
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
@@ -113,7 +120,10 @@ export function TaskView({
   const [changesOpen, setChangesOpen] = useState(false);
 
   const last = task.rounds[task.rounds.length - 1];
-  const now = stepNow(task.status);
+  const generate = !!details?.generate || task.formatCode === "AI";
+  const stage = task.status === "details_done" ? prodStage(generate, production) : null;
+  // After hand-off: Shoot (or Generate) until the footage is in (AI / 3D: until assigned), then Edit.
+  const now = stage === "editing" || (stage === "assign" && !generate) ? 4 : stepNow(task.status);
   const canSend = (isOwner || isFounder) && (task.status === "writing" || task.status === "changes");
   const canReview = isFounder && task.status === "review" && !!last && !last.decision;
   const today = tunisDate(0);
@@ -292,6 +302,41 @@ export function TaskView({
               <span className="unit">Editing changes the ad names: do it before launch.</span>
             </div>
           )}
+        </div>
+      )}
+
+      {task.status === "details_done" && stage && (
+        <div>
+          <h3 className="h3">Production</h3>
+          <div className="tv-prod">
+            <div className="tv-prod-row">
+              <div style={{ minWidth: 0 }}>
+                <span className="lbl">{generate ? "Generate" : "Shoot and footage"}</span>
+                <div style={{ fontSize: 14, marginTop: 4 }}>
+                  {generate
+                    ? "AI / 3D: no shoot. Goes straight to an editor."
+                    : production?.footageAt
+                      ? <>Footage received {fmtWhen(production.footageAt)} · <a className="tap" href={production.footageUrl ?? "#"} target="_blank" rel="noopener noreferrer">Raw footage ↗</a>{production.allHooksShot ? " · all hooks shot ✓" : <span className="formmsg err"> · missing: {production.footageGap}</span>}</>
+                      : <>Shoot {details?.shootOn ? fmtDay(details.shootOn) : "date not set"} · waiting for the agency’s footage</>}
+                </div>
+              </div>
+              {isFounder && prodCard && stage === "shoot" && <FootageButton card={prodCard} className="btn b-primary" onDone={(m) => setMsg({ ok: m })} />}
+            </div>
+            <div className="tv-prod-row">
+              <div style={{ minWidth: 0 }}>
+                <span className="lbl">Edit</span>
+                <div style={{ fontSize: 14, marginTop: 4 }}>
+                  {production?.assignedAt
+                    ? <>{production.editorName} · due {production.editDue ? fmtDay(production.editDue) : "—"}{production.brief ? <span className="unit"> · brief: {production.brief}</span> : null}</>
+                    : stage === "assign" ? "Ready to assign to an editor" : "After the footage"}
+                </div>
+              </div>
+              {isFounder && prodCard && stage !== "shoot" && (
+                <AssignButton card={prodCard} editors={editors} current={production} label={production?.assignedAt ? "Change" : "Assign"} className={production?.assignedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />
+              )}
+            </div>
+          </div>
+          {!isFounder && <div className="unit" style={{ marginTop: 6 }}>Read-only: Founder 2 runs production.</div>}
         </div>
       )}
 

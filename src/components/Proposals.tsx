@@ -6,6 +6,8 @@ import { Modal } from "./Modal";
 import { propose, decide, type ProposeState } from "@/app/proposals/actions";
 import { AWARENESS, shortAwareness, type Pickers, type Proposal } from "@/lib/proposals-shared";
 import type { NeedGroup } from "@/lib/needs";
+import type { EditorLoad } from "@/lib/tasks-shared";
+import { AssignButton, FootageButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { CreateTaskButton } from "./Tasks";
 
@@ -163,7 +165,7 @@ function DecideModal({ p, open, onClose, onDone, who = "Founder 1 · DECIDE item
 }
 
 /** Needs me list (Founder Homes): one list, most urgent first, one button per line. */
-export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number }) {
+export function NeedsMe({ groups, total, editors = [] }: { groups: NeedGroup[]; total: number; editors?: EditorLoad[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState("");
   return (
@@ -188,7 +190,11 @@ export function NeedsMe({ groups, total }: { groups: NeedGroup[]; total: number 
                   <div className="need-sub">{it.sub}</div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
-                {it.href ? (
+                {it.prod ? (
+                  it.prod.kind === "footage"
+                    ? <FootageButton card={it.prod.card} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                    : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                ) : it.href ? (
                   <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
                 ) : it.proposal ? (
                   <>

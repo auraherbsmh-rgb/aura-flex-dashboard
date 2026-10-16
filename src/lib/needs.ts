@@ -1,17 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
-import type { TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, prodStage, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
 
 /**
  * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
  * (Today = arrived today in Tunisia and over 12h old, New = under 12h).
  * Items are computed from the records they are about, never stored, so they disappear the moment the work is done.
- * Built so far: DECIDE and REVIEW (script), and COVERING for both. The other types arrive with their screens.
+ * Built so far: DECIDE and REVIEW (script), FOOTAGE and ASSIGN (production), and COVERING for each.
+ * The other types arrive with their screens.
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "COVERING";
+  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "ASSIGN" | "COVERING";
   tagTone: "violet" | "blue" | "orange";
   title: string;
   sub: string;
@@ -21,7 +22,11 @@ export type NeedItem = {
   /** DECIDE items open the Decide pop-up; REVIEW items open the task view. */
   proposal?: Proposal;
   href?: string;
+  /** FOOTAGE and ASSIGN items open their pop-up right on Home. */
+  prod?: { kind: "footage" | "assign"; card: ProdCard; current?: Production };
 };
+
+export type ProdNeeds = { cards: Map<string, ProdCard>; productions: Map<string, Production>; footageLateDays: number; assignLateDays: number };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
 export async function getRule(key: string, fallback: number): Promise<number> {
@@ -37,8 +42,42 @@ export function buildNeeds(
   now = Date.now(),
   tasks: TaskRow[] = [],
   reviewHours = 48,
+  prod?: ProdNeeds,
 ): NeedGroup[] {
   const items: NeedItem[] = [];
+  // FOOTAGE (from the shoot day) and ASSIGN (footage in, or AI / 3D confirmed): Founder 2's; Founder 1 covers when late.
+  if (prod) {
+    const today = new Date(now + 36e5).toISOString().slice(0, 10);
+    for (const card of prod.cards.values()) {
+      const p = prod.productions.get(card.taskId);
+      const stage = prodStage(card.generate, p);
+      let kind: "footage" | "assign";
+      let since: string;
+      let lateH: number;
+      if (stage === "shoot") {
+        if (!card.shootOn || card.shootOn > today) continue;
+        kind = "footage";
+        since = `${card.shootOn}T00:00:00+01:00`;
+        lateH = prod.footageLateDays * 24;
+      } else if (stage === "assign") {
+        kind = "assign";
+        since = p?.footageAt ?? card.confirmedAt ?? new Date(now).toISOString();
+        lateH = prod.assignLateDays * 24;
+      } else continue;
+      const age = ageLabel(since, now, lateH);
+      const late = age.hours >= lateH;
+      const title = `${card.cell} · ${card.format} · ${card.face}`;
+      const sub = kind === "footage"
+        ? `Shoot ${fmtDay(card.shootOn ?? today)} · paste the raw Drive link`
+        : card.generate ? "AI / 3D · no editor yet" : "Footage in, no editor yet";
+      const type = kind === "footage" ? "FOOTAGE" : "ASSIGN";
+      if (viewer.role === "founder_2") {
+        items.push({ key: `${kind}-${card.taskId}`, type, tagTone: kind === "footage" ? "blue" : "violet", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
+      } else if (viewer.role === "founder_1" && late) {
+        items.push({ key: `${kind}-${card.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's ${type.toLowerCase()}, late · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, prod: { kind, card, current: p } });
+      }
+    }
+  }
   // REVIEW: a script waiting on Founder 1 (Founder 2 covers after the review rule).
   for (const t of tasks.filter((x) => x.status === "review")) {
     const last = t.rounds[t.rounds.length - 1];

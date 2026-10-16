@@ -1,0 +1,10 @@
+-- Applied Oct 16, 2026 (screen 8: Footage received + Assign). Summary of live migrations
+-- "productions_footage_assign" and "productions_rls_no_recursion".
+-- public.productions (one per confirmed script): footage_url, all_hooks_shot, footage_gap (what the agency missed),
+--   footage_at/by, editor_id, edit_due, brief, edit_reference, assigned_at/by. RLS read: founders, the task's copywriter
+--   (private.owns_task) or the assigned editor. Editors can read the tasks assigned to them (private.edits_task).
+-- public.mark_footage(task, url, all_hooks, gap): founders; details_done; not AI / 3D; https link; gap required when
+--   not all hooks shot; refused once assigned.
+-- public.assign_edit(task, editor, due, brief, ref): founders; footage in or AI / 3D; active editor; due not past; brief required.
+-- Live test (rolled back): assign before footage, no-hooks-no-note, past due, footage after assign, copywriter actions refused;
+--   footage → assign works; copywriter sees her production read-only.

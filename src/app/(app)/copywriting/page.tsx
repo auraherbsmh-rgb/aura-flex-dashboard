@@ -4,7 +4,7 @@ import { CreateTaskButton } from "@/components/Tasks";
 import { BoardInbox, TaskView } from "@/components/TaskView";
 import { requireTab } from "@/lib/viewer";
 import { getPickers, getProposals } from "@/lib/proposals";
-import { getCreateTaskContext, getDetailsLite, getTaskExtras, getTasks, inboxLine, requestTime, weekStartIso } from "@/lib/tasks";
+import { getCreateTaskContext, getDetailsLite, getEditors, getHookCounts, getProductions, getTaskExtras, getTasks, inboxLine, prodCards, requestTime, weekStartIso } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
 import { buildPipeline } from "@/lib/pipeline-shared";
 import { CopyViews } from "@/components/CopyViews";
@@ -27,6 +27,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("review_waiting_hours", 48),
     getRule("details_not_filled_days", 1),
   ]);
+  const [productions, hooks] = await Promise.all([getProductions(), getHookCounts()]);
+  const editors = founder ? await getEditors(productions) : [];
+  const cards = prodCards(allTasks, detailsLite, hooks);
 
   // Founders switch between copywriters (Copywriter 1 · 2 · All); a copywriter only ever has her own tasks.
   const writers = founder
@@ -43,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const urgent = [...tasks].sort((a, b) => inboxLine(a, founder, now).rank - inboxLine(b, founder, now).rank || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const extras = selected ? await getTaskExtras(selected) : null;
-  const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now });
+  const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   return (
     <TabPage tab="copywriting" title="Copywriting">
@@ -86,6 +89,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
               isOwner={selected.copywriterId === viewer.personId}
               details={extras.details}
               detailsPickers={extras.pickers}
+              production={productions.get(selected.id)}
+              prodCard={cards.get(selected.id)}
+              editors={editors}
             />
           ) : (
             <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
