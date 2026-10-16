@@ -287,3 +287,65 @@ export async function markVo(taskId: string, url: string, inspiration: string): 
   revalidatePath("/", "layout");
   return done("VO received. The task is ready to assign to an editor.");
 }
+
+/** Testimonial (founders): save a support-call recording to tag later (TESTIMONIAL item on Founder 2's Home). */
+export async function addTestimonial(url: string, note: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders add testimonials.");
+  const u = url.trim();
+  if (!LINK.test(u)) return fail("Paste the full link to the recording (starting with https://).");
+  if (u.length > 1000) return fail("That link is too long.");
+  if (note.trim().length > 300) return fail("Keep the note short.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("add_testimonial", { p_url: u, p_note: note.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Saved. It waits as a TESTIMONIAL item on Founder 2’s Home.");
+}
+
+/** Testimonial: Not usable (discards a waiting recording). */
+export async function testimonialNotUsable(id: string, reason: string): Promise<TaskState> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders decide on testimonials.");
+  if (reason.trim().length > 300) return fail("Keep the reason short.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("testimonial_not_usable", { p_id: id, p_reason: reason.trim() });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return done("Marked not usable.");
+}
+
+export type TestimonialInput = {
+  id: string | null;
+  url: string;
+  note: string;
+  avatarId: string;
+  awareness: string;
+  angleId: string;
+  face: string;
+  brief: string;
+  hooks: number;
+};
+
+/** Testimonial tag → edit task (UGC + testimonial, skips script and shoot); the next step is Assign. Returns the task id. */
+export async function tagTestimonial(input: TestimonialInput): Promise<TaskState & { taskId?: string }> {
+  const v = await getViewer();
+  if (v.role !== "founder_1" && v.role !== "founder_2") return fail("Only founders tag testimonials.");
+  const u = input.url.trim();
+  if (!input.id && !LINK.test(u)) return fail("Paste the full link to the recording (starting with https://).");
+  const face = input.face.trim();
+  const tag = toConceptTag(face);
+  if (!tag) return fail("Write the customer’s first name in Latin letters (it goes into ad names).");
+  if (face.length > 60) return fail("Keep the first name short.");
+  if (input.brief.trim().length < 3) return fail("Write the brief for the editor.");
+  if (input.brief.length > 2000) return fail("Keep the brief under 2000 characters.");
+  if (!Number.isInteger(input.hooks) || input.hooks < 1 || input.hooks > 6) return fail("Pick 1 to 6 hooks.");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("tag_testimonial", {
+    p_id: input.id, p_url: u, p_note: input.note.trim(), p_avatar: input.avatarId || null, p_awareness: input.awareness,
+    p_angle: input.angleId || null, p_face: face, p_tag: tag, p_brief: input.brief.trim(), p_hooks: input.hooks,
+  });
+  if (error) return fail(plain(error));
+  revalidatePath("/", "layout");
+  return { ...done("Edit task created. Assign it to an editor."), taskId: data as string };
+}

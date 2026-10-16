@@ -107,7 +107,7 @@ export function buildQueue(
       state === "changes" ? (last?.loom ? "Loom waiting" : last?.note ?? "Founder note waiting")
       : state === "submitted" ? `Waiting for Founder 2 review`
       : state === "approved" ? `Approved ${last?.decidedAt ? fmtDay(last.decidedAt.slice(0, 10)) : ""} · counted for payment`
-      : state === "ready" ? (c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO recording in" : "Footage in Drive"} since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
+      : state === "ready" ? (t.origin === "testimonial" ? "Testimonial · recording ready" : c.generate ? "AI / 3D · generate and edit" : p.footageAt ? `${c.vo ? "VO recording in" : "Footage in Drive"} since ${fmtDay(p.footageAt.slice(0, 10))}` : "Ready to start")
       : t.origin === "successor" ? "Successor for a fading winner" : "Editing";
     out.push({
       taskId: t.id,
@@ -244,7 +244,8 @@ export function buildVideoPipeline(
     const gen = d.generate || t.formatCode === "AI";
     const scriptOk = [...t.rounds].reverse().find((x) => x.decision === "approved");
     const vo = !gen && !!d.vo;
-    const steps: VStep[] = gen ? ["skip", "skip", "todo", "todo", "todo"] : vo ? ["skip", "todo", "todo", "todo", "todo"] : ["todo", "todo", "todo", "todo", "todo"];
+    const testimonial = t.origin === "testimonial";
+    const steps: VStep[] = gen ? ["skip", "skip", "todo", "todo", "todo"] : vo || testimonial ? ["skip", "todo", "todo", "todo", "todo"] : ["todo", "todo", "todo", "todo", "todo"];
     let i = 0, since = now, late = false;
     let waitingOn: VideoRow["waitingOn"] = "Agency", waitingWhat = "", due = "on track";
     let label: string | null = null;
@@ -306,7 +307,7 @@ export function buildVideoPipeline(
       editorId: p?.editorId ?? null,
       name: d.face ?? t.angle,
       meta: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")} · ${t.format}${p?.editorName ? ` · ${p.editorName}` : ""}`,
-      origin: `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${monthDay(scriptOk.decidedAt)}` : ""}`,
+      origin: testimonial ? "testimonial · support call" : `script ${t.copywriter}${scriptOk?.decidedAt ? ` · approved ${monthDay(scriptOk.decidedAt)}` : ""}`,
       steps,
       nowLabel: label ?? ago(since, now),
       waitingOn,

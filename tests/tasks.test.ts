@@ -279,3 +279,24 @@ test("VO: no shoot, waiting on the VO recording, then assign", () => {
   assert.deepEqual(by.get("in")!.steps, ["skip", "done", "now", "todo", "todo"]);
   assert.equal(by.get("in")!.action, "assign");
 });
+
+import { buildNeeds } from "../src/lib/needs";
+
+test("Testimonial: TESTIMONIAL item for Founder 2, covering for Founder 1 after 48h; pipeline skips shoot", () => {
+  const now = Date.parse("2026-10-16T10:00:00Z");
+  const tm = (id: string, addedAt: string) => ({ id, url: "https://d.x", note: "repeat buyer", addedAt });
+  const prod = { cards: new Map(), productions: new Map(), footageLateDays: 2, assignLateDays: 2, testimonials: [tm("new", "2026-10-16T08:00:00Z"), tm("old", "2026-10-13T08:00:00Z")] };
+  const v = (role: "founder_1" | "founder_2") => ({ personId: "p", name: "F", role, email: "" });
+  const f2 = buildNeeds(v("founder_2"), [], 48, now, [], 48, prod).flatMap((g) => g.items);
+  assert.deepEqual(f2.map((i) => i.type).sort(), ["TESTIMONIAL", "TESTIMONIAL"]);
+  const f1 = buildNeeds(v("founder_1"), [], 48, now, [], 48, prod).flatMap((g) => g.items);
+  assert.deepEqual(f1.map((i) => `${i.type}:${i.testimonial?.id}`), ["COVERING:old"]);
+
+  const base = { taskId: "ts", footageUrl: "https://d.x", allHooksShot: true, footageGap: null, footageAt: "2026-10-16T08:00:00Z", editorId: null, editorName: null, editDue: null, brief: "b", reference: null, assignedAt: null, editStartedAt: null, finalUrl: null, launchedAt: null, liveAt: null, liveSource: null };
+  const rows = buildVideoPipeline([{ ...t0, id: "ts", status: "details_done", origin: "testimonial", copywriter: "Testimonial" }], new Map([["ts", base]]), new Map(),
+    new Map([["ts", { shootOn: null, generate: false, vo: false, face: "Khadija", confirmedAt: "2026-10-16T08:00:00Z" }]]),
+    { now, footageLateDays: 2, assignLateDays: 2, reviewHours: 48, launchLateDays: 2, roundAlert: 3 });
+  assert.deepEqual(rows[0].steps, ["skip", "done", "now", "todo", "todo"]);
+  assert.equal(rows[0].action, "assign");
+  assert.match(rows[0].origin, /testimonial/);
+});

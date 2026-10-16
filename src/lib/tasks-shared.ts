@@ -229,9 +229,13 @@ export type ProdCard = {
   generate: boolean;
   /** VO (no shoot): Founder 2 uploads the voice recording instead of raw footage. */
   vo: boolean;
+  /** Testimonial edit task: no script, no shoot; the support-call recording is the footage. */
+  testimonial?: boolean;
   hooks: number;
   confirmedAt: string | null;
 };
+/** A support-call recording waiting to be tagged (Founder 2's TESTIMONIAL item). */
+export type TestimonialLite = { id: string; url: string; note: string | null; addedAt: string };
 export type ProdStage = "shoot" | "assign" | "editing";
 /** Where a confirmed script stands: waiting for footage (shoot), ready to assign, or with an editor. */
 /** On hold and not launched yet: late alerts and Home items pause, the editor can't send versions. */

@@ -1,0 +1,9 @@
+-- Applied live Oct 16 as migrations "testimonials" + "testimonial_task_refs" (screen 12, Testimonial tag).
+-- Founder decision Oct 16: Founder 2 adds the support-call recording himself (no support login).
+-- tasks.copywriter_id nullable; origin adds 'testimonial'; check: copywriter or testimonial. ad_variations.hook_type_id nullable.
+-- private.check_task_refs: testimonial tasks have no copywriter.
+-- testimonials table (founders read): recording_url, note, status new/used/not_usable, reason, task_id, added_*, decided_*.
+-- RPCs (founders): add_testimonial(url, note) · testimonial_not_usable(id, reason) ·
+--   tag_testimonial(id|null, url, note, avatar, awareness, angle, face, tag, brief, hooks 1–6) → a UGC task, status details_done,
+--   origin testimonial, script_details confirmed (ad set name UGC_Avatar_Awareness_Angle_Tag, unique), N ad variations
+--   (hook type empty, "Testimonial cut N"), production with the recording as footage + the brief → next step Assign.

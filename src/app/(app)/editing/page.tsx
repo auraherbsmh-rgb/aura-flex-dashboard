@@ -1,5 +1,6 @@
 import { TabPage } from "@/components/TabPage";
 import { CreateTaskButton } from "@/components/Tasks";
+import { TestimonialButton } from "@/components/Testimonial";
 import { getPickers } from "@/lib/proposals";
 import { EditBoard, type EditView } from "@/components/Editing";
 import { requireTab } from "@/lib/viewer";
@@ -93,6 +94,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       hooks: allHooks.get(q.taskId) ?? [],
       generate: c.generate,
       vo: pcards.get(q.taskId)?.vo ?? false,
+      testimonial: t.origin === "testimonial",
       payPerVideo: pay.get(p.editorId ?? "")?.perVideo ?? null,
       editorName: p.editorName ?? "Editor",
       card: pcards.get(q.taskId),
@@ -132,7 +134,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         editors={edList}
         initialEd={ed}
         forFounder={founder}
-        createTask={ctx && pickers ? <CreateTaskButton ctx={ctx} pickers={pickers} /> : undefined}
+        createTask={ctx && pickers ? <span style={{ display: "inline-flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}><TestimonialButton pickers={pickers} editors={editors} /><CreateTaskButton ctx={ctx} pickers={pickers} /></span> : undefined}
         pipelineRows={pipelineRows}
         pipeCards={pipeCards}
         pipeCurrent={pipeCurrent}

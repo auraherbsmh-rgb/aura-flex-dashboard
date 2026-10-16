@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DetailsLite } from "@/lib/pipeline-shared";
 import type { EditRound } from "@/lib/editing-shared";
-import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow } from "@/lib/tasks-shared";
+import { OPEN_STATUSES, weekStartIso, type AngleHistoryRow, type AngleInfo, type ChangeFacts, type CopywriterLoad, type CreateTaskContext, type DetailsPickers, type EditorLoad, type LaunchNames, type ProdCard, type Production, type ScriptDetails, type Round, type TaskLite, type TaskRow, type TestimonialLite } from "@/lib/tasks-shared";
 export * from "@/lib/tasks-shared";
 
 /** Reads every row in pages of 1,000 (the database returns at most 1,000 rows per request). */
@@ -59,7 +59,7 @@ export async function getTasks(): Promise<TaskRow[]> {
   const supabase = await createClient();
   type Row = {
     id: string; status: string; due_on: string; created_at: string; keep_text: string | null; founder_note: string | null;
-    reference: string | null; copywriter_id: string; awareness: string; angle_id: string; script_url: string | null; origin: string; change_facts: ChangeFacts | Record<string, never>;
+    reference: string | null; copywriter_id: string | null; awareness: string; angle_id: string; script_url: string | null; origin: string; change_facts: ChangeFacts | Record<string, never>;
     writer: { display_name: string } | null; avatar: { code: string } | null; angle: { label: string; code: string } | null; format: { label: string; code: string } | null;
   };
   type RoundRow = {
@@ -102,7 +102,8 @@ export async function getTasks(): Promise<TaskRow[]> {
   return rows
     .map((r) => ({
       id: r.id, status: r.status, dueOn: r.due_on, createdAt: r.created_at,
-      copywriter: r.writer?.display_name ?? "—", copywriterId: r.copywriter_id,
+      // Testimonial edit tasks have no copywriter (no script).
+      copywriter: r.origin === "testimonial" ? "Testimonial" : r.writer?.display_name ?? "—", copywriterId: r.copywriter_id ?? "",
       avatarCode: r.avatar?.code ?? "?", awareness: r.awareness, angleId: r.angle_id, angle: r.angle?.label ?? "—", angleCode: r.angle?.code ?? "?",
       format: r.format?.label ?? "—", formatCode: r.format?.code ?? "?",
       keep: r.keep_text, note: r.founder_note, reference: r.reference, scriptUrl: r.script_url, origin: r.origin,
@@ -299,7 +300,7 @@ export function prodCards(tasks: TaskRow[], details: DetailsLite[], hooksByTask:
     if (t.status !== "details_done" || !d) continue;
     out.set(t.id, {
       taskId: t.id, face: d.face ?? t.angle, cell: `${t.avatarCode} × ${t.awareness.replace("-Aware", "")}`, angle: t.angle, format: t.format,
-      copywriter: t.copywriter, shootOn: d.shootOn, generate: d.generate, vo: !!d.vo, hooks: hooksByTask.get(t.id) ?? 0, confirmedAt: d.confirmedAt,
+      copywriter: t.origin === "testimonial" ? "a support call" : t.copywriter, shootOn: d.shootOn, generate: d.generate, vo: !!d.vo, testimonial: t.origin === "testimonial", hooks: hooksByTask.get(t.id) ?? 0, confirmedAt: d.confirmedAt,
     });
   }
   return out;
@@ -360,7 +361,7 @@ export async function getHooks(taskId: string) {
     .order("v");
   if (error) throw new Error("Could not read the hooks. Reload the page.");
   type A = { v: number; hook_line: string; headline: string | null; ad_name: string; hook: { label: string } | null };
-  return ((data ?? []) as unknown as A[]).map((a) => ({ v: a.v, type: a.hook?.label ?? "—", line: a.hook_line, headline: a.headline, name: a.ad_name }));
+  return ((data ?? []) as unknown as A[]).map((a) => ({ v: a.v, type: a.hook?.label ?? "Testimonial", line: a.hook_line, headline: a.headline, name: a.ad_name }));
 }
 
 /** Ad set and ad names of every confirmed script, for the Launch pop-ups (founders). */
@@ -402,9 +403,17 @@ export async function getAllHooks(): Promise<Map<string, { v: number; type: stri
   const m = new Map<string, { v: number; type: string; line: string; headline: string | null; name: string }[]>();
   for (const a of rows) {
     const list = m.get(a.task_id) ?? [];
-    list.push({ v: a.v, type: a.hook?.label ?? "—", line: a.hook_line, headline: a.headline, name: a.ad_name });
+    list.push({ v: a.v, type: a.hook?.label ?? "Testimonial", line: a.hook_line, headline: a.headline, name: a.ad_name });
     m.set(a.task_id, list);
   }
   for (const l of m.values()) l.sort((x, y) => x.v - y.v);
   return m;
+}
+
+/** Support-call recordings waiting to be tagged (TESTIMONIAL items). Founders only (row-level security). */
+export async function getTestimonials(): Promise<TestimonialLite[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("testimonials").select("id, recording_url, note, added_at").eq("status", "new").order("added_at").limit(200);
+  if (error) throw new Error("Could not read the testimonials. Reload the page.");
+  return (data ?? []).map((r) => ({ id: r.id, url: r.recording_url, note: r.note, addedAt: r.added_at }));
 }

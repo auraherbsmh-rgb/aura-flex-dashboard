@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/lib/viewer";
 import { ageLabel, shortAwareness, type Proposal } from "@/lib/proposals-shared";
-import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow } from "@/lib/tasks-shared";
+import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Production, type TaskRow, type TestimonialLite } from "@/lib/tasks-shared";
 
 /**
  * Needs me (handoff §6): one list, most urgent first, grouped Late / over 48h · Today · This week · New
@@ -12,8 +12,8 @@ import { fmtDay, isHeld, prodStage, type LaunchNames, type ProdCard, type Produc
  */
 export type NeedItem = {
   key: string;
-  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "COVERING";
-  tagTone: "violet" | "blue" | "orange" | "green";
+  type: "DECIDE" | "REVIEW" | "FOOTAGE" | "VO" | "ASSIGN" | "LAUNCH" | "TESTIMONIAL" | "COVERING";
+  tagTone: "violet" | "blue" | "orange" | "green" | "grey";
   title: string;
   sub: string;
   age: string;
@@ -24,6 +24,8 @@ export type NeedItem = {
   href?: string;
   /** FOOTAGE and ASSIGN items open their pop-up right on Home. */
   prod?: { kind: "footage" | "assign" | "launch"; card: ProdCard; current?: Production; names?: LaunchNames; approvedAt?: string | null };
+  /** TESTIMONIAL items open the Testimonial tag pop-up. */
+  testimonial?: TestimonialLite;
 };
 
 export type ProdNeeds = {
@@ -37,6 +39,8 @@ export type ProdNeeds = {
   /** LAUNCH: approved edits not launched yet (late after the launch rule, in days). */
   launchLateDays?: number;
   launchNames?: Map<string, LaunchNames>;
+  /** Support-call recordings waiting to be tagged: TESTIMONIAL items (Founder 2; Founder 1 covers after 48h). */
+  testimonials?: TestimonialLite[];
 };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
@@ -100,6 +104,17 @@ export function buildNeeds(
     }
   }
   // FOOTAGE (from the shoot day) and ASSIGN (footage in, or AI / 3D confirmed): Founder 2's; Founder 1 covers when late.
+  for (const tm of prod?.testimonials ?? []) {
+    const cover = prod?.coverHours ?? 48;
+    const age = ageLabel(tm.addedAt, now, cover);
+    const title = "New testimonial · tag it or mark not usable";
+    const sub = `Support call${tm.note ? ` · ${tm.note}` : ""}`;
+    if (viewer.role === "founder_2") {
+      items.push({ key: `t-${tm.id}`, type: "TESTIMONIAL", tagTone: "grey", title, sub, age: age.text, ageTone: "amber", hours: age.hours, testimonial: tm });
+    } else if (viewer.role === "founder_1" && age.hours >= cover) {
+      items.push({ key: `t-${tm.id}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's testimonial, waiting over ${cover}h · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, testimonial: tm });
+    }
+  }
   if (prod) {
     const today = new Date(now + 36e5).toISOString().slice(0, 10);
     for (const card of prod.cards.values()) {
@@ -131,7 +146,7 @@ export function buildNeeds(
       const title = `${card.cell} · ${card.format} · ${card.face}`;
       const sub = kind === "footage"
         ? card.vo ? "VO, no shoot · paste the recording link" : `Shoot ${fmtDay(card.shootOn ?? today)} · paste the raw Drive link`
-        : card.generate ? "AI / 3D · no editor yet" : card.vo ? "VO in, no editor yet" : "Footage in, no editor yet";
+        : card.generate ? "AI / 3D · no editor yet" : card.vo ? "VO in, no editor yet" : card.testimonial ? "Testimonial · recording in, no editor yet" : "Footage in, no editor yet";
       const type = kind === "footage" ? (card.vo ? "VO" : "FOOTAGE") : "ASSIGN";
       if (viewer.role === "founder_2") {
         items.push({ key: `${kind}-${card.taskId}`, type, tagTone: kind === "footage" ? "blue" : "violet", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });

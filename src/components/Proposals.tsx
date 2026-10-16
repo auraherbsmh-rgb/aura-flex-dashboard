@@ -10,6 +10,7 @@ import type { EditorLoad } from "@/lib/tasks-shared";
 import { AssignButton, FootageButton, LaunchButton } from "./Production";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { CreateTaskButton } from "./Tasks";
+import { TestimonialButton } from "./Testimonial";
 
 const empty: ProposeState = {};
 const NEW = "__new__";
@@ -170,10 +171,13 @@ export function NeedsMe({
   total: mineTotal,
   editors = [],
   allGroups,
+  pickers,
 }: {
   groups: NeedGroup[];
   total: number;
   editors?: EditorLoad[];
+  /** For the Testimonial tag pop-up (avatars, angles). */
+  pickers?: Pickers;
   /** Both founders' items (Mine | All switch, Founder Home artboard). */
   allGroups?: NeedGroup[];
 }) {
@@ -218,6 +222,8 @@ export function NeedsMe({
                     : it.prod.kind === "footage"
                     ? <FootageButton card={it.prod.card} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s FOOTAGE item" : "Founder 2 · FOOTAGE item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                     : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s ASSIGN item" : "Founder 2 · ASSIGN item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                ) : it.testimonial && pickers ? (
+                  <TestimonialButton item={it.testimonial} pickers={pickers} editors={editors} label="Tag testimonial" who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s TESTIMONIAL item" : "Founder 2 · TESTIMONIAL item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                 ) : it.href ? (
                   <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
                 ) : it.proposal ? (

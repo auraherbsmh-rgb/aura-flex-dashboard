@@ -152,7 +152,7 @@ export function AssignButton({
   const [f, setF] = useState(start);
   const close = () => { setOpen(false); onClose?.(); };
   const { error, setError, pending, run } = useRun(onDone, close);
-  const what = card.generate ? "full AI / 3D video" : `${card.vo ? "VO video" : "full video"} + ${card.hooks} hooks, subtitled`;
+  const what = card.generate ? "full AI / 3D video" : `${card.vo ? "VO video" : card.testimonial ? "testimonial video" : "full video"} + ${card.hooks} hooks, subtitled`;
   return (
     <>
       {!startOpen && <button type="button" className={className} onClick={() => { setF(start()); setError(""); setOpen(true); }}>{label}</button>}
