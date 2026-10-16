@@ -699,5 +699,5 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .sc-wl > [role="row"] > [role="rowheader"], .sc-wl > [role="row"] > [role="columnheader"]:first-child { grid-column: 1 / -1; }
   .sc-wl > [role="row"] > [role="rowheader"] { padding-bottom: 2px; }
   .sc-wl > [role="row"] > [role="cell"] { border-top: 0; padding-top: 4px; }
-  .sc-wl .dr { flex-wrap: wrap; white-space: normal; text-align: left; }
+  .sc-wl .dr { flex-wrap: wrap; white-space: normal; text-align: left; min-height: 44px; }
 }

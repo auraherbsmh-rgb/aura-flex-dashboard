@@ -6,6 +6,17 @@ import type { Scorecard as Data, WLItem } from "@/lib/scorecard-shared";
 
 const pct = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
 
+// The previous visit, read once per page load (switching views or a remount keeps the same answer), then this visit saved.
+const visits = new Map<string, string | null>();
+function visitOnce(personId: string): string | null {
+  if (visits.has(personId)) return visits.get(personId) ?? null;
+  const key = `aura:scorecard:${personId}`;
+  let prev: string | null = null;
+  try { prev = window.localStorage.getItem(key); window.localStorage.setItem(key, new Date().toISOString()); } catch { /* storage off: nothing is "new" */ }
+  visits.set(personId, prev);
+  return prev;
+}
+
 /**
  * Copywriter scorecard (artboard "Scorecard"): her own, private dashboard. Founders see it by picking that copywriter.
  * Read-only; results come from the daily Meta pull.
@@ -16,13 +27,11 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
   const [lastVisit, setLastVisit] = useState<string | null>(null);
   useEffect(() => {
     if (forFounder) return;
-    const key = `aura:scorecard:${personId}`;
-    let prev: string | null = null;
-    try { prev = window.localStorage.getItem(key); window.localStorage.setItem(key, new Date().toISOString()); } catch { /* storage off: nothing is "new" */ }
+    const prev = visitOnce(personId);
     const id = requestAnimationFrame(() => setLastVisit(prev));
     return () => cancelAnimationFrame(id);
   }, [forFounder, personId]);
-  const isNew = (at: string) => !forFounder && !!lastVisit && at > lastVisit;
+  const isNew = (at: string) => !forFounder && !!lastVisit && Date.parse(at) > Date.parse(lastVisit);
   const latest = [...data.latest].sort((a, b) => Number(isNew(b.at)) - Number(isNew(a.at)));
   const empty = data.settledTotal === 0 && data.latest.length === 0;
   const [m0, m1, m2] = data.months;
@@ -32,7 +41,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         <h2 id="h-sc" style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.03em" }}>{forFounder ? `Scorecard · ${name}` : "My scorecard"}</h2>
         <span className="lbl">{forFounder ? "Her own dashboard · private to her and the founders" : "Private: only you and the founders see it"}</span>
       </div>
-      {empty && <div className="info">No concept of {forFounder ? "hers" : "yours"} is live yet. The scorecard fills itself once your concepts run and the daily Meta pull judges them.</div>}
+      {empty && <div className="info">No concept of {forFounder ? "hers" : "yours"} is live yet. The scorecard fills itself once {forFounder ? "her" : "your"} concepts run and the daily Meta pull judges them.</div>}
 
       <section className="sc-tiles" aria-label="Win rate by month">
         {[m0, m1].map((m) => (
@@ -79,7 +88,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
 
       <section className="sc-two">
         <div className="card" style={{ padding: "20px 22px" }}>
-          <div className="sc-head" style={{ padding: "0 0 10px" }}><h3>{forFounder ? "Her script parts · this month" : "My script parts · this month"}</h3><span className="lbl">Average vs our band</span></div>
+          <div className="sc-head" style={{ padding: "0 0 10px" }}><h3>{forFounder ? "Her script parts · last 30 days" : "My script parts · last 30 days"}</h3><span className="lbl">{forFounder ? "Her" : "My"} average vs our band</span></div>
           {data.parts.map((x) => (
             <div className="sc-part" key={x.part}>
               <span style={{ fontSize: 15, fontWeight: 600 }}>{x.part}</span>
@@ -116,7 +125,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         ) : (
           <div className="card sc-focus">
             <div className="lbl">{forFounder ? "Her focus" : "My focus"}</div>
-            <div className="unit" style={{ fontSize: 14 }}>Shows the script part most often below its band, from 3 settled concepts.</div>
+            <div className="unit" style={{ fontSize: 14 }}>{data.allInBand ? "Every part in band in the last settled concepts." : "Shows the script part most often below its band, from 3 settled concepts."}</div>
           </div>
         )}
       </section>
@@ -138,7 +147,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
               </span>
               <span role="cell" className="sc-wl-c">
                 {r.worst ? <button type="button" className={`dr dr-r ${drill?.key === r.worst.key ? "dr-on" : ""}`} aria-pressed={drill?.key === r.worst.key} onClick={() => setDrill(drill?.key === r.worst!.key ? null : r.worst)}>{r.worst.label} <b className="mono">{r.worst.won}/{r.worst.settled}</b> ›</button>
-                  : r.best ? <span className="unit">{r.note}</span> : null}
+                  : <span className="unit">{r.note}</span>}
               </span>
             </span>
           ))}
@@ -147,7 +156,7 @@ export function Scorecard({ data, personId, name, forFounder, cwQuery }: { data:
         {drill && (
           <div className="tray" style={{ marginTop: 14, padding: 16, borderRadius: 22 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px 10px", gap: 10 }}>
-              <span style={{ fontSize: 16, fontWeight: 600 }}>{drill.label} <span className="unit" style={{ fontWeight: 400, marginLeft: 8, fontSize: 13 }}>{drill.won} of {drill.settled} won</span></span>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>{drill.label} <span className="unit" style={{ fontWeight: 400, marginLeft: 8, fontSize: 13 }}>{drill.won} of {drill.settled} won · per {drill.unit === "variation" ? "ad variation" : "concept"}</span></span>
               <button type="button" className="x-btn" aria-label="Close" onClick={() => setDrill(null)}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

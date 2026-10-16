@@ -20,7 +20,7 @@ export type MonthRate = { label: string; won: number; settled: number; improving
 export type Latest = { taskId: string; name: string; cell: string; state: string; tone: string; when: string; at: string };
 export type PartAvg = { part: "Opening" | "Hold" | "Clicks"; value: number | null; low: number | null; inBand: boolean | null };
 export type DrillItem = { state: string; tone: string; line: string; who: string; url: string | null };
-export type WLItem = { key: string; label: string; won: number; settled: number; items: DrillItem[] };
+export type WLItem = { key: string; label: string; won: number; settled: number; items: DrillItem[]; unit: "concept" | "variation" };
 export type WLRow = { dim: string; unit: "concept" | "variation"; best: WLItem | null; worst: WLItem | null; note: string };
 export type Scorecard = {
   months: MonthRate[]; testing: number; settledTotal: number;
@@ -28,6 +28,8 @@ export type Scorecard = {
   liveWins: { label: string; tone: string }[];
   parts: PartAvg[]; partsCount: number;
   focus: { part: string; below: number; of: number } | null;
+  /** 3+ settled concepts and no part below its band. */
+  allInBand: boolean;
   retention: { at: number; left: number }[] | null;
   wl: WLRow[];
   best: { taskId: string; label: string; url: string | null }[];
@@ -83,10 +85,11 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
       const st = r ? STATE[r.everWon && r.state === "testing" ? "won" : r.state] : STATE.testing;
       const at = (r && settledAt(r)) ?? x.c?.liveAt ?? x.c?.launchedAt ?? x.t.createdAt;
       const live = x.c?.liveAt ?? x.c?.launchedAt;
-      const when = r && settledAt(r) ? `settled ${shortDay(settledAt(r)!)}` : live ? `live ${Math.max(1, Math.round((now - Date.parse(live)) / 864e5))} day${Math.round((now - Date.parse(live)) / 864e5) === 1 ? "" : "s"}` : "launched";
+      const days = live ? Math.max(1, Math.round((now - Date.parse(live)) / 864e5)) : 0;
+      const when = r && settledAt(r) ? `settled ${shortDay(settledAt(r)!)}` : live ? `live ${days} day${days === 1 ? "" : "s"}` : "launched";
       return { taskId: x.t.id, name: nameOf(x), cell: cellOf(x.t), state: st.word, tone: st.tone, when, at };
     })
-    .sort((a, b) => b.at.localeCompare(a.at))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
     .slice(0, 5);
 
   // 3. Winners live now.
@@ -102,7 +105,8 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
   }, { impressions: 0, plays3s: 0, thruplays: 0, clicks: 0, p25: 0, p50: 0, p75: 0, p100: 0 });
   const minImp = bands?.minImpressions ?? 0;
   const enough = sumT.impressions > 0 && sumT.impressions >= minImp;
-  const P = (part: PartAvg["part"], v: number | null, low: number | null): PartAvg => ({ part, value: v, low, inBand: v === null || low === null ? null : v * 100 >= low });
+  const on = !!bands?.on; // the Settings colour switch also governs the scorecard's band verdicts
+  const P = (part: PartAvg["part"], v: number | null, low: number | null): PartAvg => ({ part, value: v, low, inBand: !on || v === null || low === null ? null : v * 100 >= low });
   const parts: PartAvg[] = [
     P("Opening", enough ? sumT.plays3s / sumT.impressions : null, bands?.hook ?? null),
     P("Hold", enough && sumT.plays3s ? sumT.thruplays / sumT.plays3s : null, bands?.hold ?? null),
@@ -111,9 +115,10 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
   const retention = enough && sumT.plays3s ? [25, 50, 75, 100].map((at) => ({ at, left: sumT[`p${at}` as "p25"] / sumT.plays3s })) : null;
 
   // Focus: the part below its band in most of her last 10 settled video concepts.
-  const last10 = settledAll.filter((x) => x.c?.formatCode !== "IMG" && rates(x.r!)).sort((a, b) => settledAt(b.r!)!.localeCompare(settledAt(a.r!)!)).slice(0, 10);
+  const last10 = settledAll.filter((x) => x.c?.formatCode !== "IMG" && rates(x.r!)).sort((a, b) => Date.parse(settledAt(b.r!)!) - Date.parse(settledAt(a.r!)!)).slice(0, 10);
   let focus: Scorecard["focus"] = null;
-  if (bands && last10.length >= 3) {
+  let allInBand = false;
+  if (bands?.on && last10.length >= 3) {
     const below = { Opening: 0, Hold: 0, Clicks: 0 };
     for (const x of last10) {
       const q = rates(x.r!)!;
@@ -123,6 +128,7 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
     }
     const top = (Object.entries(below) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
     if (top[1] > 0) focus = { part: top[0], below: top[1], of: last10.length };
+    else allInBand = true;
   }
 
   // 5. Where I win and where I lose: per concept (format, avatar, awareness, angle) and per variation (hook type).
@@ -131,11 +137,12 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
     const groups = new Map<string, WLItem>();
     for (const x of settledAll) {
       const k = keyOf(x);
-      const g = groups.get(k) ?? { key: `${dim}:${k}`, label: k, won: 0, settled: 0, items: [] };
+      const g = groups.get(k) ?? { key: `${dim}:${k}`, label: k, won: 0, settled: 0, items: [], unit: "concept" as const };
       g.settled++;
       if (x.r!.everWon) g.won++;
       const st = STATE[x.r!.everWon ? "won" : "lost"];
-      g.items.push({ state: st.word, tone: st.tone, line: x.c?.variations[0]?.line ?? x.t.angle, who: `${nameOf(x)} · ${cellOf(x.t)}`, url: watch(x.t.id) });
+      const lineV = x.c?.variations.find((m) => m.v === x.r!.bestV) ?? x.c?.variations[0];
+      g.items.push({ state: st.word, tone: st.tone, line: lineV?.line ?? x.t.angle, who: `${nameOf(x)} · ${cellOf(x.t)}`, url: watch(x.t.id) });
       groups.set(k, g);
     }
     return pickBestWorst(dim, "concept", [...groups.values()]);
@@ -146,9 +153,11 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
       if (!x.r || !x.c) continue;
       for (const v of x.r.variations) {
         if (v.state !== "lost" && !WON_STATES.has(v.state)) continue;
+        if (v.v === null) continue;
         const meta = x.c.variations.find((m) => m.v === v.v);
-        const k = meta?.type ?? "Testimonial";
-        const g = groups.get(k) ?? { key: `hook:${k}`, label: k, won: 0, settled: 0, items: [] };
+        const k = meta?.type ?? (x.t.origin === "testimonial" ? "Testimonial" : null);
+        if (!k) continue; // no hook type recorded
+        const g = groups.get(k) ?? { key: `hook:${k}`, label: k, won: 0, settled: 0, items: [], unit: "variation" as const };
         g.settled++;
         const won = WON_STATES.has(v.state);
         if (won) g.won++;
@@ -174,7 +183,7 @@ export function buildScorecard({ tasks, concepts, results, productions, bands, n
     .slice(0, 2)
     .map((x) => ({ taskId: x.t.id, label: `${nameOf(x)} · ${cellOf(x.t)}`, url: x.t.scriptUrl }));
 
-  return { months, testing, settledTotal: settledAll.length, latest, liveWins, parts, partsCount: recent.length, focus, retention, wl, best };
+  return { months, testing, settledTotal: settledAll.length, latest, liveWins, parts, partsCount: recent.length, focus, allInBand, retention, wl, best };
 }
 
 /** Best = highest win rate, worst = lowest, among items with 3 or more settled; worst only when it differs from best. */

@@ -44,7 +44,7 @@ export function CopyViews({ board, pipeline, library, scorecards = {}, selfId = 
       <div hidden={view !== "board"}>{board}</div>
       <div hidden={view !== "pipeline"}>{pipeline}</div>
       <div hidden={view !== "library"}>{library}</div>
-      {view === "score" && scoreId && <div>{scorecards[scoreId]}</div>}
+      {Object.entries(scorecards).map(([id, node]) => <div key={id} hidden={view !== "score" || id !== scoreId}>{node}</div>)}
     </>
   );
 }
