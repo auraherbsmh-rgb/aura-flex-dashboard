@@ -202,3 +202,15 @@ test("Meta 5: concept results, map cells with results, RESULT inbox, winners and
   const succ = { ...t, id: "t3", status: "writing", createdAt: "2026-10-14T10:00:00Z" };
   assert.equal(successorNeeds([t, succ], fading, new Map()).length, 0, "a newer task in the same cell and angle is the successor");
 });
+
+test("Script parts: green in band, red below, — while too early, statics have no opening / hold, off = no colour", async () => {
+  const { readPart } = await import("../src/lib/tasks-shared");
+  const b = { on: true, hook: 29, hold: 23, ctrVideo: 2.4, ctrImage: 1.5, minImpressions: 1000 };
+  assert.deepEqual(readPart("hook", 0.31, false, 5000, b), { text: "31%", tone: "pt-g" });
+  assert.deepEqual(readPart("hook", 0.22, false, 5000, b), { text: "22%", tone: "pt-r" });
+  assert.deepEqual(readPart("ctr", 0.016, true, 5000, b), { text: "1.60%", tone: "pt-g" });
+  assert.deepEqual(readPart("ctr", 0.016, false, 5000, b), { text: "1.60%", tone: "pt-r" }, "video band is higher");
+  assert.equal(readPart("hook", 0.31, true, 5000, b).text, "—");
+  assert.equal(readPart("hold", 0.4, false, 400, b).text, "—");
+  assert.deepEqual(readPart("hook", 0.22, false, 5000, { ...b, on: false }), { text: "22%", tone: "" });
+});

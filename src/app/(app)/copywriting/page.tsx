@@ -69,6 +69,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
             formats={[...new Set(library.map((r) => r.formatKey))].sort()}
             hookTypes={extras.pickers.hookTypes.map((h) => h.label)}
             mainArguments={extras.pickers.mainArguments}
+            bands={mapData.bands}
           />
         }
         board={

@@ -13,6 +13,7 @@ export default function Preview() {
     looms: [{ label: "Script review · round 1 · Oct 11", url: "https://www.loom.com/share/x" }],
     links: [{ label: "Script ↗", url: "https://docs.google.com/x" }, { label: "Raw footage ↗", url: "https://drive.google.com/x" }],
     result: null,
+    isStatic: false,
     ...extra,
   });
   const rows = [

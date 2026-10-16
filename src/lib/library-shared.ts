@@ -49,6 +49,8 @@ export type LibRow = {
   links: LibLink[];
   /** Meta result when the viewer may see it (founders all, a copywriter her own). */
   result: ConceptResult | null;
+  /** Static (IMG): no opening / hold. */
+  isStatic: boolean;
 };
 
 const d = (from: string | null | undefined, to: string | number | null | undefined) =>
@@ -120,6 +122,7 @@ export function buildLibrary(
       launchedAt: launched,
       state: results[t.id] ? results[t.id].state : launched ? "testing" : isHeld(p) ? "hold" : "production",
       result: results[t.id] ?? null,
+      isStatic: t.formatCode === "IMG",
       days: days.map(r1),
       done: !!launched,
       hooks: det.ads.map((a) => ({ v: a.v, type: a.hookType, line: a.hookLine, headline: a.headline, name: a.adName })),

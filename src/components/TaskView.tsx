@@ -9,7 +9,8 @@ import { AssignButton, FootageButton, HoldButton } from "./Production";
 import { reviewScript, seeResult, submitScript } from "@/app/tasks/actions";
 import { shortAwareness, type Pickers } from "@/lib/proposals-shared";
 import { CellView, MapGrid, type CellKey, type MapData } from "./Map";
-import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type ConceptResult, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
+import { Parts } from "./Parts";
+import { fmtDay, fmtWhen, inboxLine, isLink, stepNow, STEPS, tunisDate, type AngleHistoryRow, type Bands, type ConceptResult, type CreateTaskContext, type DetailsPickers, type EditorLoad, type ProdCard, type Production, type ScriptDetails, type TaskRow, prodStage } from "@/lib/tasks-shared";
 
 const STATUS_TAG: Record<string, { word: string; tone: string }> = {
   writing: { word: "WRITING", tone: "t-grey" },
@@ -23,7 +24,6 @@ const RESULT_TAG: Record<ConceptResult["state"], { word: string; tone: string }>
   won: { word: "WON", tone: "t-green" }, deteriorating: { word: "DETERIORATING", tone: "t-orange" }, fading: { word: "FADING", tone: "t-red" },
   recovering: { word: "RECOVERING", tone: "t-blue" }, testing: { word: "LIVE · TESTING", tone: "t-amber" }, lost: { word: "LOST", tone: "t-grey" },
 };
-const pctOf = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
 
 /** Inbox (Copywriting board, left): one line per task, most urgent first. Click → task view on the right. */
 export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, results = {} }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void; results?: Record<string, ConceptResult> }) {
@@ -226,6 +226,7 @@ export function CopyBoard({
             editors={data.editors}
             result={results[selected.id] ?? null}
             onSeen={chosen === selected.id ? markSeen : undefined}
+            bands={map?.bands ?? null}
           />
         ) : (
           <section className="card sec"><div className="info">Pick a task in the inbox to open it.</div></section>
@@ -249,7 +250,9 @@ export function TaskView({
   editors = [],
   result = null,
   onSeen,
+  bands = null,
 }: {
+  bands?: Bands | null;
   /** Meta result (founders, or the copywriter's own concept). */
   result?: ConceptResult | null;
   onSeen?: (taskId: string, state: string) => void;
@@ -422,7 +425,10 @@ export function TaskView({
                 <div key={v.v ?? "?"} className="tv-result-var">
                   <span className="mono" style={{ fontWeight: 600 }}>V{v.v ?? "?"}</span>
                   <span className={`bx ${v.state === "testing" || v.cpa7 === null ? "bx-y" : v.cpa7 > v.line ? "bx-r" : "bx-g"}`}>{v.cpa7 === null ? "no sale" : `$${v.cpa7.toFixed(2)}`}</span>
-                  <span className="unit">{v.sales7} sale{v.sales7 === 1 ? "" : "s"}{v.live ? "" : " · paused"} · Opening {pctOf(v.hookRate)} · Hold {pctOf(v.hold)} · Clicks {pctOf(v.ctr, 2)}</span>
+                  <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span className="unit">{v.sales7} sale{v.sales7 === 1 ? "" : "s"}{v.live ? "" : " · paused"}</span>
+                    <Parts r={v} isStatic={task.formatCode === "IMG"} bands={bands} />
+                  </span>
                 </div>
               ))}
             </div>

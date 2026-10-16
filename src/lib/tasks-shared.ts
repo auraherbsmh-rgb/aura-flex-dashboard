@@ -284,8 +284,27 @@ export const minVariations = (formatCode: string) => (formatCode === "AI" ? 1 : 
 export type ConceptResult = {
   taskId: string; state: "won" | "deteriorating" | "fading" | "recovering" | "testing" | "lost"; stateSince: string; everWon: boolean;
   cpa7: number | null; line: number; sales7: number; spend7: number; bestV: number | null; live: boolean;
-  variations: { v: number | null; state: string; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean }[];
+  variations: { v: number | null; state: string; cpa7: number | null; sales7: number; spend7: number; line: number; hookRate: number | null; hold: number | null; ctr: number | null; live: boolean; impressions7?: number }[];
   seenState: string | null; winnerNotedAt: string | null;
   /** First time it won (set once; WINNER items count from it). */
   wonAt: string | null;
 };
+
+/** Format bands for the script parts (Settings → Alerts, from File 3 §3 / §5), in %: "healthy from". */
+export type Bands = { on: boolean; hook: number | null; hold: number | null; ctrVideo: number | null; ctrImage: number | null; minImpressions: number | null };
+export type PartRead = { text: string; tone: "" | "pt-g" | "pt-r" };
+
+/**
+ * One script part (handoff §7): the number only, green inside its format band (or above), red below; "—" while too early
+ * (under the impressions minimum). Statics have no opening or hold. Colour only when the founders switched it on.
+ */
+export function readPart(part: "hook" | "hold" | "ctr", value: number | null, isStatic: boolean, impressions: number | undefined, bands: Bands | null): PartRead {
+  if (isStatic && part !== "ctr") return { text: "—", tone: "" };
+  if (value === null) return { text: "—", tone: "" };
+  if (bands?.minImpressions && impressions !== undefined && impressions < bands.minImpressions) return { text: "—", tone: "" };
+  const pct = value * 100;
+  const text = `${pct.toFixed(part === "ctr" ? 2 : 0)}%`;
+  const low = !bands ? null : part === "hook" ? bands.hook : part === "hold" ? bands.hold : isStatic ? bands.ctrImage : bands.ctrVideo;
+  if (!bands?.on || low === null) return { text, tone: "" };
+  return { text, tone: pct >= low ? "pt-g" : "pt-r" };
+}

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Modal } from "./Modal";
+import { Parts } from "./Parts";
+import type { Bands } from "@/lib/tasks-shared";
 import { CopyName } from "./ScriptDetails";
 import { LIB_STATE, LIB_STATE_ORDER, NO_FILTER, STEP_NAMES, filterLibrary, type LibFilter, type LibRow } from "@/lib/library-shared";
 
-const pct = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
 /** One CPA vs its own line: red over, green under, yellow while testing. */
 function Cpa({ cpa, line, testing }: { cpa: number | null; line: number; testing: boolean }) {
   return (
@@ -36,7 +37,8 @@ function Sel({ label, value, onChange, opts }: { label: string; value: string; o
 }
 
 /** Copywriting → Library (founders): every script with its details; filters, search, and a record per script. */
-export function Library({ rows, avatars, angles, formats, hookTypes, mainArguments }: {
+export function Library({ rows, avatars, angles, formats, hookTypes, mainArguments, bands = null }: {
+  bands?: Bands | null;
   rows: LibRow[];
   avatars: string[];
   angles: Opt[];
@@ -146,7 +148,8 @@ export function Library({ rows, avatars, angles, formats, hookTypes, mainArgumen
                       {r && (
                         <span className="cv-parts">
                           <Cpa cpa={r.cpa7} line={r.line} testing={r.state === "testing"} />
-                          <span className="unit">{r.sales7} sale{r.sales7 === 1 ? "" : "s"} 7d · Opening {pct(r.hookRate)} · Hold {pct(r.hold)} · Clicks {pct(r.ctr, 2)}</span>
+                          <span className="unit">{r.sales7} sale{r.sales7 === 1 ? "" : "s"} 7d</span>
+                          <Parts r={r} isStatic={rec.isStatic} bands={bands} />
                         </span>
                       )}
                     </span>

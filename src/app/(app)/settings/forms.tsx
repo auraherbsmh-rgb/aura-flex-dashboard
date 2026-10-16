@@ -350,7 +350,7 @@ export function RulesForm({ rules, flags }: { rules: Rule[]; flags: Flag[] }) {
                     name={`rule_${r.key}`}
                     defaultValue={r.value === null ? "" : String(Number(r.value))}
                     placeholder="—"
-                    inputMode="numeric"
+                    inputMode="decimal"
                   />
                   <span className="unit" style={{ width: 96 }}>{r.unit}</span>
                 </span>
@@ -371,7 +371,7 @@ export function RulesForm({ rules, flags }: { rules: Rule[]; flags: Flag[] }) {
         <Msg state={state} />
         <button className="btn b-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save alert rules"}</button>
       </div>
-      <div className="hint">Emails start once the email sender is set up; until then alerts show in the app only.</div>
+      <div className="hint">Emails start once the email sender is set up; until then alerts show in the app only. Opening / hold / clicks bands come from File 3 (Jun–Jul calibration): their colour stays off until they are checked against recent winners.</div>
     </form>
   );
 }

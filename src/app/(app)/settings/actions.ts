@@ -244,7 +244,7 @@ export async function saveRules(_prev: ActionState, form: FormData): Promise<Act
   const flagRows = (flags ?? []).map((f) => ({ ...f, enabled: form.get(`flag_${f.key}`) === "on", updated_by: v.personId, updated_at: now }));
   if (flagRows.length) {
     const { error: flagErr } = await supabase.from("app_flags").upsert(flagRows, { onConflict: "key" });
-    if (flagErr) return fail(`Rules saved, but the email switches were not (${flagErr.message}).`);
+    if (flagErr) return fail(`Rules saved, but the switches were not (${flagErr.message}).`);
   }
   revalidatePath("/settings");
   return done("Alert rules saved.");

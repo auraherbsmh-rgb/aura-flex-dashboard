@@ -643,3 +643,9 @@ select.fi { font-family: var(--font); font-weight: 400; }
 .tv-result-var { display: grid; grid-template-columns: 34px auto minmax(0, 1fr); gap: 10px; align-items: center; }
 @media (max-width: 700px) { .tv-result-var { grid-template-columns: 34px auto; } .tv-result-var > :last-child { grid-column: 1 / -1; } }
 .lib-sort { flex: 0 1 170px; }
+.parts { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.part-v { display: inline-flex; gap: 4px; align-items: baseline; padding: 3px 8px; border-radius: 8px; background: #f1f1ee; font-size: 12px; }
+.part-v b { font-size: 12px; font-weight: 600; }
+.part-v.pt-g { background: var(--green-bg); color: var(--green-ink); }
+.part-v.pt-r { background: var(--red-bg); color: var(--red-ink); }
+.part-v.pt-g .unit, .part-v.pt-r .unit { color: inherit; }

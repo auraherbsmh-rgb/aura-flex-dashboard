@@ -5,13 +5,16 @@ import { ProposeButton } from "./Proposals";
 import { CreateTaskButton } from "./Tasks";
 import type { CreateTaskContext } from "@/lib/tasks-shared";
 import { LEVEL_SHORT, STATE_ORDER, STATE_PLAIN, STATE_WORD, buildMap, conceptState, groupByAngle, mapConcepts, mix, zeroCounts, type ConceptState, type MapCell, type MapConcept } from "@/lib/map-shared";
-import type { ConceptResult } from "@/lib/tasks-shared";
+import type { Bands, ConceptResult } from "@/lib/tasks-shared";
+import { Parts } from "./Parts";
 import type { Pickers } from "@/lib/proposals-shared";
 
 export type MapData = {
   concepts: MapConcept[]; start: string | null; avatars: { id: string; code: string | null; label: string }[];
   /** Meta results the viewer may see (founders: all; a copywriter: her own concepts). */
   results?: Record<string, ConceptResult>;
+  /** Format bands for opening / hold / clicks (Settings → Alerts). */
+  bands?: Bands | null;
 };
 export type CellKey = { avatarId: string; awareness: string };
 
@@ -104,7 +107,6 @@ export function MapGrid({ data, track, setTrack, selected, onPick, big = false, 
   );
 }
 
-const pctOf = (n: number | null, d = 0) => (n === null ? "—" : `${(n * 100).toFixed(d)}%`);
 /** One CPA per line (handoff §7): red over the concept's own line, green under, yellow while testing. */
 function CpaBox({ cpa, line, testing, label }: { cpa: number | null; line: number; testing: boolean; label?: string }) {
   const tone = testing || cpa === null ? "bx-y" : cpa > line ? "bx-r" : "bx-g";
@@ -216,7 +218,7 @@ export function CellView({ data, cell, track, pickers, onBack, backLabel, create
                                       <CpaBox cpa={r.cpa7} line={r.line} testing={r.state === "testing"} label="7d" />
                                       <span className="unit">{r.sales7} sale{r.sales7 === 1 ? "" : "s"} · ${Math.round(r.spend7)}{r.live ? "" : " · paused"}</span>
                                       {/* Script parts: signals only, the verdict is CPA vs own line (handoff §7). */}
-                                      <span className="unit">Opening {pctOf(r.hookRate)} · Hold {pctOf(r.hold)} · Clicks {pctOf(r.ctr, 2)}</span>
+                                      <Parts r={r} isStatic={c.formatCode === "IMG"} bands={data.bands ?? null} />
                                     </span>
                                   )}
                                 </span>

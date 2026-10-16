@@ -24,9 +24,9 @@ export default function Preview() {
   ];
   return (
     <main className="page"><div className="slab"><div className="body">
-      <MapPage data={{ concepts, start: null, avatars, results: {
+      <MapPage data={{ concepts, start: null, avatars, bands: { on: true, hook: 29, hold: 23, ctrVideo: 2.4, ctrImage: 1.5, minImpressions: 1000 }, results: {
         "1": { taskId: "1", state: "won", stateSince: "2026-10-14T05:00:00Z", everWon: true, cpa7: 3.12, line: 4.18, sales7: 22, spend7: 68.6, bestV: 2, live: true, seenState: null, winnerNotedAt: null, wonAt: null,
-          variations: [1, 2, 3, 4, 5].map((n) => ({ v: n, state: n === 2 ? "won" : "testing", cpa7: n === 2 ? 3.12 : n === 1 ? 6.1 : null, sales7: n === 2 ? 22 : n === 1 ? 2 : 0, spend7: n === 2 ? 68.6 : 12.2, line: 4.18, hookRate: 0.29, hold: 0.41, ctr: 0.0131, live: n < 4 })) },
+          variations: [1, 2, 3, 4, 5].map((n) => ({ v: n, state: n === 2 ? "won" : "testing", cpa7: n === 2 ? 3.12 : n === 1 ? 6.1 : null, sales7: n === 2 ? 22 : n === 1 ? 2 : 0, spend7: n === 2 ? 68.6 : 12.2, line: 4.18, hookRate: n === 3 ? 0.22 : 0.31, hold: 0.41, ctr: 0.0131, live: n < 4, impressions7: n === 5 ? 400 : 5000 })) },
       } }} />
     </div></div></main>
   );
