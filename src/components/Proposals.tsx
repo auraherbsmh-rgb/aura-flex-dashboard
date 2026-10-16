@@ -192,8 +192,8 @@ export function NeedsMe({ groups, total, editors = [] }: { groups: NeedGroup[]; 
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
                 {it.prod ? (
                   it.prod.kind === "footage"
-                    ? <FootageButton card={it.prod.card} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
-                    : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                    ? <FootageButton card={it.prod.card} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s FOOTAGE item" : "Founder 2 · FOOTAGE item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
+                    : <AssignButton card={it.prod.card} editors={editors} current={it.prod.current} who={it.type === "COVERING" ? "Founder 1 · covering Founder 2’s ASSIGN item" : "Founder 2 · ASSIGN item"} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`} onDone={setDoneMsg} />
                 ) : it.href ? (
                   <Link href={it.href} className={`btn ${it.type === "COVERING" ? "b-ghost" : "b-primary"}`}>Open review</Link>
                 ) : it.proposal ? (

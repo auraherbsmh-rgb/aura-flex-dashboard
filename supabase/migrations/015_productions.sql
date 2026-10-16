@@ -8,3 +8,4 @@
 -- public.assign_edit(task, editor, due, brief, ref): founders; footage in or AI / 3D; active editor; due not past; brief required.
 -- Live test (rolled back): assign before footage, no-hooks-no-note, past due, footage after assign, copywriter actions refused;
 --   footage → assign works; copywriter sees her production read-only.
+-- v2 (checker round 1): assign_edit resets assigned_at when the editor changes.

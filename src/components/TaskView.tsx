@@ -320,7 +320,10 @@ export function TaskView({
                       : <>Shoot {details?.shootOn ? fmtDay(details.shootOn) : "date not set"} · waiting for the agency’s footage</>}
                 </div>
               </div>
-              {isFounder && prodCard && stage === "shoot" && <FootageButton card={prodCard} className="btn b-primary" onDone={(m) => setMsg({ ok: m })} />}
+              {isFounder && prodCard && stage === "shoot" && <FootageButton card={prodCard} who="Founder · Footage received" className="btn b-primary" onDone={(m) => setMsg({ ok: m })} />}
+              {isFounder && prodCard && stage === "assign" && !generate && (
+                <FootageButton card={prodCard} current={production} label="Change" who="Founder · Footage received" className="btn b-ghost" onDone={(m) => setMsg({ ok: m })} />
+              )}
             </div>
             <div className="tv-prod-row">
               <div style={{ minWidth: 0 }}>
@@ -332,7 +335,7 @@ export function TaskView({
                 </div>
               </div>
               {isFounder && prodCard && stage !== "shoot" && (
-                <AssignButton card={prodCard} editors={editors} current={production} label={production?.assignedAt ? "Change" : "Assign"} className={production?.assignedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />
+                <AssignButton card={prodCard} editors={editors} current={production} who="Founder · Assign" label={production?.assignedAt ? "Change" : "Assign"} className={production?.assignedAt ? "btn b-ghost" : "btn b-primary"} onDone={(m) => setMsg({ ok: m })} />
               )}
             </div>
           </div>

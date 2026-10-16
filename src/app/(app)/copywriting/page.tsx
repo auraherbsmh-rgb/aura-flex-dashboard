@@ -28,7 +28,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
     getRule("details_not_filled_days", 1),
   ]);
   const [productions, hooks] = await Promise.all([getProductions(), getHookCounts()]);
-  const editors = founder ? await getEditors(productions) : [];
+  const editors = founder ? await getEditors(productions, allTasks) : [];
   const cards = prodCards(allTasks, detailsLite, hooks);
 
   // Founders switch between copywriters (Copywriter 1 · 2 · All); a copywriter only ever has her own tasks.

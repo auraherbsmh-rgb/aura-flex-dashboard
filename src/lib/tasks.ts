@@ -200,12 +200,14 @@ export async function getProductions(): Promise<Map<string, Production>> {
 }
 
 /** Active editors with their queue (edits assigned to them), for the Assign pop-up. Founders only. */
-export async function getEditors(productions: Map<string, Production>): Promise<EditorLoad[]> {
+export async function getEditors(productions: Map<string, Production>, tasks: TaskRow[]): Promise<EditorLoad[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("people").select("id, display_name, does_ai_3d").eq("role", "editor").eq("active", true).order("display_name");
   if (error) throw new Error("Could not read the editors. Reload the page.");
   const queue = new Map<string, number>();
-  for (const p of productions.values()) if (p.editorId && p.assignedAt) queue.set(p.editorId, (queue.get(p.editorId) ?? 0) + 1);
+  // Only live work counts: cancelled tasks keep their production row but are not in anyone's queue.
+  const live = new Set(tasks.filter((t) => t.status === "details_done").map((t) => t.id));
+  for (const p of productions.values()) if (p.editorId && p.assignedAt && live.has(p.taskId)) queue.set(p.editorId, (queue.get(p.editorId) ?? 0) + 1);
   return (data ?? []).map((e) => ({ id: e.id, name: e.display_name, doesAi: !!e.does_ai_3d, queue: queue.get(e.id) ?? 0 }));
 }
 

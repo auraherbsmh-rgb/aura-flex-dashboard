@@ -27,7 +27,21 @@ function useRun(onDone: (msg: string) => void, close: () => void) {
 }
 
 /** "Footage received" pop-up (Pop-ups artboard, FOOTAGE item): raw Drive link + the agency shot all hooks. */
-export function FootageButton({ card, className = "btn b-ghost", onDone }: { card: ProdCard; className?: string; onDone: (msg: string) => void }) {
+export function FootageButton({
+  card,
+  current,
+  label = "Footage received",
+  who = "Founder 2 · FOOTAGE item",
+  className = "btn b-ghost",
+  onDone,
+}: {
+  card: ProdCard;
+  current?: Production;
+  label?: string;
+  who?: string;
+  className?: string;
+  onDone: (msg: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [all, setAll] = useState(true);
@@ -35,8 +49,8 @@ export function FootageButton({ card, className = "btn b-ghost", onDone }: { car
   const { error, setError, pending, run } = useRun(onDone, () => setOpen(false));
   return (
     <>
-      <button type="button" className={className} onClick={() => { setUrl(""); setAll(true); setGap(""); setError(""); setOpen(true); }}>Footage received</button>
-      <Modal open={open} onClose={() => setOpen(false)} who="Founder 2 · FOOTAGE item" title={`Footage received · ${card.face}`}>
+      <button type="button" className={className} onClick={() => { setUrl(current?.footageUrl ?? ""); setAll(current?.allHooksShot ?? true); setGap(current?.footageGap ?? ""); setError(""); setOpen(true); }}>{label}</button>
+      <Modal open={open} onClose={() => setOpen(false)} who={who} title={`Footage received · ${card.face}`}>
         <div className="sub">{card.cell} · {card.angle} · {card.format}{card.shootOn ? ` · shoot ${fmtDay(card.shootOn)}` : ""} · script by {card.copywriter}</div>
         <label className="field">
           <span className="lbl">Raw footage · Drive link</span>
@@ -53,7 +67,7 @@ export function FootageButton({ card, className = "btn b-ghost", onDone }: { car
             <span className="unit">The editor sees this note.</span>
           </label>
         )}
-        <div className="info">The task moves to ASSIGN on your Home. The editor only sees it once assigned.</div>
+        <div className="info">The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned.</div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
           <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
@@ -72,6 +86,7 @@ export function AssignButton({
   editors,
   current,
   label = "Assign",
+  who = "Founder 2 · ASSIGN item",
   className = "btn b-ghost",
   onDone,
 }: {
@@ -79,10 +94,13 @@ export function AssignButton({
   editors: EditorLoad[];
   current?: Production;
   label?: string;
+  who?: string;
   className?: string;
   onDone: (msg: string) => void;
 }) {
-  const star = suggestEditor(editors, card.generate);
+  // The task being re-assigned is not extra work for its current editor.
+  const loads = current?.assignedAt && current.editorId ? editors.map((e) => (e.id === current.editorId ? { ...e, queue: Math.max(0, e.queue - 1) } : e)) : editors;
+  const star = suggestEditor(loads, card.generate);
   const start = () => ({
     due: current?.editDue && current.editDue >= tunisDate(0) ? current.editDue : tunisDate(3),
     ref: current?.reference ?? "",
@@ -96,7 +114,7 @@ export function AssignButton({
   return (
     <>
       <button type="button" className={className} onClick={() => { setF(start()); setError(""); setOpen(true); }}>{label}</button>
-      <Modal open={open} onClose={() => setOpen(false)} who="Founder 2 · ASSIGN item" title={`Assign · ${card.face}`}>
+      <Modal open={open} onClose={() => setOpen(false)} who={who} title={`Assign · ${card.face}`}>
         <div className="sub">{card.cell} · {card.angle} · {card.format} · {what}</div>
         <div className="row2">
           <label className="field">
@@ -115,7 +133,7 @@ export function AssignButton({
         <div className="field" role="radiogroup" aria-labelledby="lbl-editor">
           <span className="lbl" id="lbl-editor">Editor · queue now</span>
           {editors.length === 0 && <div className="info">No active editor yet. Add one in Settings → People first.</div>}
-          {editors.map((e) => (
+          {loads.map((e) => (
             <label key={e.id} className={`pick ${f.editor === e.id ? "pick-on" : ""}`}>
               <input type="radio" name="editor" className="pick-radio" value={e.id} checked={f.editor === e.id} onChange={() => setF({ ...f, editor: e.id })} />
               <span>{e.id === star && editors.length > 1 ? "★ " : ""}{e.name}{e.doesAi ? " · full AI / 3D" : ""}</span>

@@ -26,7 +26,7 @@ export type NeedItem = {
   prod?: { kind: "footage" | "assign"; card: ProdCard; current?: Production };
 };
 
-export type ProdNeeds = { cards: Map<string, ProdCard>; productions: Map<string, Production>; footageLateDays: number; assignLateDays: number };
+export type ProdNeeds = { cards: Map<string, ProdCard>; productions: Map<string, Production>; footageLateDays: number; assignLateDays: number; coverHours?: number };
 export type NeedGroup = { name: string; tone: "red" | "amber" | "grey"; items: NeedItem[] };
 
 export async function getRule(key: string, fallback: number): Promise<number> {
@@ -66,6 +66,8 @@ export function buildNeeds(
       } else continue;
       const age = ageLabel(since, now, lateH);
       const late = age.hours >= lateH;
+      // Covering follows the 48h rule (handoff §6), not the alert rules, so Settings changes don't move it.
+      const covering = age.hours >= (prod.coverHours ?? 48);
       const title = `${card.cell} · ${card.format} · ${card.face}`;
       const sub = kind === "footage"
         ? `Shoot ${fmtDay(card.shootOn ?? today)} · paste the raw Drive link`
@@ -73,8 +75,8 @@ export function buildNeeds(
       const type = kind === "footage" ? "FOOTAGE" : "ASSIGN";
       if (viewer.role === "founder_2") {
         items.push({ key: `${kind}-${card.taskId}`, type, tagTone: kind === "footage" ? "blue" : "violet", title, sub, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
-      } else if (viewer.role === "founder_1" && late) {
-        items.push({ key: `${kind}-${card.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's ${type.toLowerCase()}, late · ${sub}`, age: age.text, ageTone: "red", hours: age.hours, prod: { kind, card, current: p } });
+      } else if (viewer.role === "founder_1" && covering) {
+        items.push({ key: `${kind}-${card.taskId}`, type: "COVERING", tagTone: "orange", title, sub: `Founder 2's ${type.toLowerCase()}, waiting over ${prod.coverHours ?? 48}h · ${sub}`, age: age.text, ageTone: late ? "red" : "amber", hours: age.hours, prod: { kind, card, current: p } });
       }
     }
   }

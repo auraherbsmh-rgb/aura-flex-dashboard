@@ -23,7 +23,7 @@ export default async function Page() {
     getProductions(),
     getHookCounts(),
   ]);
-  const editors = await getEditors(productions);
+  const editors = await getEditors(productions, tasks);
   const cards = prodCards(tasks, details, hooks);
   const groups = buildNeeds(viewer, proposals, hours, requestTime(), tasks, reviewHours, { cards, productions, footageLateDays, assignLateDays });
   const total = groups.reduce((n, g) => n + g.items.length, 0);
