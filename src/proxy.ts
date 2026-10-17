@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   "/auth/confirm",
   // Daily Meta pull: called by Vercel Cron, checks its own secret (CRON_SECRET).
   "/api/meta/pull",
+  "/api/shipper/pull",
   // Local preview with sample data (never enabled on Vercel).
   ...(process.env.ENABLE_PREVIEW === "1" ? ["/dev-preview"] : []),
 ];

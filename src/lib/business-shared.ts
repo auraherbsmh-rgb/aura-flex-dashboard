@@ -15,6 +15,23 @@ export type ShipperOrder = {
   reason: "duplicate" | "disqualified" | "unreachable" | "wrong_number" | "other" | null;
   deliveryCostTnd: number | null; shippedAt: string | null; settledAt: string | null;
 };
+import type { MonthStats } from "./shipper/map";
+
+/**
+ * A month's counts with Shipper's own statistics for Aura Flex where they exist: leads per channel (Shipper
+ * confirmation = website, internal confirmation = DM), why website leads were not confirmed, and the real Shipper
+ * fees per delivered order (failed deliveries included). Orders still give shipped / delivered / returned, value, bottles.
+ */
+export function withStats(f: Funnel, s: MonthStats | undefined): Funnel {
+  if (!s) return f;
+  const perDelivered = s.delivered ? s.fees / s.delivered : null;
+  return {
+    ...f, webLeads: s.webLeads, dmLeads: s.dmLeads,
+    reasons: { disqualified: s.reasons.refused, unreachable: s.reasons.unreachable, duplicate: s.reasons.duplicateWrong, wrong_number: 0 },
+    deliveryCost: perDelivered === null ? f.deliveryCost : perDelivered * f.delivered,
+  };
+}
+
 export type MetaPeriod = { purchases: number; spendUsd: number };
 export type MoneyBase = { exchangeRate: number; bottleCostTnd: number; deliveryCostTnd: number; fixedCostsTnd: number; businessLineUsd: number };
 
@@ -183,8 +200,10 @@ export function baseFor(bases: MonthBase[], ym: string): MonthBase {
 /** HOUSE RULE (not in File 1): tracking + delivery-cost moves this small stay one grey "normal swing" row. */
 const GREY_TND = 300, GREY_SHARE = 0.05;
 
-export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTotal[]; bases: MonthBase[]; now: number }): MoneyView {
-  const { orders, metaDays, bases, now } = input;
+const REASON_WORD = { disqualified: "Refused / not confirmed", duplicate: "Duplicate or wrong number", unreachable: "Unreachable", wrong_number: "Wrong number" } as const;
+
+export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTotal[]; bases: MonthBase[]; now: number; stats?: Record<string, MonthStats> }): MoneyView {
+  const { orders, metaDays, bases, now, stats = {} } = input;
   const thisMonth = tunisDay(now).slice(0, 7);
   const closedYm = addMonths(thisMonth, -1);
   const prevYm = addMonths(thisMonth, -2);
@@ -196,11 +215,11 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
   let closed: ClosedMonth | null = null;
   if (hasShipper) {
     const mb = baseFor(bases, closedYm);
-    const f = funnel(ordersIn(closedYm), mb.base);
+    const f = withStats(funnel(ordersIn(closedYm), mb.base), stats[closedYm]);
     const meta = metaMonth(closedYm);
     const p = params(f, meta, mb.base, mb.base.fixedCostsTnd);
     const pb = baseFor(bases, prevYm);
-    const fPrev = funnel(ordersIn(prevYm), pb.base);
+    const fPrev = withStats(funnel(ordersIn(prevYm), pb.base), stats[prevYm]);
     const metaPrev = metaMonth(prevYm);
     const usable = (fx: Funnel, mx: MetaPeriod) => fx.webLeads > 0 && mx.purchases > 0 && fx.delivered + fx.returned > 0;
     const pPrev = usable(fPrev, metaPrev) ? params(fPrev, metaPrev, pb.base, pb.base.fixedCostsTnd) : null;
@@ -258,8 +277,8 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
         switch (x.key) {
           case "conf": return { ...x, grey: false, shown: 0, rate: `${pct1(pPrev.c)} → ${pct1(p.c)}`, detail: L(
             `All leads → shipped ${pct1(pPrev.c)} → ${pct1(p.c)}. Website confirmation ${fPrev.webLeads ? pct1(fPrev.webShipped / fPrev.webLeads) : "—"} → ${f.webLeads ? pct1(f.webShipped / f.webLeads) : "—"} (DM orders are confirmed by definition).`,
-            (["disqualified", "duplicate", "unreachable", "wrong_number"] as const).map((r) => ({
-              a: `${r === "wrong_number" ? "Wrong number" : r[0].toUpperCase() + r.slice(1)} · share of website leads`,
+            (["disqualified", "duplicate", "unreachable", "wrong_number"] as const).filter((r) => r !== "wrong_number" || f.reasons[r] + fPrev.reasons[r] > 0).map((r) => ({
+              a: `${REASON_WORD[r]} · share of website leads`,
               b: `${share(fPrev.reasons[r], fPrev)} → ${share(f.reasons[r], f)}`,
               bad: f.webLeads > 0 && fPrev.webLeads > 0 && f.reasons[r] / f.webLeads > fPrev.reasons[r] / fPrev.webLeads + 0.01,
             })),

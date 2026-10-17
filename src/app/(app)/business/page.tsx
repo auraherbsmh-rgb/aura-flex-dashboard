@@ -21,7 +21,7 @@ export default async function Page() {
   const st = money.status;
   const shipperMissing = st.ready ? null : !st.mapped
     ? "The Shipper API link is set up before launch, from Shipper's API documentation."
-    : `Add in Vercel: ${[!st.key && "SHIPPER_API_KEY", !st.url && "SHIPPER_API_URL", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ")}.`;
+    : `Add in Vercel: ${[!st.key && "SHIPPER_API_KEY", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ")}.`;
   mark("computed");
   return (
     <TabPage tab="business" title="Business">

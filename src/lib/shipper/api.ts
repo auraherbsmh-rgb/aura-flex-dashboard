@@ -1,7 +1,7 @@
 // Server only: read-only calls to the Shipper Open API (docs: shipper.network/tn/en/documentation/api).
 export const SHIPPER_BASE = "https://server.shipper.network/api/v1";
 
-export type ShipperCall = { path: string; status: number; ms: number; body: unknown; error: string | null };
+export type ShipperCall = { path: string; status: number; ms: number; body: unknown; error: string | null; remaining?: number | null };
 
 /** One GET with the key from Vercel (SHIPPER_API_KEY). Never writes. */
 export async function shipperGet(path: string): Promise<ShipperCall> {
@@ -13,10 +13,21 @@ export async function shipperGet(path: string): Promise<ShipperCall> {
     const text = await res.text();
     let body: unknown = text;
     try { body = JSON.parse(text); } catch { /* not JSON: keep the text */ }
-    return { path, status: res.status, ms: Date.now() - t0, body, error: res.ok ? null : `HTTP ${res.status}` };
+    const rem = res.headers.get("x-ratelimit-remaining");
+    return { path, status: res.status, ms: Date.now() - t0, body, error: res.ok ? null : `HTTP ${res.status}`, remaining: rem === null ? null : Number(rem) };
   } catch (e) {
     return { path, status: 0, ms: Date.now() - t0, body: null, error: e instanceof Error ? e.message.replace(key, "…") : "Request failed" };
   }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** GET that respects Shipper's per-minute limits: waits when few calls are left, retries once after a 429. */
+export async function shipperGetPaced(path: string): Promise<ShipperCall> {
+  let c = await shipperGet(path);
+  if (c.status === 429) { await sleep(61_000); c = await shipperGet(path); }
+  if (c.remaining !== null && c.remaining !== undefined && c.remaining <= 2) await sleep(61_000);
+  return c;
 }
 
 const PERSONAL = /^(first_name|last_name|name|phone\d*|email|address\d*|division_\d|zip|postal_code|city|street|full_name|customer|customer_name)$/i;

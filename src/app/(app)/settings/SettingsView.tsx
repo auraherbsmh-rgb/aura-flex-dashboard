@@ -1,4 +1,4 @@
-import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm, MetaPullForm } from "./forms";
+import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm, MetaPullForm, ShipperPullForm } from "./forms";
 import type { getSettings } from "@/lib/settings/data";
 
 export type SettingsData = Awaited<ReturnType<typeof getSettings>>;
@@ -42,6 +42,13 @@ export function summarize(s: SettingsData, today: string) {
   const metaTone: Status = metaOn ? "green" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "red" : "amber";
   const metaWord = metaOn ? "CONNECTED" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "PULL FAILED" : s.meta.ready ? "READY" : "TO CONNECT";
 
+  const shipOn = s.shipper.ready && !!s.shipper.last?.ok;
+  const shipDetail = !s.shipper.ready
+    ? `daily pull · switched off: add ${[!s.shipper.key && "SHIPPER_API_KEY", !s.shipper.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ")} in Vercel`
+    : s.shipper.last ? `last pull ${s.shipper.last.started_at.slice(0, 16).replace("T", " ")} UTC · ${s.shipper.last.message ?? ""}` : "ready · no pull yet (daily at 06:30, or Pull now)";
+  const shipTone: Status = shipOn ? "green" : s.shipper.ready && s.shipper.last && !s.shipper.last.ok ? "red" : "amber";
+  const shipWord = shipOn ? "CONNECTED" : s.shipper.ready && s.shipper.last && !s.shipper.last.ok ? "PULL FAILED" : s.shipper.ready ? "READY" : "TO CONNECT";
+
   const moneyLine = s.money
     ? `Updated at the monthly ritual · last ${fmtDay(s.money.ritual_on)} (${monthName(s.money.month)} ${s.money.status}) · next ${fmtDay(s.money.next_ritual_on, true)}`
     : "Updated at the monthly ritual · not filled yet";
@@ -49,8 +56,8 @@ export function summarize(s: SettingsData, today: string) {
   const dataRows: { item: string; src: string; detail: string; tone: Status; status: string }[] = [
     { item: "Spend, sales, CPA, ROAS, CPM, CTR, frequency", src: "META API", detail: metaDetail, tone: metaTone, status: metaWord },
     { item: "Hook rate, hold, retention 25 / 50 / 75 / 100%", src: "META API", detail: "video plays and watched-% actions, same pull", tone: metaTone, status: metaWord },
-    { item: "Leads, confirmed, shipped, delivered", src: "SHIPPER API", detail: "funnel for Business", tone: "amber", status: "TO CONNECT" },
-    { item: "Stock left and cash at Shipper", src: "SHIPPER API", detail: "fields to check with Shipper", tone: "amber", status: "TO CONNECT" },
+    { item: "Leads, confirmed, shipped, delivered", src: "SHIPPER API", detail: shipDetail, tone: shipTone, status: shipWord },
+    { item: "Stock left and cash at Shipper", src: "SHIPPER API", detail: "Aura Flex bottles at Shipper · delivered not paid yet · on its way", tone: shipTone, status: shipWord },
     {
       item: "Money numbers",
       src: "MANUAL",
@@ -107,6 +114,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
         <div className="lbl" style={{ marginTop: 8 }}>Campaigns in scope · only these campaign IDs will be read (File 2 §1)</div>
         <CampaignRows campaigns={s.campaigns} />
         <MetaPullForm ready={s.meta.ready} />
+        <ShipperPullForm ready={s.shipper.ready} />
         <a className="btn b-ghost" href="/settings/shipper-check" style={{ alignSelf: "flex-start" }}>Check the Shipper connection →</a>
       </section>
 

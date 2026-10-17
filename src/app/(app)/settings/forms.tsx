@@ -14,7 +14,7 @@ import {
   setCampaignActive,
   saveLevels,
   saveMapStart,
-  pullMetaNow,
+  pullMetaNow, pullShipperNow,
   type ActionState,
 } from "./actions";
 import { ownLineForBottles, type MoneyInputs } from "@/lib/money";
@@ -583,6 +583,24 @@ export function MapStartForm({ value }: { value: string | null }) {
 // ─────────────────────────────── Meta pull ───────────────────────────────
 
 /** Pull now (founders): the daily Meta pull on demand. Read-only on Meta. */
+export function ShipperPullForm({ ready }: { ready: boolean }) {
+  const [state, action, pending] = useActionState(pullShipperNow, empty);
+  return (
+    <form action={action} className="ar" style={{ flexWrap: "wrap", gap: 12, marginTop: 8 }}>
+      <span style={{ fontSize: 14, flex: "1 1 260px" }}>
+        Shipper pull · daily at 06:30 Tunisia
+        <span className="unit" style={{ display: "block" }}>
+          {ready ? "Reads orders, Aura Flex statistics, stock and cash. Never changes anything in Shipper. The first pull reads 4 months and takes a few minutes." : "Switched off until the Shipper key and the server key are added in Vercel (see the lines above)."}
+        </span>
+      </span>
+      <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Msg state={state} />
+        <button className="btn b-ghost" type="submit" disabled={pending || !ready}>{pending ? "Pulling…" : "Pull now"}</button>
+      </span>
+    </form>
+  );
+}
+
 export function MetaPullForm({ ready }: { ready: boolean }) {
   const [state, action, pending] = useActionState(pullMetaNow, empty);
   return (

@@ -403,6 +403,16 @@ export async function saveMapStart(_prev: ActionState, form: FormData): Promise<
 // ─────────────────────────────── Meta pull now ───────────────────────────────
 
 /** "Pull now" (founders): runs the daily Meta pull at once. Read-only on Meta. */
+export async function pullShipperNow(_prev: ActionState): Promise<ActionState> {
+  void _prev;
+  const v = await founder();
+  if (!v) return fail("Only founders can run the Shipper pull.");
+  const { runShipperPull } = await import("@/lib/shipper/pull");
+  const r = await runShipperPull();
+  revalidatePath("/", "layout");
+  return r.ok ? done(r.message) : fail(r.message);
+}
+
 export async function pullMetaNow(_prev: ActionState): Promise<ActionState> {
   void _prev;
   const v = await founder();

@@ -1,4 +1,5 @@
 import { metaStatus } from "@/lib/meta/pull";
+import { shipperStatus } from "@/lib/shipper/pull";
 import { createClient } from "@/lib/supabase/server";
 
 export type { MoneyRow } from "@/lib/money";
@@ -53,9 +54,10 @@ export async function getSettings() {
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit, rate_3d_tnd, weekly_target"),
     supabase.from("copywriter_level_set").select("levels").eq("id", 1).maybeSingle(),
   ]);
-  const [mapStart, lastSync] = await Promise.all([
+  const [mapStart, lastSync, shipSync] = await Promise.all([
     supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle(),
     supabase.from("meta_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const payBy = new Map((pay.data ?? []).map((p) => [p.person_id as string, p]));
@@ -81,6 +83,7 @@ export async function getSettings() {
 
   return {
     mapStart: (mapStart.data?.value as string | null) ?? null,
+    shipper: { ...shipperStatus(), last: (shipSync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null },
     meta: { ...metaStatus(), last: (lastSync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null },
     money: (money.data as MoneyRow | null) ?? null,
     rules: (rules.data ?? []) as Rule[],

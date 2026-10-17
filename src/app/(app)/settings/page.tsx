@@ -4,6 +4,9 @@ import { requireTab } from "@/lib/viewer";
 import { getSettings } from "@/lib/settings/data";
 import { SettingsSections, SettingsSwitch, SettingsPills } from "./SettingsView";
 
+// "Pull now" for Shipper reads ~4 months on the first run and waits out Shipper's per-minute limits.
+export const maxDuration = 300;
+
 export const metadata = { title: "Settings · Aura Flex" };
 
 export default async function SettingsPage() {
