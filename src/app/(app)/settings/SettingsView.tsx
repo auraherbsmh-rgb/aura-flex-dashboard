@@ -107,6 +107,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
         <div className="lbl" style={{ marginTop: 8 }}>Campaigns in scope · only these campaign IDs will be read (File 2 §1)</div>
         <CampaignRows campaigns={s.campaigns} />
         <MetaPullForm ready={s.meta.ready} />
+        <a className="btn b-ghost" href="/settings/shipper-check" style={{ alignSelf: "flex-start" }}>Check the Shipper connection →</a>
       </section>
 
       <section className="card sec" aria-labelledby="h-lists">
