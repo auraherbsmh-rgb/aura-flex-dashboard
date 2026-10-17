@@ -21,6 +21,11 @@ const monthEnd = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).toISO
 
 /** A run with no end after 10 minutes was stopped by the platform (time limit): it counts as failed. */
 export const STALE_MS = 10 * 60_000;
+export type SyncRow = { started_at: string; finished_at?: string | null; ok: boolean | null; message: string | null };
+export function staleAsFailed<T extends SyncRow>(r: T | null): T | null {
+  if (!r || r.finished_at || r.ok !== null || Date.now() - Date.parse(r.started_at) < STALE_MS) return r;
+  return { ...r, ok: false, message: "stopped before the end (time limit): press Pull now in Settings to finish" };
+}
 
 export async function runShipperPull(): Promise<{ ok: boolean; message: string }> {
   const st = shipperStatus();
@@ -48,9 +53,29 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
     //    Backfill until the saved orders reach ~4 months back (also after a first pull that stopped half-way).
     const { data: oldest } = await db.from("shipper_orders").select("ordered_at").order("ordered_at").limit(1).maybeSingle();
     const backfill = !oldest || Date.parse(oldest.ordered_at as string) > now - (BACKFILL_DAYS - 5) * 864e5;
-    const since = ymd(now - (backfill ? BACKFILL_DAYS : REFRESH_DAYS) * 864e5), until = ymd(now);
+    // A backfill that stopped half-way (newest pages saved first) goes on from the oldest saved order.
+    const since = ymd(now - (backfill ? BACKFILL_DAYS : REFRESH_DAYS) * 864e5), until = backfill && oldest ? ymd(Date.parse(oldest.ordered_at as string)) : ymd(now);
     const byId = new Map<string, OrderRow>();
     const unknown = new Set<string>();
+    // Saved every 10 pages, so a run stopped by the time limit keeps what it read (the next run goes on from there).
+    const saved = new Set<string>();
+    const flush = async (only?: OrderRow[]) => {
+      const rows = (only ?? [...byId.values()].filter((r) => !saved.has(r.order_id)));
+      const ids = rows.map((r) => r.order_id);
+      const seen = new Map<string, string | null>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const { data, error } = await db.from("shipper_orders").select("order_id, settled_at").in("order_id", ids.slice(i, i + 500));
+        if (error) throw new Error(`Reading saved orders: ${error.message}`);
+        for (const r of data ?? []) seen.set(r.order_id as string, (r.settled_at as string | null) ?? null);
+      }
+      // Keep the first time an order was seen settled (Shipper's list carries no delivery date).
+      for (const r of rows) { const s = seen.get(r.order_id); if (s && r.settled_at) r.settled_at = s; }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await db.from("shipper_orders").upsert(rows.slice(i, i + 500), { onConflict: "order_id" });
+        if (error) throw new Error(`Saving orders: ${error.message}`);
+      }
+      for (const id of ids) saved.add(id);
+    };
     const MAX_PAGES = 90;
     for (let page = 1; page <= MAX_PAGES; page++) {
       const c = await call(`/orders?per_page=100&page=${page}&start_date=${since}&end_date=${until}`);
@@ -60,35 +85,27 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
       for (const o of body.data ?? []) { if (!KNOWN_STATUSES.has(o.status)) unknown.add(String(o.status)); byId.set(String(o.id), toOrderRow(o, nowIso, backfill)); }
       const last = body.pagination?.last_page ?? page;
       if (page === MAX_PAGES && last > MAX_PAGES) throw new Error(`More than ${MAX_PAGES * 100} orders since ${since}: not all were read.`);
+      if (page % 10 === 0) await flush();
       if (!body.data?.length || page >= last) break;
     }
+    await flush();
     // Shipper lists some cancelled orders as "Pending" (cancelled shipment): its Canceled filter knows them.
+    const cancelledNow: OrderRow[] = [];
     for (let page = 1; page <= 20; page++) {
       const c = await call(`/orders?per_page=100&page=${page}&status=Canceled&start_date=${since}&end_date=${until}`);
       if (c.error) { notes.push(`cancelled list not read (${c.error})`); break; }
       const body = c.body as { data?: ApiOrder[]; pagination?: { last_page?: number } };
-      for (const o of body.data ?? []) { const r = byId.get(String(o.id)); if (r && r.status !== "delivered" && r.status !== "returned") { r.status = "cancelled"; r.settled_at = null; } }
+      for (const o of body.data ?? []) { const r = byId.get(String(o.id)); if (r && r.status !== "delivered" && r.status !== "returned" && r.status !== "cancelled") { r.status = "cancelled"; r.settled_at = null; cancelledNow.push(r); } }
       if (!body.data?.length || page >= (body.pagination?.last_page ?? page)) break;
     }
+    if (cancelledNow.length) await flush(cancelledNow);
     const rows = [...byId.values()];
-    // Keep the first time an order was seen settled (Shipper's list carries no delivery date).
-    const ids = rows.map((r) => r.order_id);
-    const seen = new Map<string, string | null>();
-    for (let i = 0; i < ids.length; i += 500) {
-      const { data, error } = await db.from("shipper_orders").select("order_id, settled_at").in("order_id", ids.slice(i, i + 500));
-      if (error) throw new Error(`Reading saved orders: ${error.message}`);
-      for (const r of data ?? []) seen.set(r.order_id as string, (r.settled_at as string | null) ?? null);
-    }
-    for (const r of rows) { const s = seen.get(r.order_id); if (s && r.settled_at) r.settled_at = s; }
-    for (let i = 0; i < rows.length; i += 500) {
-      const { error } = await db.from("shipper_orders").upsert(rows.slice(i, i + 500), { onConflict: "order_id" });
-      if (error) throw new Error(`Saving orders: ${error.message}`);
-    }
     if (unknown.size) notes.push(`unknown Shipper status: ${[...unknown].join(", ")} (counted as new)`);
 
     // 2. Shipper's statistics for Aura Flex, this month and the two before (3 calls each; dashboard limit 12 / minute).
     const d = new Date(now + 36e5);
     let months = 0;
+    const got: number[] = [];
     for (let k = 0; k < 3; k++) {
       const y = d.getUTCFullYear(), m = d.getUTCMonth() - k;
       const label = monthStart(y, m).slice(0, 7);
@@ -103,6 +120,7 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
       const { error } = await db.from("shipper_month").upsert({ month: monthStart(y, m), web: web.body, dm: dm.body, product: prod, fetched_at: nowIso }, { onConflict: "month" });
       if (error) throw new Error(`Saving month stats: ${error.message}`);
       months++;
+      got.push(k);
     }
 
     // 3. Stock (Aura Flex bottles at Shipper) and cash (delivered not paid yet, still on its way), today.
@@ -117,7 +135,8 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
     else notes.push(`cash not read (${overview.error ?? "no figures"})`);
 
     const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, cash ${cash ? "ok" : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
-    return finish(months === 3, msg, rows.length);
+    // Last month and the one before are needed; this month may have no statistics yet in its first days.
+    return finish(got.includes(1) && got.includes(2) && (got.includes(0) || d.getUTCDate() <= 3), msg, rows.length);
   } catch (e) {
     return finish(false, e instanceof Error ? e.message : "The Shipper pull failed.");
   }

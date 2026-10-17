@@ -1,5 +1,5 @@
 import { metaStatus } from "@/lib/meta/pull";
-import { STALE_MS, shipperStatus } from "@/lib/shipper/pull";
+import { shipperStatus, staleAsFailed } from "@/lib/shipper/pull";
 import { createClient } from "@/lib/supabase/server";
 
 export type { MoneyRow } from "@/lib/money";
@@ -42,11 +42,6 @@ export async function getCurrentMoney(): Promise<MoneyRow | null> {
 }
 
 type SyncRow = { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null };
-/** A Shipper run with no end after 10 minutes was stopped by the platform (time limit): shown as failed. */
-function staleAsFailed(r: SyncRow | null): SyncRow | null {
-  if (!r || r.finished_at || Date.now() - Date.parse(r.started_at) < STALE_MS) return r;
-  return { ...r, ok: false, message: "stopped before the end (time limit): press Pull now again to finish" };
-}
 
 /** Everything the Settings screen shows, in one round of parallel reads. */
 export async function getSettings() {

@@ -123,7 +123,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         </div>
         <div className="card money-tile">
           <div className="lbl">Cash at Shipper</div>
-          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.collected + cash.transit) : "—"} <small>TND</small></div>
+          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.collected + cash.transit) : "—"} <small>TND{cash ? " · incl. returning" : ""}</small></div>
           <div className="unit">{cash ? `Collected, not yet paid ${n0(cash.collected)} · on its way or returning ${n0(cash.transit)}` : "Collected not paid + on its way · with Shipper"}</div>
         </div>
       </section>

@@ -2,7 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
-import { shipperStatus } from "@/lib/shipper/pull";
+import { shipperStatus, staleAsFailed } from "@/lib/shipper/pull";
 import { buildMoney, stockDays, tunisDay, type MetaDayTotal, type MonthBase, type ShipperOrder } from "@/lib/business-shared";
 import { isOurs, toMonthStats, type MonthStats } from "@/lib/shipper/map";
 
@@ -20,7 +20,7 @@ export async function getMoneyData(now: number) {
     supabase.from("money_settings").select("month, status, exchange_rate, bottle_cost_tnd, delivery_cost_tnd, fixed_costs_tnd, business_line_usd").order("month"),
     supabase.from("shipper_stock").select("day, bottles").order("day", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("shipper_cash").select("day, collected_unpaid_tnd, in_transit_tnd").order("day", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("shipper_sync").select("started_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
     getRule("stock_red_days", 0),
     supabase.from("shipper_month").select("month, web, dm, product"),
   ]);
@@ -58,6 +58,6 @@ export async function getMoneyData(now: number) {
     // mixed orders are left out, their Aura Flex share isn't known).
     stock: { bottles: stockBottles, ...stockDays(stockBottles, orders.filter((o, i) => ourProducts[i] === "Aura Flex" && (o.status === "delivered" || o.status === "shipped")), now), redBelow: stockRed || null },
     cash: cash.data ? { collected: Number(cash.data.collected_unpaid_tnd), transit: Number(cash.data.in_transit_tnd) } : null,
-    lastSync: (sync.data as { started_at: string; ok: boolean | null; message: string | null } | null) ?? null,
+    lastSync: staleAsFailed((sync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null),
   };
 }
