@@ -1,5 +1,6 @@
 import { requireTab } from "@/lib/viewer";
 import { redact, shipperGet, type ShipperCall } from "@/lib/shipper/api";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Shipper check · Aura Flex" };
 export const dynamic = "force-dynamic";
@@ -32,12 +33,17 @@ export default async function Page() {
   const list = await shipperGet("/orders?per_page=100&page=1");
   const orders = ((list.body as { data?: { id: string | number; status: string | null; store_name?: string | null; external_order_id?: string | null; items_count?: number; revenue?: string; is_paid?: boolean }[] })?.data ?? []);
   const sampleIds = [...new Set(orders.map((o) => o.status))].slice(0, 4).map((s) => orders.find((o) => o.status === s)!.id);
-  const [details, products, overview, confirmation, delivery] = await Promise.all([
-    Promise.all(sampleIds.map((id) => shipperGet(`/orders/${id}`))),
+  // One page per status (older orders too), and one full order of each.
+  const STATUSES = ["Pending", "Fulfilled", "In Transit", "Delivered", "Partial Delivery", "Returned", "Partial Return", "Canceled", "Paid"];
+  const byStatus = await Promise.all(STATUSES.map((st) => shipperGet(`/orders?per_page=5&page=1&status=${encodeURIComponent(st)}`)));
+  const firstOf = byStatus.map((c) => ((c.body as { data?: { id: string | number }[] })?.data ?? [])[0]?.id).filter((x) => x !== undefined);
+  const [details, products, overview, confirmation, delivery, perf] = await Promise.all([
+    Promise.all([...new Set([...sampleIds, ...firstOf])].slice(0, 12).map((id) => shipperGet(`/orders/${id}`))),
     shipperGet("/products?per_page=20"),
     shipperGet(`/dashboard/overview?${range}`),
     shipperGet(`/dashboard/confirmation-stats?${range}`),
     shipperGet(`/dashboard/delivery-stats?${range}`),
+    shipperGet(`/dashboard/product-performance?${range}&per_page=20`),
   ]);
 
   const count = (f: (o: (typeof orders)[number]) => string) => Object.entries(orders.reduce<Record<string, number>>((m, o) => { const k = f(o); m[k] = (m[k] ?? 0) + 1; return m; }, {})).sort((a, b) => b[1] - a[1]);
@@ -50,11 +56,22 @@ export default async function Page() {
     "items_count values": count((o) => String(o.items_count ?? "—")),
   };
 
+  // Saved (redacted) so the connection can be mapped from it without screenshots.
+  const supabase = await createClient();
+  const snapshot = redact({
+    range, summary, list: { ...(list.body as object), data: orders.slice(0, 30) },
+    byStatus: Object.fromEntries(STATUSES.map((st, i) => [st, { status: byStatus[i].status, error: byStatus[i].error, body: byStatus[i].body }])),
+    details: details.map((d) => ({ path: d.path, status: d.status, body: d.body })),
+    products: products.body, overview: overview.body, confirmation: confirmation.body, delivery: delivery.body, productPerformance: perf.body,
+  });
+  const saved = await supabase.from("shipper_probe").insert({ body: snapshot });
+
   return (
     <main className="page"><div className="slab"><div className="body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <section className="card sec">
         <h1 style={{ margin: 0, fontSize: 26 }}>Shipper check</h1>
         <div className="unit">Temporary page for founders: what the Shipper API sends. Read-only; names, phones and addresses are hidden. Dashboard stats cover {ym(monthStart)} → {ym(monthEnd)}.</div>
+        <div className={`tag ${saved.error ? "t-red" : "t-green"}`} style={{ marginTop: 10 }}><i aria-hidden="true" />{saved.error ? `NOT SAVED · ${saved.error.message}` : "SAVED FOR CLAUDE · NOTHING TO COPY"}</div>
         <pre style={{ marginTop: 12, background: "#f3f3f0", borderRadius: 14, padding: 12, fontSize: 13, whiteSpace: "pre-wrap" }}>{JSON.stringify(summary, null, 2)}</pre>
       </section>
       <Block title="Orders · list (first 100)" call={{ ...list, body: { ...(list.body as object), data: orders.slice(0, 10) } }} />
@@ -63,6 +80,7 @@ export default async function Page() {
       <Block title="Dashboard · overview (money)" call={overview} />
       <Block title="Dashboard · confirmation stats" call={confirmation} />
       <Block title="Dashboard · delivery stats" call={delivery} />
+      <Block title="Dashboard · product performance" call={perf} />
     </div></div></main>
   );
 }
