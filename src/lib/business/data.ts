@@ -1,4 +1,5 @@
 // Server only: everything Business · Money reads (founders; RLS keeps the Shipper and Meta copies founder-only).
+import type { Cash } from "@/lib/shipper/map";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
@@ -19,7 +20,7 @@ export async function getMoneyData(now: number) {
     supabase.from("campaign_scope").select("campaign_id").eq("active", true),
     supabase.from("money_settings").select("month, status, exchange_rate, bottle_cost_tnd, delivery_cost_tnd, fixed_costs_tnd, business_line_usd").order("month"),
     supabase.from("shipper_stock").select("day, bottles").order("day", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("shipper_cash").select("day, collected_unpaid_tnd, in_transit_tnd").order("day", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("shipper_cash").select("day, at, balance_tnd, parts").order("day", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
     getRule("stock_red_days", 0),
     supabase.from("shipper_month").select("month, web, dm, product"),
@@ -57,7 +58,7 @@ export async function getMoneyData(now: number) {
     // Stock used = Aura Flex bottles of orders delivered or on their way (returns go back to Shipper's shelf;
     // mixed orders are left out, their Aura Flex share isn't known).
     stock: { bottles: stockBottles, ...stockDays(stockBottles, orders.filter((o, i) => ourProducts[i] === "Aura Flex" && (o.status === "delivered" || o.status === "shipped")), now), redBelow: stockRed || null },
-    cash: cash.data ? { collected: Number(cash.data.collected_unpaid_tnd), transit: Number(cash.data.in_transit_tnd) } : null,
+    cash: cash.data && cash.data.balance_tnd !== null && cash.data.parts ? { balance: Number(cash.data.balance_tnd), at: (cash.data.at as string | null) ?? null, parts: cash.data.parts as Cash } : null,
     lastSync: staleAsFailed((sync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null),
   };
 }

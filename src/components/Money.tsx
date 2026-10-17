@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
 import type { LeakRow, MoneyView, TrendPoint } from "@/lib/business-shared";
+import type { Cash } from "@/lib/shipper/map";
 
 const n0 = (n: number) => Math.round(n).toLocaleString("en-US").replace("-", "−");
 const signed = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
@@ -14,7 +15,7 @@ export type MoneyProps = {
   line: number;
   fixed: number;
   stock: { bottles: number | null; days: number | null; perDay: number; redBelow: number | null };
-  cash: { collected: number; transit: number } | null;
+  cash: { balance: number; at: string | null; parts: Cash } | null;
   shipperMissing: string | null;
   hasMeta: boolean;
   /** Last Shipper pull message (connected, but failing or waiting for the first pull). */
@@ -122,9 +123,12 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             : <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED LINE TO FILL · SETTINGS</span>}
         </div>
         <div className="card money-tile">
-          <div className="lbl">Cash at Shipper</div>
-          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.collected + cash.transit) : "—"} <small>TND{cash ? " · incl. returning" : ""}</small></div>
-          <div className="unit">{cash ? `Collected, not yet paid ${n0(cash.collected)} · on its way or returning ${n0(cash.transit)}` : "Collected not paid + on its way · with Shipper"}</div>
+          <div className="lbl">Shipper balance</div>
+          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.balance) : "—"} <small>TND</small></div>
+          <div className="unit">{cash
+            ? `Delivered not paid ${n0(cash.parts.deliveredUnpaid)} · pending ${n0(cash.parts.pending)} − fees taken ${n0(-cash.parts.pendingFeesTaken)} − fees to come ${n0(-cash.parts.pendingFeesComing)} · failed delivery fees −${n0(-cash.parts.failedFees)}${cash.parts.other ? ` · other ${n0(cash.parts.other)}` : ""}`
+            : "Shipper's balance, after its fees · with Shipper"}</div>
+          {cash?.at && <div className="unit">At the pull of {new Date(cash.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · Shipper&apos;s own figure moves all day as new orders come in</div>}
         </div>
       </section>
 

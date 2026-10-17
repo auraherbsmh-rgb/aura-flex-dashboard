@@ -98,10 +98,34 @@ export function toMonthStats(web: unknown, dm: unknown, product: unknown): Month
 }
 
 /** Cash at Shipper from /dashboard/overview: delivered but not paid out yet, and what is still on its way. */
-export function toCash(overview: unknown): { collected: number; transit: number } | null {
-  const o = overview as { shipments_delivered_non_paid?: PerfGroup & { revenue_expected?: unknown }; shipments_pending?: { revenue_expected?: unknown } } | null;
-  if (!o || (!o.shipments_delivered_non_paid && !o.shipments_pending)) return null;
-  return { collected: amount(o.shipments_delivered_non_paid?.revenue), transit: amount(o.shipments_pending?.revenue_expected) };
+export type Cash = { balance: number; deliveredUnpaid: number; pending: number; pendingFeesTaken: number; pendingFeesComing: number; failedFees: number; other: number; otherGroups: string[] };
+/**
+ * Shipper balance (founder, Oct 17), rebuilt from /dashboard/overview because the API has no balance endpoint:
+ * Shipper takes the first fees when an order comes in, the rest at delivery. Balance = delivered not paid (after fees)
+ * + pending sales − fees already taken on pending − fees still to come on pending − failed-delivery fees.
+ * Checked against Shipper's top bar on Oct 17: 10,093.68 + 17,130 − 2,709.48 − 575.12 − 1,943.08 = 21,996.
+ * Any other unpaid group Shipper adds later (returns…) is counted the same way and named in "otherGroups".
+ */
+export function toCash(overview: unknown): Cash | null {
+  type G = { count?: unknown; revenue?: unknown; revenue_expected?: unknown; expenses?: unknown; expenses_expected?: unknown };
+  const o = overview as Record<string, G> | null;
+  if (!o || typeof o !== "object" || (!o.shipments_delivered_non_paid && !o.shipments_pending)) return null;
+  const dn = o.shipments_delivered_non_paid ?? {}, pe = o.shipments_pending ?? {}, fa = o.shipments_failed_delivery ?? {};
+  const deliveredUnpaid = amount(dn.revenue) + amount(dn.expenses) + amount(dn.expenses_expected);
+  const pending = amount(pe.revenue_expected);
+  const pendingFeesTaken = amount(pe.expenses);
+  const pendingFeesComing = amount(pe.expenses_expected);
+  const failedFees = amount(fa.revenue) + amount(fa.expenses) + amount(fa.expenses_expected);
+  const known = new Set(["shipments_delivered_paid", "shipments_delivered_non_paid", "shipments_pending", "shipments_failed_delivery"]);
+  let other = 0;
+  const otherGroups: string[] = [];
+  for (const [k, g] of Object.entries(o)) {
+    if (known.has(k) || !k.startsWith("shipments_") || !g || typeof g !== "object" || !("count" in g)) continue;
+    otherGroups.push(k);
+    other += amount(g.revenue) + amount(g.expenses) + amount(g.expenses_expected);
+  }
+  const r = (x: number) => Math.round(x * 1000) / 1000;
+  return { balance: r(deliveredUnpaid + pending + pendingFeesTaken + pendingFeesComing + failedFees + other), deliveredUnpaid: r(deliveredUnpaid), pending: r(pending), pendingFeesTaken: r(pendingFeesTaken), pendingFeesComing: r(pendingFeesComing), failedFees: r(failedFees), other: r(other), otherGroups };
 }
 
 /** Aura Flex bottles at Shipper from /products. */

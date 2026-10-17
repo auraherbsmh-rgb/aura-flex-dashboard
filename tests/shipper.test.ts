@@ -41,7 +41,12 @@ test("Shipper: month statistics, cash and stock", () => {
   assert.ok(Math.abs(s.fees - 24335.98) < 1e-6, "fees for delivered + failed orders");
   assert.ok(Math.abs(s.fees / s.delivered - 13.42) < 0.01, "about 13.4 TND per delivered order");
   assert.equal(toMonthStats({ status: 429 }, dm, product), null, "rate-limited answer = no stats");
-  assert.deepEqual(toCash({ shipments_pending: { revenue_expected: money("514.0") }, shipments_delivered_non_paid: { revenue: [{ amount: null }] } }), { collected: 0, transit: 514 });
+  // Oct 17, Shipper's top bar 21,996: the founder's screen figures.
+  const c = toCash({ shipments_delivered_paid: { count: 9, revenue: money("999") }, shipments_delivered_non_paid: { count: 162, revenue: money("12050"), expenses: money("-1956.32") }, shipments_pending: { count: 223, revenue: money("17130"), revenue_expected: money("17130"), expenses: money("-2709.48"), expenses_expected: money("-575.12") }, shipments_failed_delivery: { count: 533, revenue: money("0"), expenses: money("-1943.08") }, stats_by_order_type: {} })!;
+  assert.equal(c.balance, 21996);
+  assert.deepEqual(c.otherGroups, []);
+  assert.equal(toCash({ shipments_pending: { count: 1, revenue_expected: money("514.0") }, shipments_returned: { count: 2, expenses: money("-10") } })!.balance, 504);
+  assert.equal(toCash({}), null);
   assert.equal(toStock({ data: [{ name: "Aura Flex", available_qte: 218 }, { name: "Ashwagandha", available_qte: 38 }] }), 218);
 });
 

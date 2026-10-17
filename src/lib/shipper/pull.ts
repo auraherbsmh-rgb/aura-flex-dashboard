@@ -134,12 +134,17 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
     const bottles = toStock(products.body);
     if (bottles !== null) { const { error } = await db.from("shipper_stock").upsert({ day: today, bottles }, { onConflict: "day" }); if (error) throw new Error(`Saving stock: ${error.message}`); }
     else notes.push(`stock not read (${products.error ?? "no Aura Flex product"})`);
-    const overview = await call(`/dashboard/overview?start_date=${ymd(now - 90 * 864e5)}&end_date=${today}`);
+    // Every order not paid out yet, whatever its age: the overview from well before the first order to today.
+    const overview = await call(`/dashboard/overview?start_date=2024-01-01&end_date=${today}`);
     const cash = toCash(overview.body);
-    if (cash) { const { error } = await db.from("shipper_cash").upsert({ day: today, collected_unpaid_tnd: cash.collected, in_transit_tnd: cash.transit }, { onConflict: "day" }); if (error) throw new Error(`Saving cash: ${error.message}`); }
+    if (cash) {
+      const { error } = await db.from("shipper_cash").upsert({ day: today, at: nowIso, balance_tnd: cash.balance, parts: cash, collected_unpaid_tnd: cash.deliveredUnpaid, in_transit_tnd: cash.pending }, { onConflict: "day" });
+      if (error) throw new Error(`Saving cash: ${error.message}`);
+      if (cash.otherGroups.length) notes.push(`balance also counts ${cash.otherGroups.join(", ")}`);
+    }
     else notes.push(`cash not read (${overview.error ?? "no figures"})`);
 
-    const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, cash ${cash ? "ok" : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
+    const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, balance ${cash ? cash.balance.toFixed(3) : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
     // Last month and the one before are needed; this month may have no statistics yet in its first days.
     return finish(got.includes(1) && got.includes(2) && (got.includes(0) || d.getUTCDate() <= 3), msg, rows.length);
   } catch (e) {
