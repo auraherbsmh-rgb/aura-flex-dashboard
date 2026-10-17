@@ -808,3 +808,19 @@ select.fi { font-family: var(--font); font-weight: 400; }
   .order-tag { white-space: normal; justify-self: start; }
   .order-why { padding: 0 14px 14px; }
 }
+
+/* Phone fixes (founder video, Oct 17). Tab bar: one row that scrolls sideways, never a wrapped blob. */
+@media (max-width: 720px) {
+  .navbar { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .navbar::-webkit-scrollbar { display: none; }
+  .navbar .nav { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
+  .header { gap: 12px; }
+}
+/* Pop-ups: nothing wider than the screen (iOS date fields have a wide built-in size), so the pop-up never slides sideways. */
+.veil { overflow-x: hidden; overscroll-behavior: contain; }
+.pop { overflow-x: hidden; }
+.pop label, .pop .field, .pop > * { min-width: 0; }
+.inp, .fi, .ta { min-width: 0; max-width: 100%; }
+input[type="date"].inp, input[type="date"].fi { -webkit-appearance: none; appearance: none; display: block; min-width: 0; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+@media (max-width: 720px) { .veil { padding: 12px 8px; align-items: flex-start; } .pop { max-height: calc(100dvh - 24px); } }

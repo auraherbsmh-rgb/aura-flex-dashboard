@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TABS, TABS_BY_ROLE, ROLE_SUBTITLE, SHOW_TAB_BAR, brandSubtitle, initials, type TabKey } from "@/lib/access";
 import type { Viewer } from "@/lib/viewer";
 import { signOut } from "@/app/actions";
+import { NavScroll } from "./NavScroll";
 
 /** Header band shared by every tab (artboards: logo · tab bar · person). Only the tabs this role may see are shown. */
 export function AppHeader({ viewer, active, roleNote }: { viewer: Viewer; active: TabKey; roleNote?: string }) {
@@ -31,6 +32,7 @@ export function AppHeader({ viewer, active, roleNote }: { viewer: Viewer; active
             {t.label}
           </Link>
         ))}
+        <NavScroll />
       </nav>
       )}
 
