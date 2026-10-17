@@ -76,7 +76,9 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
       }
       for (const id of ids) saved.add(id);
     };
-    const MAX_PAGES = 90;
+    // ~1 s per page: 150 pages leave time for the statistics. The 4-month history (~16,000 orders) takes two runs:
+    // a backfill that hits the cap stops here and the next run goes on from the oldest saved order.
+    const MAX_PAGES = 150;
     for (let page = 1; page <= MAX_PAGES; page++) {
       const c = await call(`/orders?per_page=100&page=${page}&start_date=${since}&end_date=${until}`);
       if (c.error) throw new Error(`Orders page ${page}: ${c.error}`);
@@ -84,7 +86,10 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
       // Newest first: a new order arriving mid-pull shifts pages, so the same order can come twice (kept once).
       for (const o of body.data ?? []) { if (!KNOWN_STATUSES.has(o.status)) unknown.add(String(o.status)); byId.set(String(o.id), toOrderRow(o, nowIso, backfill)); }
       const last = body.pagination?.last_page ?? page;
-      if (page === MAX_PAGES && last > MAX_PAGES) throw new Error(`More than ${MAX_PAGES * 100} orders since ${since}: not all were read.`);
+      if (page === MAX_PAGES && last > MAX_PAGES) {
+        if (!backfill) throw new Error(`More than ${MAX_PAGES * 100} orders since ${since}: not all were read.`);
+        notes.push("older orders not all read yet: press Pull now again (or wait for tomorrow's pull) to finish the 4 months");
+      }
       if (page % 10 === 0) await flush();
       if (!body.data?.length || page >= last) break;
     }
