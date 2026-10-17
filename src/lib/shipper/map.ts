@@ -21,6 +21,8 @@ export type OrderRow = {
 
 export const channelOf = (store: string | null): "website" | "dm" => (store === "Aura herbs" ? "dm" : "website");
 
+export const KNOWN_STATUSES = new Set([null, "Pending", "Fulfilled", "In Transit", "Delivered", "Paid", "Partial Delivery", "Returned", "Partial Return", "Canceled"]);
+
 /** Shipper's order status (computed from its shipments) → our funnel status. */
 export function statusOf(raw: string | null, shipments: number): OrderRow["status"] {
   switch (raw) {
@@ -30,11 +32,16 @@ export function statusOf(raw: string | null, shipments: number): OrderRow["statu
     case "Fulfilled": return "confirmed";
     case "Canceled": return "cancelled";
     case "Pending": return shipments > 0 ? "confirmed" : "new";
-    default: return "new";
+    default: return "new"; // null = a fresh lead; other unknown values are reported by the pull (KNOWN_STATUSES)
   }
 }
 
-export function toOrderRow(o: ApiOrder, nowIso: string): OrderRow {
+/**
+ * settledSeen: when the pull first saw it settled (now on a daily pull). On the first pull (backfill) orders settled long
+ * ago get their order date + 2 days instead (Shipper delivers in 1.6 business days on average), so old deliveries
+ * don't count as this month's gross sales.
+ */
+export function toOrderRow(o: ApiOrder, nowIso: string, backfill = false): OrderRow {
   const shipments = Number(o.shipments_count ?? 0);
   const status = statusOf(o.status, shipments);
   const names = (o.products ?? []).map((p) => p.name).sort();
@@ -44,7 +51,7 @@ export function toOrderRow(o: ApiOrder, nowIso: string): OrderRow {
     // Shipper's list has no shipping date: shipped orders count from their order date (usually shipped within a day).
     shipped_at: status === "shipped" || status === "delivered" || status === "returned" ? o.created_at : null,
     // Settled (delivered or returned): Shipper gives no date in the list; the pull keeps the first time it saw it settled.
-    settled_at: status === "delivered" || status === "returned" ? nowIso : null,
+    settled_at: status === "delivered" || status === "returned" ? (backfill ? new Date(Math.min(Date.parse(o.created_at) + 2 * 864e5, Date.parse(nowIso))).toISOString() : nowIso) : null,
     products: names.length ? names.join("+") : null, raw_status: o.status, shipments, updated_at: nowIso,
   };
 }
@@ -57,13 +64,15 @@ const amount = (a: unknown) => num((a as { amount?: string | null }[] | undefine
 
 export type MonthStats = {
   webLeads: number; dmLeads: number;
+  /** Website leads Shipper hasn't called yet or is still calling (no confirmation verdict). */
+  webPending: number;
   reasons: { refused: number; unreachable: number; duplicateWrong: number };
   delivered: number; failed: number; revenue: number;
   /** Everything Shipper charged for delivered and failed orders (shipping, confirmation, packaging, follow-up…). */
   fees: number;
 };
 
-type Leads = { total?: number; closed_unconfirmed?: number; closed_unreachable?: number; closed_duplicate_wrong?: number };
+type Leads = { total?: number; closed_unconfirmed?: number; closed_unreachable?: number; closed_duplicate_wrong?: number; under_process?: number; no_attempt?: number };
 type PerfGroup = { count?: number; revenue?: unknown; expenses?: unknown };
 type PerfRow = { name: string; retailer_product_id: string | number; delivered_orders?: number; failed_orders?: number; shipments_delivered_paid?: PerfGroup; shipments_delivered_non_paid?: PerfGroup; shipments_failed_delivery?: PerfGroup };
 
@@ -80,7 +89,7 @@ export function toMonthStats(web: unknown, dm: unknown, product: unknown): Month
   if (!w || !p) return null;
   const g = (k: "shipments_delivered_paid" | "shipments_delivered_non_paid" | "shipments_failed_delivery") => p[k] ?? {};
   return {
-    webLeads: num(w.total), dmLeads: num(d?.total),
+    webLeads: num(w.total), dmLeads: num(d?.total), webPending: num(w.under_process) + num(w.no_attempt),
     reasons: { refused: num(w.closed_unconfirmed), unreachable: num(w.closed_unreachable), duplicateWrong: num(w.closed_duplicate_wrong) },
     delivered: num(p.delivered_orders), failed: num(p.failed_orders),
     revenue: amount(g("shipments_delivered_paid").revenue) + amount(g("shipments_delivered_non_paid").revenue),

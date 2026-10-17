@@ -43,7 +43,9 @@ export async function getMoneyData(now: number) {
     byDay.set(r.day, d);
   }
   // Business = Aura Flex: orders with Aura Flex, and leads whose product isn't known yet (not confirmed).
-  const orders: ShipperOrder[] = orderRows.filter((o) => isOurs(o.products)).map((o) => ({
+  const ours = orderRows.filter((o) => isOurs(o.products));
+  const ourProducts = ours.map((o) => o.products);
+  const orders: ShipperOrder[] = ours.map((o) => ({
     orderId: o.order_id, orderedAt: o.ordered_at, channel: o.channel, bottles: o.bottles, totalTnd: Number(o.total_tnd), status: o.status, reason: o.reason,
     deliveryCostTnd: o.delivery_cost_tnd === null ? null : Number(o.delivery_cost_tnd), shippedAt: o.shipped_at, settledAt: o.settled_at,
   }));
@@ -52,7 +54,9 @@ export async function getMoneyData(now: number) {
   const stockBottles = stock.data ? Number(stock.data.bottles) : null;
   return {
     status: shipperStatus(), noMoney: false as const, view, base, hasMeta: byDay.size > 0,
-    stock: { bottles: stockBottles, ...stockDays(stockBottles, orders, now), redBelow: stockRed || null },
+    // Stock used = Aura Flex bottles of orders delivered or on their way (returns go back to Shipper's shelf;
+    // mixed orders are left out, their Aura Flex share isn't known).
+    stock: { bottles: stockBottles, ...stockDays(stockBottles, orders.filter((o, i) => ourProducts[i] === "Aura Flex" && (o.status === "delivered" || o.status === "shipped")), now), redBelow: stockRed || null },
     cash: cash.data ? { collected: Number(cash.data.collected_unpaid_tnd), transit: Number(cash.data.in_transit_tnd) } : null,
     lastSync: (sync.data as { started_at: string; ok: boolean | null; message: string | null } | null) ?? null,
   };

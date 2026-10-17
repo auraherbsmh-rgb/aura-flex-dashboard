@@ -26,7 +26,8 @@ export function withStats(f: Funnel, s: MonthStats | undefined): Funnel {
   if (!s) return f;
   const perDelivered = s.delivered ? s.fees / s.delivered : null;
   return {
-    ...f, webLeads: s.webLeads, dmLeads: s.dmLeads,
+    // Pending from Shipper too (its leads are Aura Flex only), plus our confirmed-not-shipped orders.
+    ...f, webLeads: s.webLeads, dmLeads: s.dmLeads, pending: s.webPending + f.confirmedWaiting,
     reasons: { disqualified: s.reasons.refused, unreachable: s.reasons.unreachable, duplicate: s.reasons.duplicateWrong, wrong_number: 0 },
     deliveryCost: perDelivered === null ? f.deliveryCost : perDelivered * f.delivered,
   };
@@ -44,6 +45,7 @@ export type Funnel = {
   webLeads: number; dmLeads: number; shipped: number; delivered: number; returned: number;
   /** Shipped, not delivered or returned yet. */ open: number;
   /** New or confirmed, not shipped yet (no confirmation verdict). */ pending: number;
+  /** Of those: confirmed (or packed) but not handed to the carrier yet. */ confirmedWaiting: number;
   revenue: number; bottles: number; deliveryCost: number;
   webShipped: number; reasons: Record<"duplicate" | "disqualified" | "unreachable" | "wrong_number", number>;
   door: { b1: [number, number]; b2: [number, number]; b3: [number, number] }; // [delivered, settled] per order size
@@ -52,13 +54,13 @@ export type Funnel = {
 /** Counts for a set of orders (one month or one week, by order date). Delivery cost: the order's own, else Settings. */
 export function funnel(orders: ShipperOrder[], m: MoneyBase): Funnel {
   const f: Funnel = {
-    webLeads: 0, dmLeads: 0, shipped: 0, delivered: 0, returned: 0, open: 0, pending: 0, revenue: 0, bottles: 0, deliveryCost: 0, webShipped: 0,
+    webLeads: 0, dmLeads: 0, shipped: 0, delivered: 0, returned: 0, open: 0, pending: 0, confirmedWaiting: 0, revenue: 0, bottles: 0, deliveryCost: 0, webShipped: 0,
     reasons: { duplicate: 0, disqualified: 0, unreachable: 0, wrong_number: 0 }, door: { b1: [0, 0], b2: [0, 0], b3: [0, 0] },
   };
   for (const o of orders) {
     if (o.channel === "website") f.webLeads++; else f.dmLeads++;
     if (o.channel === "website" && o.reason && o.reason !== "other") f.reasons[o.reason]++;
-    if (o.status === "new" || o.status === "confirmed") { f.pending++; continue; }
+    if (o.status === "new" || o.status === "confirmed") { f.pending++; if (o.status === "confirmed") f.confirmedWaiting++; continue; }
     if (!SHIPPED.has(o.status)) continue;
     f.shipped++;
     if (o.channel === "website") f.webShipped++;
@@ -173,6 +175,7 @@ export type ClosedMonth = {
   metaOrders: number; dmOrders: number; gross: number; grossPrev: number | null; delivered: number; open: number; provisional: boolean;
   aov: number; waterfall: Waterfall[]; leaks: LeakRow[] | null; leakTotal: number | null; leakWhy: string | null; tracking: number | null; lineStatus: string;
   fixed: number; estimatedDelivered: number; noMeta: boolean;
+  shipperCheck: { ours: number; theirs: number } | null;
 };
 export type WeekView = { label: string; profit: number; prevProfit: number; zone: ReturnType<typeof lineZone>; cpa: number | null; metaOrders: number; dmOrders: number | null; grossSoFar: number | null; pace: number | null; monthLabel: string; closedLabel: string; noMeta: boolean; prevNoMeta: boolean };
 /** missing = no Meta rows for that week (not pulled): no profit can be computed without ad spend. */
@@ -222,7 +225,9 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
     const fPrev = withStats(funnel(ordersIn(prevYm), pb.base), stats[prevYm]);
     const metaPrev = metaMonth(prevYm);
     const usable = (fx: Funnel, mx: MetaPeriod) => fx.webLeads > 0 && mx.purchases > 0 && fx.delivered + fx.returned > 0;
-    const pPrev = usable(fPrev, metaPrev) ? params(fPrev, metaPrev, pb.base, pb.base.fixedCostsTnd) : null;
+    // Two months are only compared on the same footing: both with Shipper's statistics, or neither.
+    const sameFooting = !!stats[closedYm] === !!stats[prevYm];
+    const pPrev = usable(fPrev, metaPrev) && sameFooting ? params(fPrev, metaPrev, pb.base, pb.base.fixedCostsTnd) : null;
     // Profit = the model: equal to the books when every order has settled; open orders estimated (File 1) otherwise.
     const profit = profitFromLeads(f, p, meta.spendUsd);
     const prevProfit = pPrev ? profitOf(pPrev) : null;
@@ -250,6 +255,7 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
     let leakTotal: number | null = null;
     let leakWhy: string | null = null;
     if (!usable(f, meta)) leakWhy = `${monthName(closedYm)} has no settled orders or Meta purchases yet`;
+    else if (!sameFooting) leakWhy = `Shipper's statistics are missing for ${monthName(stats[closedYm] ? prevYm : closedYm)}: run the Shipper pull again`;
     else if (!pPrev) leakWhy = `needs ${monthName(prevYm)} in the Shipper data`;
     else {
       const lf = leakFinder(pPrev, p);
@@ -317,6 +323,8 @@ export function buildMoney(input: { orders: ShipperOrder[]; metaDays: MetaDayTot
       metaOrders: meta.purchases, dmOrders: f.dmLeads, gross, grossPrev: pPrev ? delivered(pPrev) * (fPrev.delivered ? fPrev.revenue / fPrev.delivered : 0) : null,
       delivered: dEst, open: f.open + f.pending, provisional, aov, waterfall, leaks, leakTotal, leakWhy,
       tracking: f.webLeads ? meta.purchases / f.webLeads : null, lineStatus: mb.status,
+      // Our delivered count (from order statuses) next to Shipper's own for the month: a gap over 2% is flagged.
+      shipperCheck: stats[closedYm] ? { ours: f.delivered, theirs: stats[closedYm].delivered } : null,
       fixed: mb.base.fixedCostsTnd, estimatedDelivered: Math.max(0, dEst - f.delivered), noMeta: meta.purchases === 0 && meta.spendUsd === 0,
     };
   }

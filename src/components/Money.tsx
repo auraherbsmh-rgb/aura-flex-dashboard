@@ -124,7 +124,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         <div className="card money-tile">
           <div className="lbl">Cash at Shipper</div>
           <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.collected + cash.transit) : "—"} <small>TND</small></div>
-          <div className="unit">{cash ? `Collected, not yet paid ${n0(cash.collected)} · in transit ${n0(cash.transit)}` : "Collected not paid + in transit · with Shipper"}</div>
+          <div className="unit">{cash ? `Collected, not yet paid ${n0(cash.collected)} · on its way or returning ${n0(cash.transit)}` : "Collected not paid + on its way · with Shipper"}</div>
         </div>
       </section>
 
@@ -203,6 +203,11 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
         {closed?.tracking != null && (
           <span><span className={`tag ${closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "t-green" : "t-red"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />{closed.tracking >= 0.89 && closed.tracking <= 0.95 ? "DATA OK" : "CHECK TRACKING"}</span>Tracking {closed.tracking.toFixed(3)} · band 0.89–0.95</span>
         )}
+        {closed?.shipperCheck && (() => {
+          const { ours, theirs } = closed.shipperCheck;
+          const gap = theirs ? Math.abs(ours - theirs) / theirs : 0;
+          return <span><span className={`tag ${gap > 0.02 ? "t-red" : "t-green"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />{gap > 0.02 ? "CHECK SHIPPER" : "MATCHES SHIPPER"}</span>Delivered {n0(ours)} · Shipper says {n0(theirs)}</span>;
+        })()}
         {closed && <span><span className={`tag ${closed.lineStatus === "final" ? "t-green" : "t-amber"}`} style={{ marginRight: 8 }}><i aria-hidden="true" />LINE {closed.lineStatus.toUpperCase()}</span>Business line ${closed.line.toFixed(2)} · Settings → Money</span>}
         <span><b>Salaries and fixed</b> = {n0(isMonth ? closed!.fixed : fixed)} TND / month from Settings (that month&apos;s row, editor pay included)</span>
         <span>Normal = last closed month · stages switched in fixed order: ad cost → volume → tracking → confirmation → door rate → order value → delivery cost → salaries and fixed</span>

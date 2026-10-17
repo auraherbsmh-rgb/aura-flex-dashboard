@@ -1,7 +1,7 @@
 // Server only: read-only calls to the Shipper Open API (docs: shipper.network/tn/en/documentation/api).
 export const SHIPPER_BASE = "https://server.shipper.network/api/v1";
 
-export type ShipperCall = { path: string; status: number; ms: number; body: unknown; error: string | null; remaining?: number | null };
+export type ShipperCall = { path: string; status: number; ms: number; body: unknown; error: string | null; remaining?: number | null; retryAfter?: number | null };
 
 /** One GET with the key from Vercel (SHIPPER_API_KEY). Never writes. */
 export async function shipperGet(path: string): Promise<ShipperCall> {
@@ -13,8 +13,8 @@ export async function shipperGet(path: string): Promise<ShipperCall> {
     const text = await res.text();
     let body: unknown = text;
     try { body = JSON.parse(text); } catch { /* not JSON: keep the text */ }
-    const rem = res.headers.get("x-ratelimit-remaining");
-    return { path, status: res.status, ms: Date.now() - t0, body, error: res.ok ? null : `HTTP ${res.status}`, remaining: rem === null ? null : Number(rem) };
+    const rem = res.headers.get("x-ratelimit-remaining"), ra = res.headers.get("retry-after");
+    return { path, status: res.status, ms: Date.now() - t0, body, error: res.ok ? null : `HTTP ${res.status}`, remaining: rem === null ? null : Number(rem), retryAfter: ra === null ? null : Number(ra) || null };
   } catch (e) {
     return { path, status: 0, ms: Date.now() - t0, body: null, error: e instanceof Error ? e.message.replace(key, "…") : "Request failed" };
   }
@@ -22,12 +22,17 @@ export async function shipperGet(path: string): Promise<ShipperCall> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** GET that respects Shipper's per-minute limits: waits when few calls are left, retries once after a 429. */
-export async function shipperGetPaced(path: string): Promise<ShipperCall> {
-  let c = await shipperGet(path);
-  if (c.status === 429) { await sleep(61_000); c = await shipperGet(path); }
-  if (c.remaining !== null && c.remaining !== undefined && c.remaining <= 2) await sleep(61_000);
-  return c;
+/**
+ * GET that respects Shipper's per-minute limits: after a 429 it waits once (Retry-After when Shipper sends it, else a
+ * minute) and retries. `deadline` (ms timestamp): never waits past it — the caller stops cleanly instead.
+ */
+export async function shipperGetPaced(path: string, deadline = Infinity): Promise<ShipperCall> {
+  const c = await shipperGet(path);
+  if (c.status !== 429) return c;
+  const wait = Math.min(61_000, Math.max(1_000, (c.retryAfter ?? 61) * 1000));
+  if (Date.now() + wait > deadline) return c;
+  await sleep(wait);
+  return shipperGet(path);
 }
 
 const PERSONAL = /^(first_name|last_name|name|phone\d*|email|address\d*|division_\d|zip|postal_code|city|street|full_name|customer|customer_name)$/i;

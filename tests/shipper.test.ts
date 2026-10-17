@@ -19,6 +19,9 @@ test("Shipper: orders map to channel, status, bottles and product", () => {
   assert.deepEqual([r.order_id, r.channel, r.status, r.bottles, r.total_tnd, r.products, r.shipped_at, r.settled_at], ["39312", "website", "delivered", 2, 90, "Aura Flex", "2026-10-15T19:02:13.000000Z", "2026-10-17T05:30:00Z"]);
   const lead = toOrderRow({ id: 39412, status: null, store_name: "Aura Herbs", created_at: "2026-10-17T03:31:11Z", items_count: 1, shipments_count: 0, products: [], revenue: "0" }, "2026-10-17T05:30:00Z");
   assert.deepEqual([lead.status, lead.products, lead.settled_at], ["new", null, null]);
+  // First pull: an old delivery is dated order date + 2 days, not "today" (else it counts as this month's gross).
+  const old = toOrderRow({ id: 1, status: "Paid", store_name: "Aura Herbs", created_at: "2026-07-01T10:00:00Z", items_count: 1, shipments_count: 1, products: [{ id: 17, name: "Aura Flex" }], revenue: "59" }, "2026-10-17T05:30:00Z", true);
+  assert.equal(old.settled_at, "2026-07-03T10:00:00.000Z");
   assert.ok(isOurs(null) && isOurs("Aura Flex") && isOurs("Ashwagandha+Aura Flex") && !isOurs("Ashwagandha"));
 });
 
@@ -44,10 +47,10 @@ test("Shipper: month statistics, cash and stock", () => {
 
 test("Shipper: Shipper's statistics replace order counts for leads, reasons and fees", async () => {
   const { withStats } = await import("../src/lib/business-shared");
-  const f = { webLeads: 3500, dmLeads: 400, shipped: 2400, delivered: 1800, returned: 600, open: 0, pending: 0, revenue: 140000, bottles: 2800, deliveryCost: 1800 * 13, webShipped: 2000,
+  const f = { webLeads: 3500, dmLeads: 400, shipped: 2400, delivered: 1800, returned: 600, open: 0, pending: 40, confirmedWaiting: 2, revenue: 140000, bottles: 2800, deliveryCost: 1800 * 13, webShipped: 2000,
     reasons: { duplicate: 0, disqualified: 0, unreachable: 0, wrong_number: 0 }, door: { b1: [0, 0] as [number, number], b2: [0, 0] as [number, number], b3: [0, 0] as [number, number] } };
-  const g = withStats(f, { webLeads: 3027, dmLeads: 471, reasons: { refused: 300, unreachable: 239, duplicateWrong: 293 }, delivered: 1813, failed: 610, revenue: 140069, fees: 24335.98 });
-  assert.deepEqual([g.webLeads, g.dmLeads, g.reasons.disqualified, g.reasons.duplicate], [3027, 471, 300, 293]);
+  const g = withStats(f, { webLeads: 3027, dmLeads: 471, webPending: 13, reasons: { refused: 300, unreachable: 239, duplicateWrong: 293 }, delivered: 1813, failed: 610, revenue: 140069, fees: 24335.98 });
+  assert.deepEqual([g.webLeads, g.dmLeads, g.reasons.disqualified, g.reasons.duplicate, g.pending], [3027, 471, 300, 293, 15]);
   assert.ok(Math.abs(g.deliveryCost / g.delivered - 24335.98 / 1813) < 1e-9, "Shipper's real fee per delivered order");
   assert.equal(withStats(f, undefined), f);
 });

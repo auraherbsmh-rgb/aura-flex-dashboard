@@ -42,12 +42,13 @@ export function summarize(s: SettingsData, today: string) {
   const metaTone: Status = metaOn ? "green" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "red" : "amber";
   const metaWord = metaOn ? "CONNECTED" : s.meta.ready && s.meta.last && !s.meta.last.ok ? "PULL FAILED" : s.meta.ready ? "READY" : "TO CONNECT";
 
-  const shipOn = s.shipper.ready && !!s.shipper.last?.ok;
+  const shipLast = s.shipper.last;
+  const shipOn = s.shipper.ready && !!shipLast?.ok;
   const shipDetail = !s.shipper.ready
     ? `daily pull · switched off: add ${[!s.shipper.key && "SHIPPER_API_KEY", !s.shipper.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ")} in Vercel`
-    : s.shipper.last ? `last pull ${s.shipper.last.started_at.slice(0, 16).replace("T", " ")} UTC · ${s.shipper.last.message ?? ""}` : "ready · no pull yet (daily at 06:30, or Pull now)";
-  const shipTone: Status = shipOn ? "green" : s.shipper.ready && s.shipper.last && !s.shipper.last.ok ? "red" : "amber";
-  const shipWord = shipOn ? "CONNECTED" : s.shipper.ready && s.shipper.last && !s.shipper.last.ok ? "PULL FAILED" : s.shipper.ready ? "READY" : "TO CONNECT";
+    : shipLast ? `last pull ${shipLast.started_at.slice(0, 16).replace("T", " ")} UTC · ${shipLast.message ?? ""}` : "ready · no pull yet (daily at 06:30, or Pull now)";
+  const shipTone: Status = shipOn ? "green" : s.shipper.ready && shipLast && !shipLast.ok ? "red" : "amber";
+  const shipWord = shipOn ? "CONNECTED" : s.shipper.ready && shipLast && !shipLast.ok ? "PULL FAILED" : s.shipper.ready ? "READY" : "TO CONNECT";
 
   const moneyLine = s.money
     ? `Updated at the monthly ritual · last ${fmtDay(s.money.ritual_on)} (${monthName(s.money.month)} ${s.money.status}) · next ${fmtDay(s.money.next_ritual_on, true)}`
