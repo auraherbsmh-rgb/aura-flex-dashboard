@@ -103,7 +103,9 @@ export type Cash = { balance: number; deliveredUnpaid: number; pending: number; 
  * Shipper balance (founder, Oct 17), rebuilt from /dashboard/overview because the API has no balance endpoint:
  * Shipper takes the first fees when an order comes in, the rest at delivery. Balance = delivered not paid (after fees)
  * + pending sales − fees already taken on pending − fees still to come on pending − failed-delivery fees.
- * Checked against Shipper's top bar on Oct 17: 10,093.68 + 17,130 − 2,709.48 − 575.12 − 1,943.08 = 21,996.
+ * The Money tile shows only deliveredUnpaid (founder, Oct 17): over all dates the failed-delivery fees include ones already
+ * settled in past payouts, which the API can't tell apart, and pending orders aren't money yet. Formula checked on Shipper's
+ * filtered screen on Oct 17: 10,093.68 + 17,130 − 2,709.48 − 575.12 − 1,943.08 = 21,996.
  * Any other unpaid group Shipper adds later (returns…) is counted the same way and named in "otherGroups".
  */
 export function toCash(overview: unknown): Cash | null {

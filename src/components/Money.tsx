@@ -123,12 +123,10 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             : <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED LINE TO FILL · SETTINGS</span>}
         </div>
         <div className="card money-tile">
-          <div className="lbl">Shipper balance</div>
-          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.balance) : "—"} <small>TND</small></div>
-          <div className="unit">{cash
-            ? `Delivered not paid ${n0(cash.parts.deliveredUnpaid)} · pending ${n0(cash.parts.pending)} − fees taken ${n0(-cash.parts.pendingFeesTaken)} − fees to come ${n0(-cash.parts.pendingFeesComing)} · failed delivery fees −${n0(-cash.parts.failedFees)}${cash.parts.other ? ` · other ${n0(cash.parts.other)}` : ""}`
-            : "Shipper's balance, after its fees · with Shipper"}</div>
-          {cash?.at && <div className="unit">At the pull of {new Date(cash.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · Shipper&apos;s own figure moves all day as new orders come in</div>}
+          <div className="lbl">Delivered, not paid yet</div>
+          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.parts.deliveredUnpaid) : "—"} <small>TND</small></div>
+          <div className="unit">{cash ? "Delivered orders Shipper still owes you, after its fees · all dates. Pending and failed-delivery fees are left out." : "Delivered orders Shipper still owes you · with Shipper"}</div>
+          {cash?.at && <div className="unit">At the pull of {new Date(cash.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>}
         </div>
       </section>
 

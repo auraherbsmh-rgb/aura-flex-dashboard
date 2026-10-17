@@ -144,7 +144,7 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
     }
     else notes.push(`cash not read (${overview.error ?? "no figures"})`);
 
-    const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, balance ${cash ? cash.balance.toFixed(3) : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
+    const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, delivered not paid ${cash ? cash.deliveredUnpaid.toFixed(3) : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
     // Last month and the one before are needed; this month may have no statistics yet in its first days.
     return finish(got.includes(1) && got.includes(2) && (got.includes(0) || d.getUTCDate() <= 3), msg, rows.length);
   } catch (e) {
