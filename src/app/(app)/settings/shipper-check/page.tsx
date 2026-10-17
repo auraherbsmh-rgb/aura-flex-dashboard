@@ -56,10 +56,33 @@ export default async function Page() {
     "items_count values": count((o) => String(o.items_count ?? "—")),
   };
 
+  // Store names vs channel: every order of the last 31 days (up to 1,500), counted by store name and status, next to
+  // Shipper's own "Confirmation" and "Internal confirmation" totals for the same dates.
+  const d31 = ym(new Date(now.getTime() - 31 * 864e5)), today = ym(now);
+  type O = { id: number; status: string | null; store_name: string | null; items_count: number; shipments_count: number; products: { id: number; name: string }[]; created_at: string };
+  const recent: O[] = [];
+  for (let page = 1; page <= 15; page++) {
+    const c = await shipperGet(`/orders?per_page=100&page=${page}&start_date=${d31}&end_date=${today}`);
+    const rows = ((c.body as { data?: O[] })?.data ?? []);
+    recent.push(...rows);
+    if (rows.length < 100) break;
+  }
+  const tally: Record<string, Record<string, number>> = {};
+  for (const o of recent) {
+    const k = String(o.store_name);
+    tally[k] ??= {};
+    for (const key of [`status:${o.status}`, `bottles:${o.items_count}`, `shipments:${o.shipments_count}`, `product:${o.products.map((x) => x.name).sort().join("+") || "(none)"}`, "total"]) tally[k][key] = (tally[k][key] ?? 0) + 1;
+  }
+  const [conf31, internal31] = await Promise.all([
+    shipperGet(`/dashboard/confirmation-stats?start_date=${d31}&end_date=${today}`),
+    shipperGet(`/dashboard/internal-confirmation-stats?start_date=${d31}&end_date=${today}`),
+  ]);
+  const channels = { range: `${d31} → ${today}`, ordersRead: recent.length, byStoreName: tally, shipperConfirmation: conf31.body, internalConfirmation: internal31.body };
+
   // Saved (redacted) so the connection can be mapped from it without screenshots.
   const supabase = await createClient();
   const snapshot = redact({
-    range, summary, list: { ...(list.body as object), data: orders.slice(0, 30) },
+    range, summary, channels, list: { ...(list.body as object), data: orders.slice(0, 30) },
     byStatus: Object.fromEntries(STATUSES.map((st, i) => [st, { status: byStatus[i].status, error: byStatus[i].error, body: byStatus[i].body }])),
     details: details.map((d) => ({ path: d.path, status: d.status, body: d.body })),
     products: products.body, overview: overview.body, confirmation: confirmation.body, delivery: delivery.body, productPerformance: perf.body,
@@ -81,6 +104,8 @@ export default async function Page() {
       <Block title="Dashboard · confirmation stats" call={confirmation} />
       <Block title="Dashboard · delivery stats" call={delivery} />
       <Block title="Dashboard · product performance" call={perf} />
+      <Block title={`Store names, last 31 days (${recent.length} orders)`} call={{ path: `/orders · ${channels.range}`, status: 200, ms: 0, body: tally, error: null }} />
+      <Block title="Internal confirmation (last 31 days)" call={internal31} />
     </div></div></main>
   );
 }
