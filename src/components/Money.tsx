@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
 import type { LeakRow, MoneyView, TrendPoint } from "@/lib/business-shared";
-import type { Cash } from "@/lib/shipper/map";
+import type { CashView } from "@/lib/business/data";
+import { CashTile } from "./CashTile";
 
 const n0 = (n: number) => Math.round(n).toLocaleString("en-US").replace("-", "−");
 const signed = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
@@ -15,7 +16,9 @@ export type MoneyProps = {
   line: number;
   fixed: number;
   stock: { bottles: number | null; days: number | null; perDay: number; redBelow: number | null };
-  cash: { balance: number; at: string | null; parts: Cash } | null;
+  cash: CashView | null;
+  /** Shipper keys present: the cash tile may read Shipper. */
+  shipperConnected?: boolean;
   shipperMissing: string | null;
   hasMeta: boolean;
   /** Last Shipper pull message (connected, but failing or waiting for the first pull). */
@@ -23,7 +26,7 @@ export type MoneyProps = {
 };
 
 /** Business · Money (artboard "Business"): "Are we making money?" — This week (estimate) | Last closed month (settled). */
-export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta, shipperNote = null }: MoneyProps) {
+export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta, shipperNote = null, shipperConnected = false }: MoneyProps) {
   const closed = view.closed;
   const [period, setPeriod] = useState<"week" | "month">(closed ? "month" : "week");
   const [detail, setDetail] = useState<LeakRow | null>(null);
@@ -122,12 +125,7 @@ export function Money({ view, line, fixed, stock, cash, shipperMissing, hasMeta,
             ? <span className={`tag ${stock.days !== null && stock.days < stock.redBelow ? "t-red" : "t-grey"}`} style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED BELOW {stock.redBelow} DAYS</span>
             : <span className="tag t-amber" style={{ alignSelf: "flex-start" }}><i aria-hidden="true" />RED LINE TO FILL · SETTINGS</span>}
         </div>
-        <div className="card money-tile">
-          <div className="lbl">Delivered, not paid yet</div>
-          <div className={`money-big ${cash ? "" : "money-muted"}`}>{cash ? n0(cash.parts.deliveredUnpaid) : "—"} <small>TND</small></div>
-          <div className="unit">{cash ? "Delivered orders Shipper still owes you, after its fees · all dates. Pending and failed-delivery fees are left out." : "Delivered orders Shipper still owes you · with Shipper"}</div>
-          {cash?.at && <div className="unit">At the pull of {new Date(cash.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>}
-        </div>
+        <CashTile cash={cash} connected={shipperConnected} />
       </section>
 
       <Trend points={view.trend} />

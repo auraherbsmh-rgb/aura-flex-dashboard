@@ -57,6 +57,7 @@ export default function Preview() {
       { id: "p6", display_name: "Copywriter 1 (test, removed)", role: "copywriter", email: "cw1.check@invalid.test", does_ai_3d: false, active: false, has_login: true, pay_amount_tnd: null, pay_unit: null, rate_3d_tnd: null, weekly_target: null },
     ],
     levels: [],
+    cashOut: [{ id: "b", kind: "baseline" as const, amount: 1038246.8, day: "2026-10-19", note: "Everything taken out of the Shipper balance up to Oct 19, 2026 (from Shipper's transaction export).", by: null, at: "2026-10-19T05:00:00Z" }, { id: "w1", kind: "withdrawal" as const, amount: 7060, day: "2026-10-21", note: null, by: "Founder 1", at: "2026-10-21T08:12:00Z" }],
   };
   const today = "2026-10-15";
   return (

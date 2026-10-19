@@ -1,8 +1,8 @@
 // Server only. The daily Shipper pull (read-only on Shipper): fills shipper_orders, shipper_month, shipper_stock and
 // shipper_cash (service role). Mapping in ./map.ts, read from Shipper's real answers (Settings → Shipper check, Oct 17).
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
 import { shipperGetPaced } from "./api";
-import { KNOWN_STATUSES, productRow, toCash, toOrderRow, toStock, type ApiOrder, type OrderRow } from "./map";
+import { KNOWN_STATUSES, productRow, toCash, toOrderRow, toStock, type ApiOrder, type Cash, type OrderRow } from "./map";
 
 export type ShipperStatus = { key: boolean; serviceKey: boolean; mapped: boolean; ready: boolean };
 
@@ -27,11 +27,30 @@ export function staleAsFailed<T extends SyncRow>(r: T | null): T | null {
   return { ...r, ok: false, message: "stopped before the end (time limit): press Pull now in Settings to finish" };
 }
 
+type Db = SupabaseClient;
+/** Admin client for server-only writes (never sent to the browser). */
+export const adminDb = (): Db => createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+
+/**
+ * Cash at Shipper, read now (daily pull, "↻" on the tile, and opening Money when the last read is over an hour old):
+ * one overview read over all dates (every order not paid out yet, whatever its age). Returns the saved figures, or a
+ * note why nothing was saved.
+ */
+export async function saveShipperCash(db: Db, get: (path: string) => Promise<{ body: unknown; error: string | null }>, now = Date.now()): Promise<Cash | string> {
+  const today = ymd(now);
+  const overview = await get(`/dashboard/overview?start_date=2024-01-01&end_date=${today}`);
+  const cash = toCash(overview.body);
+  if (!cash) return `cash not read (${overview.error ?? "no figures"})`;
+  const { error } = await db.from("shipper_cash").upsert({ day: today, at: new Date(now).toISOString(), balance_tnd: null, parts: cash, collected_unpaid_tnd: cash.deliveredUnpaid, in_transit_tnd: 0 }, { onConflict: "day" });
+  if (error) throw new Error(`Saving cash: ${error.message}`);
+  return cash;
+}
+
 export async function runShipperPull(): Promise<{ ok: boolean; message: string }> {
   const st = shipperStatus();
   if (!st.ready) return { ok: false, message: "Missing in Vercel: " + [!st.key && "SHIPPER_API_KEY", !st.serviceKey && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean).join(", ") };
   const key = process.env.SHIPPER_API_KEY!;
-  const db = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+  const db = adminDb();
   // One pull at a time ("Pull now" and the daily run share Shipper's per-minute limits).
   const { data: running } = await db.from("shipper_sync").select("started_at").is("finished_at", null).order("id", { ascending: false }).limit(1).maybeSingle();
   if (running && Date.now() - Date.parse(running.started_at as string) < STALE_MS) return { ok: false, message: "A Shipper pull is already running. Try again in a few minutes." };
@@ -134,15 +153,9 @@ export async function runShipperPull(): Promise<{ ok: boolean; message: string }
     const bottles = toStock(products.body);
     if (bottles !== null) { const { error } = await db.from("shipper_stock").upsert({ day: today, bottles }, { onConflict: "day" }); if (error) throw new Error(`Saving stock: ${error.message}`); }
     else notes.push(`stock not read (${products.error ?? "no Aura Flex product"})`);
-    // Every order not paid out yet, whatever its age: the overview from well before the first order to today.
-    const overview = await call(`/dashboard/overview?start_date=2024-01-01&end_date=${today}`);
-    const cash = toCash(overview.body);
-    if (cash) {
-      const { error } = await db.from("shipper_cash").upsert({ day: today, at: nowIso, balance_tnd: cash.balance, parts: cash, collected_unpaid_tnd: cash.deliveredUnpaid, in_transit_tnd: cash.pending }, { onConflict: "day" });
-      if (error) throw new Error(`Saving cash: ${error.message}`);
-      if (cash.otherGroups.length) notes.push(`balance also counts ${cash.otherGroups.join(", ")}`);
-    }
-    else notes.push(`cash not read (${overview.error ?? "no figures"})`);
+    const cashRead = await saveShipperCash(db, call, now);
+    const cash = typeof cashRead === "string" ? null : cashRead;
+    if (typeof cashRead === "string") notes.push(cashRead);
 
     const msg = `Pulled ${rows.length} orders (${since} → ${until}), ${months} of 3 months of statistics, stock ${bottles ?? "—"}, delivered not paid ${cash ? cash.deliveredUnpaid.toFixed(3) : "—"} in ${Math.round((Date.now() - t0) / 1000)} s.${notes.length ? ` Note: ${notes.join("; ")}.` : ""}`;
     // Last month and the one before are needed; this month may have no statistics yet in its first days.

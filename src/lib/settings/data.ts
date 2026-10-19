@@ -56,10 +56,11 @@ export async function getSettings() {
     supabase.from("people_pay").select("person_id, pay_amount_tnd, pay_unit, rate_3d_tnd, weekly_target"),
     supabase.from("copywriter_level_set").select("levels").eq("id", 1).maybeSingle(),
   ]);
-  const [mapStart, lastSync, shipSync] = await Promise.all([
+  const [mapStart, lastSync, shipSync, cashOut] = await Promise.all([
     supabase.from("app_dates").select("value").eq("key", "map_start").maybeSingle(),
     supabase.from("meta_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("shipper_cash_out").select("id, kind, amount_tnd, day, note, created_by, created_at").order("day", { ascending: false }).order("created_at", { ascending: false }).limit(200),
   ]);
 
   const payBy = new Map((pay.data ?? []).map((p) => [p.person_id as string, p]));
@@ -94,5 +95,7 @@ export async function getSettings() {
     campaigns: (campaigns.data ?? []) as Campaign[],
     people: peopleRows,
     levels: ((levels.data?.levels ?? []) as Level[]),
+    cashOut: ((cashOut.data ?? []) as { id: string; kind: "withdrawal" | "refund" | "baseline"; amount_tnd: number; day: string; note: string | null; created_by: string | null; created_at: string }[])
+      .map((r) => ({ id: r.id, kind: r.kind, amount: Number(r.amount_tnd), day: r.day, note: r.note, by: peopleRows.find((p) => p.id === r.created_by)?.display_name ?? null, at: r.created_at })),
   };
 }

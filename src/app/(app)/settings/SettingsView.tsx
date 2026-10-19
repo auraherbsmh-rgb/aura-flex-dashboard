@@ -1,4 +1,4 @@
-import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm, MetaPullForm, ShipperPullForm } from "./forms";
+import { MoneyForm, PeopleForm, AddPersonForm, RulesForm, ListsBlock, CampaignRows, LevelsForm, MapStartForm, MetaPullForm, ShipperPullForm, CashOutHistory } from "./forms";
 import type { getSettings } from "@/lib/settings/data";
 
 export type SettingsData = Awaited<ReturnType<typeof getSettings>>;
@@ -116,6 +116,7 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
         <CampaignRows campaigns={s.campaigns} />
         <MetaPullForm ready={s.meta.ready} />
         <ShipperPullForm ready={s.shipper.ready} />
+        <CashOutHistory rows={s.cashOut} />
         <a className="btn b-ghost" href="/settings/shipper-check" style={{ alignSelf: "flex-start" }}>Check the Shipper connection →</a>
       </section>
 

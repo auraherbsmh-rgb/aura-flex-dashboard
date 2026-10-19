@@ -20,6 +20,7 @@ import {
 import { ownLineForBottles, type MoneyInputs } from "@/lib/money";
 import { parseNumber, parseRate } from "@/lib/parse";
 import type { Campaign, Flag, Level, ListItem, MoneyRow, Person, Rule } from "@/lib/settings/data";
+import { deleteCashOut } from "@/app/(app)/business/actions";
 
 const empty: ActionState = {};
 
@@ -616,5 +617,39 @@ export function MetaPullForm({ ready }: { ready: boolean }) {
         <button className="btn b-ghost" type="submit" disabled={pending || !ready}>{pending ? "Pulling…" : "Pull now"}</button>
       </span>
     </form>
+  );
+}
+
+type CashOutRow = { id: string; kind: "withdrawal" | "refund" | "baseline"; amount: number; day: string; note: string | null; by: string | null; at: string };
+const KIND_WORD = { withdrawal: "Withdrawal", refund: "Customer refund", baseline: "Starting point (from Shipper's export)" } as const;
+
+/** Settings → Data: money taken out of Shipper (entered on Business → Money · Cash at Shipper). Delete a mistake here. */
+export function CashOutHistory({ rows }: { rows: CashOutRow[] }) {
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const del = async (id: string) => {
+    setBusy(id);
+    setMsg({});
+    try { const r = await deleteCashOut(id); setMsg(r); } catch { setMsg({ error: "Not deleted: the connection dropped. Reload and try again." }); }
+    finally { setBusy(null); }
+  };
+  const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+      <div className="lbl">Money taken out of Shipper · withdrawals and customer refunds (added on Business → Money)</div>
+      {rows.length === 0 && <div className="unit">Nothing yet.</div>}
+      {rows.map((r) => (
+        <div key={r.id} className="ar" style={{ gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, flex: "1 1 260px" }}>
+            {new Date(r.day + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {KIND_WORD[r.kind]}
+            <span className="unit" style={{ display: "block" }}>{r.kind === "baseline" ? (r.note ?? "") : `Added by ${r.by ?? "—"} · ${new Date(r.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`}</span>
+          </span>
+          <b style={{ fontVariantNumeric: "tabular-nums" }}>−{fmt(r.amount)} TND</b>
+          {r.kind !== "baseline" && <button type="button" className="btn b-ghost" aria-disabled={busy !== null} aria-label={`Delete ${KIND_WORD[r.kind]} of ${fmt(r.amount)} TND`} onClick={() => { if (!busy) void del(r.id); }}>{busy === r.id ? "Deleting…" : "Delete"}</button>}
+        </div>
+      ))}
+      {msg.ok && <span className="formmsg ok" role="status">{msg.ok}</span>}
+      {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}
+    </div>
   );
 }

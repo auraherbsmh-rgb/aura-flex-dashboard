@@ -44,7 +44,7 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     <main className="page"><div className="slab"><div className="body">
       <Money view={view} line={4.18} fixed={17813} hasMeta
         stock={noShip ? { bottles: null, days: null, perDay: 0, redBelow: null } : { bottles: 2400, ...stockDays(2400, orders, now), redBelow: 21 }}
-        cash={noShip ? null : { balance: 21996, at: "2026-10-17T08:10:00Z", parts: { balance: 21996, deliveredUnpaid: 10093.68, pending: 17130, pendingFeesTaken: -2709.48, pendingFeesComing: -575.12, failedFees: -1943.08, other: 0, otherGroups: [] } }}
+        cash={noShip ? null : { at: "2026-10-19T04:42:57Z", balance: 32779.84, delivered: 3389, deliveredCount: 48 }}
         shipperMissing={noShip ? "The Shipper API link is set up before launch, from Shipper's API documentation." : null} />
     </div></div></main>
   );

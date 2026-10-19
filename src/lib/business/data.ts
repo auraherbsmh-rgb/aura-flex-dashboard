@@ -1,5 +1,6 @@
 // Server only: everything Business · Money reads (founders; RLS keeps the Shipper and Meta copies founder-only).
 import type { Cash } from "@/lib/shipper/map";
+import { shipperBalance } from "@/lib/shipper/cash";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/tasks";
 import { getRule } from "@/lib/needs";
@@ -13,7 +14,7 @@ export async function getMoneyData(now: number) {
   const sinceDay = tunisDay(now - 110 * 864e5);
   type O = { order_id: string; ordered_at: string; channel: "website" | "dm"; bottles: number; total_tnd: number; status: ShipperOrder["status"]; reason: ShipperOrder["reason"]; delivery_cost_tnd: number | null; shipped_at: string | null; settled_at: string | null; products: string | null };
   type D = { ad_id: string; day: string; spend: number; purchases: number };
-  const [orderRows, dayRows, adRows, scope, moneyRows, stock, cash, sync, stockRed, monthRows] = await Promise.all([
+  const [orderRows, dayRows, adRows, scope, moneyRows, stock, cash, sync, stockRed, monthRows, cashOut] = await Promise.all([
     allRows<O>("Shipper orders", (a, b) => supabase.from("shipper_orders").select("order_id, ordered_at, channel, bottles, total_tnd, status, reason, delivery_cost_tnd, shipped_at, settled_at, products").gte("ordered_at", since).order("order_id").range(a, b) as unknown as PromiseLike<{ data: O[] | null; error: unknown }>),
     allRows<D>("Meta results", (a, b) => supabase.from("meta_daily").select("ad_id, day, spend, purchases").gte("day", sinceDay).order("ad_id").order("day").range(a, b) as unknown as PromiseLike<{ data: D[] | null; error: unknown }>),
     allRows<{ ad_id: string; campaign_id: string }>("Meta ads", (a, b) => supabase.from("meta_ads").select("ad_id, campaign_id").order("ad_id").range(a, b) as unknown as PromiseLike<{ data: { ad_id: string; campaign_id: string }[] | null; error: unknown }>),
@@ -24,6 +25,7 @@ export async function getMoneyData(now: number) {
     supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
     getRule("stock_red_days", 0),
     supabase.from("shipper_month").select("month, web, dm, product"),
+    supabase.from("shipper_cash_out").select("amount_tnd"),
   ]);
   // Shipper's own monthly statistics for Aura Flex (leads per channel, reasons, real fees).
   const stats: Record<string, MonthStats> = {};
@@ -58,7 +60,20 @@ export async function getMoneyData(now: number) {
     // Stock used = Aura Flex bottles of orders delivered or on their way (returns go back to Shipper's shelf;
     // mixed orders are left out, their Aura Flex share isn't known).
     stock: { bottles: stockBottles, ...stockDays(stockBottles, orders.filter((o, i) => ourProducts[i] === "Aura Flex" && (o.status === "delivered" || o.status === "shipped")), now), redBelow: stockRed || null },
-    cash: cash.data && cash.data.balance_tnd !== null && cash.data.parts ? { balance: Number(cash.data.balance_tnd), at: (cash.data.at as string | null) ?? null, parts: cash.data.parts as Cash } : null,
+    cash: cashView(cash.data as { at: string | null; parts: Partial<Cash> | null } | null, (cashOut.data ?? []).reduce((t, r) => t + Number(r.amount_tnd), 0), now),
     lastSync: staleAsFailed((sync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null),
+  };
+}
+
+export type CashView = { at: string | null; balance: number | null; delivered: number; deliveredCount: number };
+/** Cash at Shipper: balance (needs a read that carries "transferred") + delivered not paid. */
+function cashView(row: { at: string | null; parts: Partial<Cash> | null } | null, takenOut: number, now: number): CashView | null {
+  const p = row?.parts;
+  if (!p || typeof p.deliveredUnpaid !== "number") return null;
+  return {
+    at: row.at ?? null,
+    balance: typeof p.transferred === "number" ? shipperBalance(p.transferred, takenOut, tunisDay(now)) : null,
+    delivered: p.deliveredUnpaid,
+    deliveredCount: p.deliveredCount ?? 0,
   };
 }

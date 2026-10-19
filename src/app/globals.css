@@ -824,3 +824,9 @@ select.fi { font-family: var(--font); font-weight: 400; }
 input[type="date"].inp, input[type="date"].fi { -webkit-appearance: none; appearance: none; display: block; min-width: 0; text-align: left; }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 @media (max-width: 720px) { .veil { padding: 12px 8px; align-items: flex-start; } .pop { max-height: calc(100dvh - 24px); } }
+
+/* Business · Money · Cash at Shipper (Oct 19) */
+.cash-rows { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.cash-rows > div { display: flex; justify-content: space-between; gap: 10px; }
+.cash-rows b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.cash-ref { min-width: 44px; min-height: 36px; padding: 4px 12px; font-size: 16px; }

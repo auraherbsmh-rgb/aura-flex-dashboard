@@ -28,7 +28,7 @@ export default async function Page() {
       <BusinessTabs
         money={money.noMoney
           ? <section className="card sec"><div className="info">Fill the money numbers in Settings → Money first: the business line, exchange rate, bottle and delivery cost and fixed costs.</div></section>
-          : <Money view={money.view} line={money.base.businessLineUsd} fixed={money.base.fixedCostsTnd} stock={money.stock} cash={money.cash} shipperMissing={money.view.hasShipper || st.ready ? null : shipperMissing} hasMeta={money.hasMeta}
+          : <Money view={money.view} line={money.base.businessLineUsd} fixed={money.base.fixedCostsTnd} stock={money.stock} cash={money.cash} shipperMissing={money.view.hasShipper || st.ready ? null : shipperMissing} hasMeta={money.hasMeta} shipperConnected={st.ready}
               shipperNote={st.ready && !money.view.hasShipper ? (money.lastSync?.ok === false ? `Shipper pull: ${money.lastSync.message ?? "failed"}` : "Shipper is connected: waiting for the first pull (06:00, or Settings → Data → Pull now).") : money.lastSync?.ok === false ? `Last Shipper pull failed: ${money.lastSync.message ?? ""}` : null} />}
         engine={<Engine w4={engine.w4} m3={engine.m3} hasMeta={engine.hasMeta} />}
       />

@@ -98,36 +98,26 @@ export function toMonthStats(web: unknown, dm: unknown, product: unknown): Month
 }
 
 /** Cash at Shipper from /dashboard/overview: delivered but not paid out yet, and what is still on its way. */
-export type Cash = { balance: number; deliveredUnpaid: number; pending: number; pendingFeesTaken: number; pendingFeesComing: number; failedFees: number; other: number; otherGroups: string[] };
+export type Cash = { transferred: number; deliveredUnpaid: number; deliveredCount: number };
 /**
- * Shipper balance (founder, Oct 17), rebuilt from /dashboard/overview because the API has no balance endpoint:
- * Shipper takes the first fees when an order comes in, the rest at delivery. Balance = delivered not paid (after fees)
- * + pending sales − fees already taken on pending − fees still to come on pending − failed-delivery fees.
- * The Money tile shows only deliveredUnpaid (founder, Oct 17): over all dates the failed-delivery fees include ones already
- * settled in past payouts, which the API can't tell apart, and pending orders aren't money yet. Formula checked on Shipper's
- * filtered screen on Oct 17: 10,093.68 + 17,130 − 2,709.48 − 575.12 − 1,943.08 = 21,996.
- * Any other unpaid group Shipper adds later (returns…) is counted the same way and named in "otherGroups".
+ * Cash at Shipper (founder, Oct 19). Shipper's API has no balance; it gives, per order group, what was already credited
+ * to or debited from the balance ("transferred"). Balance = everything transferred since the start − everything taken
+ * out (withdrawals, customer refunds: entered by founders; the Oct 19 baseline) − the fixed monthly charges (./cash.ts).
+ * Checked on Oct 17 and Oct 19 against Shipper's top bar: gap 0.00 both days.
+ * Delivered not paid (not in the balance yet) = delivered-non-paid sales − their fees.
  */
 export function toCash(overview: unknown): Cash | null {
-  type G = { count?: unknown; revenue?: unknown; revenue_expected?: unknown; expenses?: unknown; expenses_expected?: unknown };
+  type G = { count?: unknown; revenue?: unknown; expenses?: unknown; revenue_transferred?: unknown; expenses_transferred?: unknown };
   const o = overview as Record<string, G> | null;
-  if (!o || typeof o !== "object" || (!o.shipments_delivered_non_paid && !o.shipments_pending)) return null;
-  const dn = o.shipments_delivered_non_paid ?? {}, pe = o.shipments_pending ?? {}, fa = o.shipments_failed_delivery ?? {};
-  const deliveredUnpaid = amount(dn.revenue) + amount(dn.expenses) + amount(dn.expenses_expected);
-  const pending = amount(pe.revenue_expected);
-  const pendingFeesTaken = amount(pe.expenses);
-  const pendingFeesComing = amount(pe.expenses_expected);
-  const failedFees = amount(fa.revenue) + amount(fa.expenses) + amount(fa.expenses_expected);
-  const known = new Set(["shipments_delivered_paid", "shipments_delivered_non_paid", "shipments_pending", "shipments_failed_delivery"]);
-  let other = 0;
-  const otherGroups: string[] = [];
+  if (!o || typeof o !== "object" || !o.shipments_delivered_paid || !o.shipments_delivered_non_paid) return null;
+  let transferred = 0;
   for (const [k, g] of Object.entries(o)) {
-    if (known.has(k) || !k.startsWith("shipments_") || !g || typeof g !== "object" || !("count" in g)) continue;
-    otherGroups.push(k);
-    other += amount(g.revenue) + amount(g.expenses) + amount(g.expenses_expected);
+    if (!k.startsWith("shipments_") || !g || typeof g !== "object" || !("count" in g)) continue;
+    transferred += amount(g.revenue_transferred) + amount(g.expenses_transferred);
   }
+  const dn = o.shipments_delivered_non_paid;
   const r = (x: number) => Math.round(x * 1000) / 1000;
-  return { balance: r(deliveredUnpaid + pending + pendingFeesTaken + pendingFeesComing + failedFees + other), deliveredUnpaid: r(deliveredUnpaid), pending: r(pending), pendingFeesTaken: r(pendingFeesTaken), pendingFeesComing: r(pendingFeesComing), failedFees: r(failedFees), other: r(other), otherGroups };
+  return { transferred: r(transferred), deliveredUnpaid: r(amount(dn.revenue) + amount(dn.expenses)), deliveredCount: Number(dn.count) || 0 };
 }
 
 /** Aura Flex bottles at Shipper from /products. */

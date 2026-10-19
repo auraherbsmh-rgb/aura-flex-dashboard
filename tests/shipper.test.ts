@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fixedCharges, shipperBalance } from "../src/lib/shipper/cash";
 import { channelOf, isOurs, statusOf, toCash, toMonthStats, toOrderRow, toStock } from "../src/lib/shipper/map";
 
 // Shapes copied from Shipper's real answers (Settings → Shipper check, Oct 17), personal data removed.
@@ -41,12 +42,23 @@ test("Shipper: month statistics, cash and stock", () => {
   assert.ok(Math.abs(s.fees - 24335.98) < 1e-6, "fees for delivered + failed orders");
   assert.ok(Math.abs(s.fees / s.delivered - 13.42) < 0.01, "about 13.4 TND per delivered order");
   assert.equal(toMonthStats({ status: 429 }, dm, product), null, "rate-limited answer = no stats");
-  // Oct 17, Shipper's top bar 21,996: the founder's screen figures.
-  const c = toCash({ shipments_delivered_paid: { count: 9, revenue: money("999") }, shipments_delivered_non_paid: { count: 162, revenue: money("12050"), expenses: money("-1956.32") }, shipments_pending: { count: 223, revenue: money("17130"), revenue_expected: money("17130"), expenses: money("-2709.48"), expenses_expected: money("-575.12") }, shipments_failed_delivery: { count: 533, revenue: money("0"), expenses: money("-1943.08") }, stats_by_order_type: {} })!;
-  assert.equal(c.balance, 21996);
-  assert.deepEqual(c.otherGroups, []);
-  assert.equal(toCash({ shipments_pending: { count: 1, revenue_expected: money("514.0") }, shipments_returned: { count: 2, expenses: money("-10") } })!.balance, 504);
+  // Oct 19 05:42 read vs Shipper's top bar 32,779.84 (no withdrawal since Oct 17): balance exact to the dinar.
+  const g = (n: number, rt: string, et: string, rev = "0", exp = "0") => ({ count: n, revenue: money(rev), expenses: money(exp), revenue_transferred: money(rt), expenses_transferred: money(et) });
+  const c = toCash({ shipments_delivered_paid: g(18727, "1323328.266666666668", "-222102.16"), shipments_delivered_non_paid: g(50, "0", "-609.1", "4122", "-609.1"), shipments_failed_delivery: g(8033, "0", "-27018.89"), shipments_pending: g(284, "0", "-2571.48"), stats_by_order_type: {} })!;
+  assert.equal(c.transferred, 1071026.637);
+  assert.equal(c.deliveredUnpaid, 3512.9);
+  assert.equal(c.deliveredCount, 50);
+  assert.equal(Math.round(shipperBalance(c.transferred, 1038246.8, "2026-10-19") * 100) / 100, 32779.84);
   assert.equal(toCash({}), null);
+  assert.equal(toCash({ shipments_pending: { count: 1 } }), null);
+});
+
+test("fixed Shipper charges after the baseline day", () => {
+  assert.equal(fixedCharges("2026-10-19", "2026-10-31"), 0);
+  assert.equal(fixedCharges("2026-10-19", "2026-11-01"), 19);
+  assert.equal(fixedCharges("2026-10-19", "2026-11-08"), 20);
+  assert.equal(fixedCharges("2026-10-19", "2027-01-10"), 60);
+  assert.equal(fixedCharges("2026-10-19", "2026-10-19"), 0);
   assert.equal(toStock({ data: [{ name: "Aura Flex", available_qte: 218 }, { name: "Ashwagandha", available_qte: 38 }] }), 218);
 });
 
