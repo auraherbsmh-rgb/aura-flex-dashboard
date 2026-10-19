@@ -25,7 +25,7 @@ export async function getMoneyData(now: number) {
     supabase.from("shipper_sync").select("started_at, finished_at, ok, message").order("id", { ascending: false }).limit(1).maybeSingle(),
     getRule("stock_red_days", 0),
     supabase.from("shipper_month").select("month, web, dm, product"),
-    supabase.from("shipper_cash_out").select("amount_tnd"),
+    supabase.from("shipper_cash_out").select("kind, amount_tnd"),
   ]);
   // Shipper's own monthly statistics for Aura Flex (leads per channel, reasons, real fees).
   const stats: Record<string, MonthStats> = {};
@@ -60,19 +60,20 @@ export async function getMoneyData(now: number) {
     // Stock used = Aura Flex bottles of orders delivered or on their way (returns go back to Shipper's shelf;
     // mixed orders are left out, their Aura Flex share isn't known).
     stock: { bottles: stockBottles, ...stockDays(stockBottles, orders.filter((o, i) => ourProducts[i] === "Aura Flex" && (o.status === "delivered" || o.status === "shipped")), now), redBelow: stockRed || null },
-    cash: cashView(cash.data as { at: string | null; parts: Partial<Cash> | null } | null, (cashOut.data ?? []).reduce((t, r) => t + Number(r.amount_tnd), 0), now),
+    // A failed read of what left the balance (or no baseline) must not show a balance ~1M too high: no balance then.
+    cash: cashView(cash.data as { at: string | null; parts: Partial<Cash> | null } | null, cashOut.error || !(cashOut.data ?? []).some((r) => r.kind === "baseline") ? null : (cashOut.data ?? []).reduce((t, r) => t + Number(r.amount_tnd), 0), now),
     lastSync: staleAsFailed((sync.data as { started_at: string; finished_at: string | null; ok: boolean | null; message: string | null } | null) ?? null),
   };
 }
 
 export type CashView = { at: string | null; balance: number | null; delivered: number; deliveredCount: number };
 /** Cash at Shipper: balance (needs a read that carries "transferred") + delivered not paid. */
-function cashView(row: { at: string | null; parts: Partial<Cash> | null } | null, takenOut: number, now: number): CashView | null {
+function cashView(row: { at: string | null; parts: Partial<Cash> | null } | null, takenOut: number | null, now: number): CashView | null {
   const p = row?.parts;
   if (!p || typeof p.deliveredUnpaid !== "number") return null;
   return {
     at: row.at ?? null,
-    balance: typeof p.transferred === "number" ? shipperBalance(p.transferred, takenOut, tunisDay(now)) : null,
+    balance: typeof p.transferred === "number" && takenOut !== null ? shipperBalance(p.transferred, takenOut, tunisDay(now)) : null,
     delivered: p.deliveredUnpaid,
     deliveredCount: p.deliveredCount ?? 0,
   };

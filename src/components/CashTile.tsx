@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "./Modal";
 import { addCashOut, refreshShipperCash } from "@/app/(app)/business/actions";
 import type { CashView } from "@/lib/business/data";
+import { parseTnd } from "@/lib/parse";
 
 const n0 = (n: number) => Math.round(n).toLocaleString("en-US").replace("-", "−");
 const STALE = 60 * 60_000;
@@ -33,24 +34,39 @@ export function CashTile({ cash, connected }: { cash: CashView | null; connected
     try {
       const r = await refreshShipperCash();
       if (r.error) setMsg({ error: r.error });
-      else router.refresh();
+      else { try { sessionStorage.removeItem("cash-auto-try"); } catch { /* storage off */ } router.refresh(); }
     } catch {
       setMsg({ error: "Not refreshed: the connection dropped. Try again." });
     } finally {
       setBusy(false);
     }
   };
+  // Opening Business → Money (not Creative engine: both views are mounted) reads Shipper when the figures are over an
+  // hour old. A failed try waits 10 minutes before the next automatic one (↻ always works).
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (auto.current || !connected) return;
     if (cash?.at && cash.balance !== null && Date.now() - Date.parse(cash.at) <= STALE) return;
-    const t = setTimeout(() => { auto.current = true; void refresh(); }, 0);
-    return () => clearTimeout(t);
+    let tried = 0;
+    try { tried = Number(sessionStorage.getItem("cash-auto-try") ?? 0); } catch { /* storage off */ }
+    if (Date.now() - tried < 10 * 60_000) return;
+    const el = box.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting) || auto.current) return;
+      auto.current = true;
+      io.disconnect();
+      try { sessionStorage.setItem("cash-auto-try", String(Date.now())); } catch { /* storage off */ }
+      void refresh();
+    });
+    io.observe(el);
+    return () => io.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = cash && cash.balance !== null ? cash.balance + cash.delivered : null;
   return (
-    <div className="card money-tile">
+    <div className="card money-tile" ref={box}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div className="lbl">Cash at Shipper</div>
         {connected && <button type="button" className="btn b-ghost cash-ref" aria-label="Refresh from Shipper" title="Refresh from Shipper" aria-disabled={busy} onClick={() => { if (!busy) void refresh(); }}>{busy ? "…" : "↻"}</button>}
@@ -77,13 +93,17 @@ function CashOutButton({ onSaved }: { onSaved: () => void }) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [pending, start] = useTransition();
-  const n = Number(amount.replace(",", "."));
+  const [touched, setTouched] = useState(false);
+  const n = parseTnd(amount);
+  const ok = n !== null && n > 0;
   const save = () => {
-    if (!(n > 0)) { setError("Enter the amount first."); return; }
+    setTouched(true);
+    if (!ok) { setError(amount.trim() ? "That amount isn't a number. Type it like 7060 or 7060.500." : "Enter the amount first."); return; }
+    if (!day) { setError("Choose the date."); return; }
     setError("");
     start(async () => {
       try {
-        const r = await addCashOut(kind, n, day);
+        const r = await addCashOut(kind, n!, day);
         if (r.error) { setError(r.error); return; }
         setOpen(false);
         setSaved(r.ok ?? "Saved.");
@@ -96,7 +116,7 @@ function CashOutButton({ onSaved }: { onSaved: () => void }) {
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" className="btn b-ghost" onClick={() => { setKind("withdrawal"); setAmount(""); setDay(tunisToday()); setError(""); setSaved(""); setOpen(true); }}>+ Withdrawal or refund</button>
+        <button type="button" className="btn b-ghost" onClick={() => { setKind("withdrawal"); setAmount(""); setTouched(false); setDay(tunisToday()); setError(""); setSaved(""); setOpen(true); }}>+ Withdrawal or refund</button>
         {saved && <span className="formmsg" role="status">{saved}</span>}
       </div>
       <Modal open={open} onClose={() => setOpen(false)} who="Founder · Cash at Shipper" title="Money taken out of Shipper" width={440}>
@@ -109,11 +129,13 @@ function CashOutButton({ onSaved }: { onSaved: () => void }) {
         </div>
         <label className="field">
           <span className="lbl">Amount · TND ●</span>
-          <input className={`inp ${!(n > 0) ? "fi-miss" : ""}`} inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setError(""); }} placeholder="7060" autoFocus />
+          <input className={`inp ${touched && !ok ? "fi-miss" : ""}`} inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setError(""); }} onBlur={() => setTouched(true)} placeholder="7060" autoFocus />
+          {ok && <span className="unit" role="status">= {n!.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} TND</span>}
         </label>
         <label className="field">
           <span className="lbl">Date ●</span>
-          <input className="inp" type="date" value={day} min="2026-10-19" onChange={(e) => setDay(e.target.value)} />
+          <input className="inp" type="date" value={day} min="2026-10-19" max={tunisToday()} onChange={(e) => { setDay(e.target.value); setError(""); }} />
+          {day === "2026-10-19" && <span className="unit">Oct 19: only withdrawals made after 05:42 (Tunisia). Earlier ones are already counted.</span>}
         </label>
         <div className="unit">It comes off the balance at once, as in Shipper (even while Shipper reviews it). Fix or delete entries in Settings → Data.</div>
         <div className="acts">

@@ -627,7 +627,9 @@ const KIND_WORD = { withdrawal: "Withdrawal", refund: "Customer refund", baselin
 export function CashOutHistory({ rows }: { rows: CashOutRow[] }) {
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const del = async (id: string) => {
+    setConfirm(null);
     setBusy(id);
     setMsg({});
     try { const r = await deleteCashOut(id); setMsg(r); } catch { setMsg({ error: "Not deleted: the connection dropped. Reload and try again." }); }
@@ -645,7 +647,12 @@ export function CashOutHistory({ rows }: { rows: CashOutRow[] }) {
             <span className="unit" style={{ display: "block" }}>{r.kind === "baseline" ? (r.note ?? "") : `Added by ${r.by ?? "—"} · ${new Date(r.at).toLocaleString("en-GB", { timeZone: "Africa/Tunis", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`}</span>
           </span>
           <b style={{ fontVariantNumeric: "tabular-nums" }}>−{fmt(r.amount)} TND</b>
-          {r.kind !== "baseline" && <button type="button" className="btn b-ghost" aria-disabled={busy !== null} aria-label={`Delete ${KIND_WORD[r.kind]} of ${fmt(r.amount)} TND`} onClick={() => { if (!busy) void del(r.id); }}>{busy === r.id ? "Deleting…" : "Delete"}</button>}
+          {r.kind !== "baseline" && (confirm === r.id
+            ? <span style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="btn b-ghost" onClick={() => setConfirm(null)}>Keep</button>
+                <button type="button" className="btn b-red" aria-disabled={busy !== null} onClick={() => { if (!busy) void del(r.id); }}>{busy === r.id ? "Deleting…" : "Yes, delete"}</button>
+              </span>
+            : <button type="button" className="btn b-ghost" aria-disabled={busy !== null} aria-label={`Delete ${KIND_WORD[r.kind]} of ${fmt(r.amount)} TND`} onClick={() => setConfirm(r.id)}>Delete</button>)}
         </div>
       ))}
       {msg.ok && <span className="formmsg ok" role="status">{msg.ok}</span>}

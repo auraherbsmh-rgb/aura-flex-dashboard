@@ -117,7 +117,6 @@ export function SettingsSections({ s, today }: { s: SettingsData; today: string 
         <MetaPullForm ready={s.meta.ready} />
         <ShipperPullForm ready={s.shipper.ready} />
         <CashOutHistory rows={s.cashOut} />
-        <a className="btn b-ghost" href="/settings/shipper-check" style={{ alignSelf: "flex-start" }}>Check the Shipper connection →</a>
       </section>
 
       <section className="card sec" aria-labelledby="h-lists">

@@ -71,3 +71,17 @@ test("Shipper: Shipper's statistics replace order counts for leads, reasons and 
   assert.ok(Math.abs(g.deliveryCost / g.delivered - 24335.98 / 1813) < 1e-9, "Shipper's real fee per delivered order");
   assert.equal(withStats(f, undefined), f);
 });
+
+test("TND amounts as founders type them", async () => {
+  const { parseTnd } = await import("../src/lib/parse");
+  assert.equal(parseTnd("7060"), 7060);
+  assert.equal(parseTnd("7 060"), 7060);
+  assert.equal(parseTnd("7,060"), 7060);
+  assert.equal(parseTnd("24,003"), 24003);
+  assert.equal(parseTnd("1,234,567.5"), 1234567.5);
+  assert.equal(parseTnd("7060,5"), 7060.5);
+  assert.equal(parseTnd("7060.500"), 7060.5);
+  assert.equal(parseTnd("7060 TND"), 7060);
+  assert.equal(parseTnd(""), null);
+  assert.ok(Number.isNaN(parseTnd("abc")));
+});

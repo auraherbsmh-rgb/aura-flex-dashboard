@@ -112,7 +112,7 @@ export function toCash(overview: unknown): Cash | null {
   if (!o || typeof o !== "object" || !o.shipments_delivered_paid || !o.shipments_delivered_non_paid) return null;
   let transferred = 0;
   for (const [k, g] of Object.entries(o)) {
-    if (!k.startsWith("shipments_") || !g || typeof g !== "object" || !("count" in g)) continue;
+    if (!k.startsWith("shipments_") || !g || typeof g !== "object" || !("revenue_transferred" in g || "expenses_transferred" in g)) continue;
     transferred += amount(g.revenue_transferred) + amount(g.expenses_transferred);
   }
   const dn = o.shipments_delivered_non_paid;
