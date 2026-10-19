@@ -82,6 +82,7 @@ test("TND amounts as founders type them", async () => {
   assert.equal(parseTnd("7060,5"), 7060.5);
   assert.equal(parseTnd("7060.500"), 7060.5);
   assert.equal(parseTnd("7060 TND"), 7060);
+  assert.equal(parseTnd("1.234,5"), 1234.5);
   assert.equal(parseTnd(""), null);
   assert.ok(Number.isNaN(parseTnd("abc")));
 });

@@ -58,7 +58,7 @@ export function CashTile({ cash, connected }: { cash: CashView | null; connected
       io.disconnect();
       try { sessionStorage.setItem("cash-auto-try", String(Date.now())); } catch { /* storage off */ }
       void refresh();
-    });
+    }, { rootMargin: "10000px 0px" }); // "Money is shown", not "the tile is on screen" (phones: tile below the fold)
     io.observe(el);
     return () => io.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps

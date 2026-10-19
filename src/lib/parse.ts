@@ -52,7 +52,7 @@ export function toConceptTag(name: string): string {
 export function parseTnd(raw: string): number | null {
   let s = raw.trim().replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x06f0)).replace(/[\s\u00a0\u202f]/g, "").replace(/(TND|DT|د\.ت)$/i, "");
   if (s === "") return null;
-  if (s.includes(",") && s.includes(".")) s = s.replace(/,/g, "");
+  if (s.includes(",") && s.includes(".")) s = s.lastIndexOf(",") > s.lastIndexOf(".") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
   else if (/^\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, "");
   else s = s.replace(",", ".");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
