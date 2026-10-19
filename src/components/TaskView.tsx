@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { startTransition, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -29,7 +30,7 @@ const RESULT_TAG: Record<ConceptResult["state"], { word: string; tone: string }>
 export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, results = {}, prio = {} }: { tasks: TaskRow[]; selectedId: string | null; forFounder: boolean; query: string; now: number; onOpen?: (id: string) => void; results?: Record<string, ConceptResult>; prio?: Record<string, Prio> }) {
   // Scripts in production follow the production order (#1 first).
   const lines = tasks.map((t) => ({ t, l: inboxLine(t, forFounder, now, results[t.id]) })).sort((a, b) => a.l.rank - b.l.rank || prioPos(prio[a.t.id]) - prioPos(prio[b.t.id]) || a.t.dueOn.localeCompare(b.t.dueOn));
-  if (!lines.length) return <div className="info">{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</div>;
+  if (!lines.length) return <div className="info"><F>{forFounder ? "No tasks yet. Use + Create task." : "No tasks yet. Founder 1 sends them here."}</F></div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {lines.map(({ t, l }) => (
@@ -49,7 +50,7 @@ export function Inbox({ tasks, selectedId, forFounder, query, now, onOpen, resul
           <span><span className={`tag ${l.tone}`}><i aria-hidden="true" />{l.tag}</span></span>
           <span style={{ minWidth: 0 }}>
             <span className="inrow-title">{l.title}</span>
-            <span className="inrow-sub">{l.tag === "IN PRODUCTION" && prio[t.id] ? `${prioLabel(prio[t.id])} · ` : ""}{l.sub}</span>
+            <span className="inrow-sub">{l.tag === "IN PRODUCTION" && prio[t.id] ? `${prioLabel(prio[t.id])} · ` : ""}<F>{l.sub}</F></span>
           </span>
         </Link>
       ))}
@@ -525,7 +526,7 @@ export function TaskView({
                     : vo
                       ? production?.footageAt
                         ? <>VO received {fmtWhen(production.footageAt)} · <a className="tap" href={production.footageUrl ?? "#"} target="_blank" rel="noopener noreferrer">VO recording ↗</a>{production.inspirationUrl ? <> · <a className="tap" href={production.inspirationUrl} target="_blank" rel="noopener noreferrer">Inspiration ↗</a></> : null}</>
-                        : "No shoot · waiting for the VO recording (Founder 2 uploads it)"
+                        : <F>No shoot · waiting for the VO recording (Founder 2 uploads it)</F>
                     : production?.footageAt
                       ? <>Footage received {fmtWhen(production.footageAt)} · <a className="tap" href={production.footageUrl ?? "#"} target="_blank" rel="noopener noreferrer">Raw footage ↗</a>{production.allHooksShot ? " · all hooks shot ✓" : <span className="formmsg err"> · missing: {production.footageGap}</span>}</>
                       : <>Shoot {details?.shootOn ? fmtDay(details.shootOn) : "date not set"} · waiting for the agency’s footage</>}
@@ -558,7 +559,7 @@ export function TaskView({
               </div>
             </div>
           )}
-          {!isFounder && <div className="unit" style={{ marginTop: 6 }}>Read-only: Founder 2 runs production.</div>}
+          {!isFounder && <div className="unit" style={{ marginTop: 6 }}>Read-only: <F>Founder 2</F> runs production.</div>}
         </div>
       )}
 
@@ -566,7 +567,7 @@ export function TaskView({
         <div className="info">
           <b style={{ color: "var(--ink)" }}>Sent for review · round {last.round}</b> · {fmtWhen(last.submittedAt)} ·{" "}
           <a className="tap" href={last.scriptUrl} target="_blank" rel="noopener noreferrer">Open the script ↗</a>
-          {!isFounder && " · waiting on Founder 1"}
+          {!isFounder && <F>{" · waiting on Founder 1"}</F>}
         </div>
       )}
 
@@ -583,7 +584,7 @@ export function TaskView({
             </label>
           </div>
           <div className="info">
-            <b style={{ color: "var(--ink)" }}>After Founder 1 approves:</b> {isOwner ? "your" : "her"} inbox gets “Fill script details”: face, shoot, main argument, and for each variation its hook type and hook line. The shoot and the ad names wait until it’s done.
+            <b style={{ color: "var(--ink)" }}>After <F>Founder 1</F> approves:</b> {isOwner ? "your" : "her"} inbox gets “Fill script details”: face, shoot, main argument, and for each variation its hook type and hook line. The shoot and the ad names wait until it’s done.
           </div>
           <div className="acts">
             {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}

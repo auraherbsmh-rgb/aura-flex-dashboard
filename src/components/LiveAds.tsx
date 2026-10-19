@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { useState } from "react";
 import { Modal } from "./Modal";
@@ -156,7 +157,7 @@ export function LiveAds({ live, unmapped, frozenEntities, lastPull, d3Min, onTag
         <span>Concept CPA = all live variations, ABO + CBO together, vs the concept’s own line</span>
         <span>Flag = one variation at the kill line, fading or split between twins: the concept moves to Needs attention</span>
         <span>3d = early signal; colored from {d3Min} sales, grey “n=” below</span>
-        <span>No buttons that change Meta: Founder 2 pauses there</span>
+        <span>No buttons that change Meta: <F>Founder 2</F> pauses there</span>
       </div>
 
       <Modal open={!!detail} onClose={() => setDetail(null)} who={detail ? `${detail.c.info.cell} · ${detail.c.info.angle} · ${detail.c.info.format} · live ${detail.c.daysLive} days` : ""} title={detail ? `${detail.c.info.name} · V${detail.v.v ?? "?"}${detail.v.type ? ` · ${detail.v.type}` : ""}` : ""} width={620}>

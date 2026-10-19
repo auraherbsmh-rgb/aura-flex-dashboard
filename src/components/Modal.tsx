@@ -1,5 +1,6 @@
 "use client";
 
+import { useFounderText } from "./FounderNames";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
@@ -62,14 +63,15 @@ export function Modal({
   // Rendered at the end of <body>: a pop-up opened from a card that lifts on hover (transform) would otherwise be
   // positioned inside that card and jump as the mouse moves.
   const client = useSyncExternalStore(noop, () => true, () => false);
+  const t = useFounderText();
   if (!open || !client) return null;
   return createPortal(
     <div className="veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div ref={card} className="pop" role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
+      <div ref={card} className="pop" role="dialog" aria-modal="true" aria-label={t(title)} style={{ width }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
           <div>
-            <div className="pop-who">{who}</div>
-            <h2 className="ttl">{title}</h2>
+            <div className="pop-who">{t(who)}</div>
+            <h2 className="ttl">{t(title)}</h2>
           </div>
           <button type="button" className="x" onClick={onClose} aria-label="Close" data-close>×</button>
         </div>

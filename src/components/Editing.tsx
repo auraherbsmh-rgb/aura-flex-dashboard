@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NeedsChanges } from "./TaskView";
@@ -210,7 +211,7 @@ export function EditQueue({
         >
           <span className="qi-top"><span className={`tag ${q.tone}`}><i aria-hidden="true" />{q.tag}</span><span className="mono unit">{q.due}</span></span>
           <span className="qi-title">{q.title}</span>
-          <span className="unit">{q.sub}</span>
+          <span className="unit"><F>{q.sub}</F></span>
           {q.alert && <span className={`qi-alert ${q.alertTone === "amber" ? "qi-amber" : ""}`}><i aria-hidden="true" />{q.alert}</span>}
         </Link>
       ))}
@@ -282,7 +283,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           <h2 id="ev-title" className="tv-title" style={{ margin: "8px 0 6px" }}>{v.title}</h2>
           <div className="sub">
             {v.rounds.length ? `Round ${v.state === "changes" ? nextRound : last?.round ?? 1}` : "Round 1"} · due {p.editDue ? fmtDay(p.editDue) : "—"}
-            {isFounder ? ` · ${v.editorName}` : " · assigned by Founder 2"}
+            <F>{isFounder ? ` · ${v.editorName}` : " · assigned by Founder 2"}</F>
             {v.payPerVideo !== null && !isFounder ? ` · ${v.payPerVideo} TND when approved` : ""}
           </div>
         </div>
@@ -327,14 +328,14 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           <div style={{ minWidth: 0 }}>
             <div className="lbl" style={{ color: "var(--red-ink)" }}>Changes for round {nextRound}</div>
             <div style={{ fontSize: 15, marginTop: 6 }}>{lastChanges.note ?? "See the Loom."}</div>
-            <div className="unit" style={{ marginTop: 4 }}>{lastChanges.decidedBy ?? "Founder 2"}{lastChanges.decidedAt ? ` · ${fmtWhen(lastChanges.decidedAt)}` : ""}</div>
+            <div className="unit" style={{ marginTop: 4 }}><F>{lastChanges.decidedBy ?? "Founder 2"}</F>{lastChanges.decidedAt ? ` · ${fmtWhen(lastChanges.decidedAt)}` : ""}</div>
           </div>
           {lastChanges.loom && <a className="btn b-primary" href={lastChanges.loom} target="_blank" rel="noopener noreferrer">▶ Watch Loom</a>}
         </div>
       )}
 
       <div className="info" style={{ fontSize: 15 }}>
-        <div className="lbl">Brief from Founder 2</div>
+        <div className="lbl">Brief from <F>Founder 2</F></div>
         <div style={{ marginTop: 6, lineHeight: 1.5, color: "var(--ink)" }}>{p.brief ?? "—"}</div>
         {p.reference && (isLink(p.reference) ? <a className="tap" href={p.reference} target="_blank" rel="noopener noreferrer">Reference ↗</a> : <div className="unit" style={{ marginTop: 6 }}>Reference: {p.reference}</div>)}
         {v.vo && isLink(p.inspirationUrl) && <div><a className="tap" href={p.inspirationUrl!} target="_blank" rel="noopener noreferrer">Inspiration ↗</a></div>}
@@ -365,7 +366,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
 
       {isEditor && !held && v.state === "ready" && (
         <div className="acts" style={{ justifyContent: "space-between" }}>
-          <span className="unit">Tell Founder 2 you started: the task moves to Editing.</span>
+          <span className="unit">Tell <F>Founder 2</F> you started: the task moves to Editing.</span>
           <button type="button" className="btn b-ghost" disabled={pending} onClick={() => run(() => startEdit(v.taskId))}>Start editing</button>
         </div>
       )}
@@ -379,7 +380,7 @@ export function EditTask({ v, isFounder, isEditor, editors }: { v: EditView; isF
           <button type="submit" className="btn b-primary" style={{ height: 50, alignSelf: "flex-end" }} disabled={pending}>{pending ? "Sending…" : `Submit v${nextRound} for review`}</button>
         </form>
       )}
-      {v.state === "submitted" && !isFounder && <div className="info">v{last?.round} sent {last ? fmtWhen(last.submittedAt) : ""} · waiting for Founder 2’s review.</div>}
+      {v.state === "submitted" && !isFounder && <div className="info">v{last?.round} sent {last ? fmtWhen(last.submittedAt) : ""} · waiting for <F>Founder 2</F>’s review.</div>}
       {v.state === "approved" && (
         <div className="notice notice-green" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span>

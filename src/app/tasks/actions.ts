@@ -1,5 +1,6 @@
 "use server";
 
+import { getFounderNames, withFounderNames } from "@/lib/founders";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/viewer";
@@ -109,7 +110,7 @@ export async function submitScript(taskId: string, url: string): Promise<TaskSta
   const { data, error } = await supabase.rpc("submit_script", { p_task: taskId, p_url: link });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done(v.role === "founder_1" ? `Sent for review (round ${data}). It is now a REVIEW item on your Home.` : `Sent for review (round ${data}). Founder 1 gets it on Home.`);
+  return done(withFounderNames(v.role === "founder_1" ? `Sent for review (round ${data}). It is now a REVIEW item on your Home.` : `Sent for review (round ${data}). Founder 1 gets it on Home.`, await getFounderNames()));
 }
 
 /** Founder decides on the round in review. Needs changes: Loom optional, one line required when there is no Loom. */
@@ -217,7 +218,7 @@ export async function startEdit(taskId: string): Promise<TaskState> {
   const { error } = await supabase.rpc("start_edit", { p_task: taskId });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done("Started. Founder 2 sees it as Editing.");
+  return done(withFounderNames("Started. Founder 2 sees it as Editing.", await getFounderNames()));
 }
 
 /** The editor sends a version (Drive link): v1, v2… */
@@ -231,7 +232,7 @@ export async function submitEdit(taskId: string, url: string): Promise<TaskState
   const { data, error } = await supabase.rpc("submit_edit", { p_task: taskId, p_url: link });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done(`v${data} sent. Founder 2 gets it on Home.`);
+  return done(withFounderNames(`v${data} sent. Founder 2 gets it on Home.`, await getFounderNames()));
 }
 
 /** Founder review of an edit version: Approve, or Needs changes (Loom optional; one line required without a Loom). */
@@ -318,7 +319,7 @@ export async function addTestimonial(url: string, note: string): Promise<TaskSta
   const { error } = await supabase.rpc("add_testimonial", { p_url: u, p_note: note.trim() });
   if (error) return fail(plain(error));
   revalidatePath("/", "layout");
-  return done("Saved. It waits as a TESTIMONIAL item on Founder 2’s Home.");
+  return done(withFounderNames("Saved. It waits as a TESTIMONIAL item on Founder 2’s Home.", await getFounderNames()));
 }
 
 /** Testimonial: Not usable (discards a waiting recording). */

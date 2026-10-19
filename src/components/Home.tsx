@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { useState } from "react";
 import type { BlockedItem, Pace, SpeedSplit, WaitingLaunch, WinRate } from "@/lib/home-shared";
@@ -93,7 +94,7 @@ function Blocked({ items }: { items: BlockedItem[] }) {
       {items.length === 0 && <div className="unit" style={{ padding: "8px 0" }}>Nothing is stuck on anyone else.</div>}
       {items.map((b) => (
         <div className="home-brow" key={b.key}>
-          <div style={{ fontSize: 14, color: "#2B2B28", minWidth: 0 }}>{b.what} <span style={{ color: "#77776F" }}>· waiting on {b.who}</span></div>
+          <div style={{ fontSize: 14, color: "#2B2B28", minWidth: 0 }}>{b.what} <span style={{ color: "#77776F" }}>· waiting on <F>{String(b.who)}</F></span></div>
           <div className={`home-bage ${b.late ? "home-red" : ""}`}>{b.late ? `${b.text} · late` : b.text}</div>
         </div>
       ))}
@@ -115,10 +116,10 @@ export function FounderNumbers({ initial, f1, f2, blocked1, blocked2, children }
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <span className="lbl">{who === "f1" ? "Founder 1 · copywriting" : "Founder 2 · editing and launch"}</span>
+        <span className="lbl"><F>{who === "f1" ? "Founder 1 · copywriting" : "Founder 2 · editing and launch"}</F></span>
         <div className="recess wseg" role="group" aria-label="Numbers of">
-          <button type="button" className={who === "f1" ? "seg-on" : ""} aria-pressed={who === "f1"} onClick={() => setWho("f1")}>Founder 1</button>
-          <button type="button" className={who === "f2" ? "seg-on" : ""} aria-pressed={who === "f2"} onClick={() => setWho("f2")}>Founder 2</button>
+          <button type="button" className={who === "f1" ? "seg-on" : ""} aria-pressed={who === "f1"} onClick={() => setWho("f1")}><F>Founder 1</F></button>
+          <button type="button" className={who === "f2" ? "seg-on" : ""} aria-pressed={who === "f2"} onClick={() => setWho("f2")}><F>Founder 2</F></button>
         </div>
       </div>
       <section className="home-tiles" aria-label="Three numbers">
@@ -178,7 +179,7 @@ export function FounderNumbers({ initial, f1, f2, blocked1, blocked2, children }
               <div className="home-big">{f2.waiting.length}<small> concept{f2.waiting.length === 1 ? "" : "s"}</small></div>
               {f2.waiting.slice(0, 3).map((w) => (
                 <Link key={w.taskId} href={`/editing?task=${w.taskId}#edit-view`} className="raise home-wait">
-                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600 }}>{w.title}</div><div style={{ fontSize: 12, color: "#6B6B66", marginTop: 2 }}>{w.sub}</div></div>
+                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600 }}>{w.title}</div><div style={{ fontSize: 12, color: "#6B6B66", marginTop: 2 }}><F>{w.sub}</F></div></div>
                   <span className="tag t-amber"><i aria-hidden="true" />{w.days === 0 ? "APPROVED TODAY" : `WAITING ${w.days} DAY${w.days === 1 ? "" : "S"}`}</span>
                 </Link>
               ))}

@@ -1,6 +1,8 @@
 import type { TabKey } from "@/lib/access";
 import { requireTab } from "@/lib/viewer";
 import { AppHeader } from "./AppHeader";
+import { FounderNamesProvider } from "./FounderNames";
+import { getFounderNames } from "@/lib/founders";
 
 /**
  * Frame for every tab: checks the role may see it, then draws the slab, header band and body.
@@ -27,8 +29,9 @@ export async function TabPage({
   /** Replaces the title block (Home: date, greeting, counts, Start with the most urgent). */
   hero?: React.ReactNode;
 }) {
-  const viewer = await requireTab(tab);
+  const [viewer, names] = await Promise.all([requireTab(tab), getFounderNames()]);
   return (
+    <FounderNamesProvider names={names}>
     <main className="page">
       <div className="slab">
         <div className="band">
@@ -44,6 +47,7 @@ export async function TabPage({
         <div className="body">{children}</div>
       </div>
     </main>
+    </FounderNamesProvider>
   );
 }
 

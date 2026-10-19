@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { Modal } from "./Modal";
@@ -98,11 +99,11 @@ export function ProposeButton({ pickers, label = "+ Propose a test", className =
               {pickers.formats.map((f) => <option key={f.id} value={f.id}>{f.code === "AI" ? "AI / 3D (Generate, no shoot)" : f.label}</option>)}
             </select>
           </label>
-          <div className="info">Goes to {sendTo} as a DECIDE item. The answer comes back to your inbox.</div>
+          <div className="info">Goes to <F>{sendTo}</F> as a DECIDE item. The answer comes back to your inbox.</div>
           <div className="acts">
             <Msg s={shownError} />
             <button type="button" className="btn b-ghost" onClick={() => setOpen(false)}>Cancel</button>
-            <button type="submit" className="btn b-primary" disabled={pending}>{pending ? "Sending…" : `Send to ${sendTo}`}</button>
+            <button type="submit" className="btn b-primary" disabled={pending}>{pending ? "Sending…" : <F>{`Send to ${sendTo}`}</F>}</button>
           </div>
         </form>
       </Modal>
@@ -238,7 +239,7 @@ export function NeedsMe({
                 <div><span className={`tag t-${it.tagTone}`}><i aria-hidden="true" />{it.type}</span></div>
                 <div style={{ minWidth: 0 }}>
                   <div className="need-title">{it.title}</div>
-                  <div className="need-sub">{it.sub}</div>
+                  <div className="need-sub"><F>{it.sub}</F></div>
                 </div>
                 <div className={`age a-${it.ageTone}`}>{it.age}</div>
                 {it.winner ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { useState } from "react";
 import { RAIL, type Pipeline } from "@/lib/pipeline-shared";
@@ -81,7 +82,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
                 )}
               </div>
               <div className="rail rail-lbl" aria-hidden="true">{RAIL.map((s) => <span key={s} className="st">{s}</span>)}</div>
-              <div style={{ fontSize: 13 }}><b>{r.waitingOn}</b> · {r.waitingWhat}</div>
+              <div style={{ fontSize: 13 }}><b><F>{r.waitingOn}</F></b> · {r.waitingWhat}</div>
               <div className={`due ${r.late ? "red" : ""}`}>{r.due}</div>
             </div>
           </Link>

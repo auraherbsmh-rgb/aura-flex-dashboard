@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
 import { assignEdit, launchConcept, markFootage, markVo, setHold } from "@/app/tasks/actions";
@@ -71,7 +72,7 @@ export function FootageButton({
             <input className="inp" type="url" value={insp} onChange={(e) => setInsp(e.target.value)} placeholder="link to a video in the style you want" maxLength={1000} />
             <span className="unit">The editor sees both links in the task.</span>
           </label>
-          <div className="info">{current?.footageAt ? "Updates the links. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor builds the video from the script and the VO."}</div>
+          <div className="info"><F>{current?.footageAt ? "Updates the links. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor builds the video from the script and the VO."}</F></div>
           <div className="acts">
             {error && <span className="formmsg err" role="alert">{error}</span>}
             <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>
@@ -103,7 +104,7 @@ export function FootageButton({
             <span className="unit">The editor sees this note.</span>
           </label>
         )}
-        <div className="info">{current?.footageAt ? "Updates the link and note. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned."}</div>
+        <div className="info"><F>{current?.footageAt ? "Updates the link and note. The ASSIGN item keeps its age." : "The task becomes an ASSIGN item on Founder 2’s Home. The editor only sees it once assigned."}</F></div>
         <div className="acts">
           {error && <span className="formmsg err" role="alert">{error}</span>}
           <button type="button" className="btn b-ghost" onClick={close}>Cancel</button>

@@ -1,5 +1,6 @@
 "use server";
 
+import { getFounderNames, withFounderNames } from "@/lib/founders";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/viewer";
@@ -47,7 +48,7 @@ export async function propose(_prev: ProposeState, form: FormData): Promise<Prop
   });
   if (error) return fail(`Not sent: ${error.message}`);
   revalidatePath("/", "layout");
-  return done("Sent to Founder 1. The answer comes back here.");
+  return done(withFounderNames("Sent to Founder 1. The answer comes back here.", await getFounderNames()));
 }
 
 /**

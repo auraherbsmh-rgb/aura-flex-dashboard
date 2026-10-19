@@ -1,4 +1,5 @@
 import { perf } from "@/lib/perf";
+import { F } from "@/components/FounderNames";
 import { TabPage } from "@/components/TabPage";
 import { ProposeButton, ProposalList } from "@/components/Proposals";
 import { CreateTaskButton } from "@/components/Tasks";
@@ -122,7 +123,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
                 <section className="card sec" aria-labelledby="h-prop">
                   <div className="sh">
                     <h2 id="h-prop">{founder ? "Proposals" : "My proposals"}</h2>
-                    <span className="lbl">{founder ? "Every proposal and its answer" : "Founder 1’s answers come back here"}</span>
+                    <span className="lbl"><F>{founder ? "Every proposal and its answer" : "Founder 1’s answers come back here"}</F></span>
                   </div>
                   {!founder && <div><ProposeButton pickers={pickers} /></div>}
                   <ProposalList proposals={proposals} showAuthor={founder} taskCtx={ctx ? { ctx, pickers } : undefined} />

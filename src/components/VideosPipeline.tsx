@@ -1,5 +1,6 @@
 "use client";
 
+import { F } from "./FounderNames";
 import Link from "next/link";
 import { useState } from "react";
 import { VRAIL, type VideoRow } from "@/lib/editing-shared";
@@ -111,7 +112,7 @@ export function VideosPipeline({
                 )}
               </div>
               <div className="rail rail-lbl" aria-hidden="true">{VRAIL.map((s) => <span key={s} className="st">{s}</span>)}</div>
-              <div style={{ fontSize: 13 }}><b>{r.waitingName}</b> · {r.waitingWhat}</div>
+              <div style={{ fontSize: 13 }}><b><F>{r.waitingName}</F></b> · {r.waitingWhat}</div>
               <div className={`due ${r.late ? "red" : ""}`}>{r.due}</div>
             </div>
           </Link>
