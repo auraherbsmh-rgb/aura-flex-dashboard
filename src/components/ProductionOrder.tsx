@@ -9,12 +9,11 @@ export type OrderItem = { taskId: string; name: string; meta: string; late: bool
 const TONE = { 1: "t-red", 2: "t-green", 3: "t-grey", 4: "t-grey" } as const;
 
 /**
- * Founders' production order (Editing → Pipeline, founder decision Oct 16): the order everyone follows, set by hand with
- * ↑ / ↓, next to the dashboard's suggestion and the numbers behind it. Nothing moves by itself: when the suggestion
- * differs, a line says so and "Use suggested order" applies it in one click. Built from the order itself (every script
- * in production), so its numbers are the same as in the inbox, the Videos pipeline and the editor queue.
+ * Founders' production order (Editing → Pipeline and the Monday plan): the order everyone follows, set by dragging a
+ * row by its grip (mouse or finger; ↑ / ↓ keys on the focused grip). Next to it the dashboard's suggestion and the
+ * numbers behind it (Editing only; `compact` hides them in the Monday plan). Nothing moves by itself.
  */
-export function ProductionOrder({ items, prio, version, now }: { items: OrderItem[]; prio: Record<string, Prio> | null; version: number; now: number }) {
+export function ProductionOrder({ items, prio, version, now, compact = false }: { items: OrderItem[]; prio: Record<string, Prio> | null; version: number; now: number; compact?: boolean }) {
   if (!prio) {
     return (
       <section className="card sec" aria-labelledby="h-order">
@@ -23,13 +22,13 @@ export function ProductionOrder({ items, prio, version, now }: { items: OrderIte
       </section>
     );
   }
-  return <OrderPanel items={items} prio={prio} version={version} now={now} />;
+  return <OrderPanel items={items} prio={prio} version={version} now={now} compact={compact} />;
 }
 
-function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: Record<string, Prio>; version: number; now: number }) {
+function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]; prio: Record<string, Prio>; version: number; now: number; compact: boolean }) {
   const fromServer = Object.keys(prio).sort((a, b) => prio[a].pos - prio[b].pos);
   const key = `${version}:${fromServer.join(",")}`;
-  // Arrows move the list at once; the server copy replaces it when it changes (previous-value pattern).
+  // Moves show at once; the server copy replaces the list when it changes (previous-value pattern).
   const [order, setOrder] = useState(fromServer);
   const [ver, setVer] = useState(version);
   const [seenKey, setSeenKey] = useState(key);
@@ -38,24 +37,32 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [said, setSaid] = useState("");
   const [pending, setPending] = useState(false);
-  // Drag a row to its new place (desktop); ↑ / ↓ stay for phones and the keyboard.
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  // Keyboard: after a move, focus returns to the same arrow on the moved row.
+  // Pointer drag: the list follows the finger / mouse; saved once on release.
+  const [drag, setDrag] = useState<{ id: string; start: string[]; list: string[] } | null>(null);
+  const rows = useRef(new Map<string, HTMLLIElement>());
+  const grips = useRef(new Map<string, HTMLButtonElement>());
   const refocus = useRef<string | null>(null);
-  const buttons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => {
     if (!refocus.current) return;
-    buttons.current.get(refocus.current)?.focus();
+    grips.current.get(refocus.current)?.focus();
     refocus.current = null;
   }, [order]);
   const byId = new Map(items.map((i) => [i.taskId, i]));
+  const shown = drag?.list ?? order;
 
+  const head = (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div>
+        <h2 id="h-order" style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Production order</h2>
+        <div className="unit">What the agency, the editors and the copywriters do first. Drag a row by ⋮⋮ to move it.</div>
+      </div>
+    </div>
+  );
   if (!order.length) {
     return (
-      <section className="card sec" aria-labelledby="h-order">
-        <h2 id="h-order" style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Production order</h2>
-        <div className="unit">Nothing in production right now. A script appears here at its suggested place once its details are confirmed.</div>
+      <section className={compact ? "plan-list" : "card sec"} aria-labelledby="h-order">
+        {!compact && head}
+        <div className="info">Nothing in production right now. A script appears here once its details are confirmed.</div>
       </section>
     );
   }
@@ -80,69 +87,94 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
     });
   };
   const nameOf = (id: string) => byId.get(id)?.name ?? "Script";
-  const move = (i: number, d: -1 | 1, which: "up" | "down") => {
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+  const onDown = (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    if (pending || e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ id, start: order, list: order });
+  };
+  const onMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!drag) return;
+    const others = drag.list.filter((x) => x !== drag.id);
+    // New place = number of other rows whose middle is above the pointer.
+    let at = 0;
+    for (const x of others) {
+      const r = rows.current.get(x)?.getBoundingClientRect();
+      if (r && e.clientY > r.top + r.height / 2) at++;
+    }
+    const next = [...others.slice(0, at), drag.id, ...others.slice(at)];
+    if (!same(next, drag.list)) setDrag({ ...drag, list: next });
+  };
+  const onUp = () => {
+    if (!drag) return;
+    const { id, start, list } = drag;
+    setDrag(null);
+    if (!same(start, list)) save(list, `${nameOf(id)} moved to #${list.indexOf(id) + 1}.`);
+  };
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const d = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
     const j = i + d;
-    if (pending || j < 0 || j >= order.length) return;
+    if (!d || pending || j < 0 || j >= order.length) return;
+    e.preventDefault();
     const next = [...order];
     [next[i], next[j]] = [next[j], next[i]];
-    refocus.current = `${next[j]}:${which}`;
+    refocus.current = next[j];
     save(next, `${nameOf(next[j])} moved to #${j + 1}.`);
-  };
-  const dropOn = (target: string) => {
-    const from = dragId;
-    setDragId(null);
-    setOverId(null);
-    if (pending || !from || from === target) return;
-    const next = order.filter((x) => x !== from);
-    next.splice(order.indexOf(target), 0, from);
-    save(next, `${nameOf(from)} moved to #${next.indexOf(from) + 1}.`);
   };
   const suggested = [...order].sort((a, b) => prio[a].sug - prio[b].sug);
   const sugPos = new Map(suggested.map((id, i) => [id, i + 1]));
   const moved = movedCount(order, prio);
 
   return (
-    <section className="card sec" aria-labelledby="h-order" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h2 id="h-order" style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Production order</h2>
-          <div className="unit">The order the agency, the editors and the copywriters see. Drag a script to move it (or ↑ ↓). Click it to see why it is suggested there.</div>
-        </div>
-        <button type="button" className="btn b-ghost" aria-disabled={pending || moved === 0} onClick={() => { if (!pending && moved > 0) save(suggested, "Suggested order applied."); }}>✓ Use suggested order</button>
-      </div>
-      {moved > 0
-        ? <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300" }}>Your order differs from the suggestion: {moved} script{moved > 1 ? "s" : ""} would move.</div>
-        : <div className="unit">Your order matches the suggestion.</div>}
+    <section className={compact ? "plan-list" : "card sec"} aria-labelledby={compact ? undefined : "h-order"} aria-label={compact ? "Production order" : undefined} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {!compact && head}
+      {!compact && (moved > 0
+        ? <div className="notice" role="status" style={{ background: "#fbf0d2", color: "#7a5300", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span>Your order differs from the suggestion: {moved} script{moved > 1 ? "s" : ""} would move.</span>
+            <button type="button" className="btn b-ghost plan-xs" aria-disabled={pending} onClick={() => { if (!pending) save(suggested, "Suggested order applied."); }}>Use suggested order</button>
+          </div>
+        : <div className="unit">Your order matches the suggestion.</div>)}
       <span className="sr-only" role="status">{said}</span>
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        {order.map((id, i) => {
+        {shown.map((id, i) => {
           const it = byId.get(id);
           const p = prio[id];
           if (!p) return null;
           const sp = sugPos.get(id)!;
-          const why = open === id ? orderWhy(p, now) : null;
+          const why = !compact && open === id ? orderWhy(p, now) : null;
           const name = it?.name ?? "Script";
           return (
-            <li
-              key={id}
-              className={`order-row ${dragId === id ? "is-drag" : ""} ${overId === id && dragId && dragId !== id ? (order.indexOf(dragId) < i ? "is-over-below" : "is-over") : ""}`}
-              draggable={!pending}
-              onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); setDragId(id); }}
-              onDragOver={(e) => { if (dragId) { e.preventDefault(); if (overId !== id) setOverId(id); } }}
-              onDrop={(e) => { e.preventDefault(); dropOn(id); }}
-              onDragEnd={() => { setDragId(null); setOverId(null); }}
-            >
+            <li key={id} ref={(el) => { if (el) rows.current.set(id, el); else rows.current.delete(id); }} className={`order-row ${drag?.id === id ? "is-drag" : ""}`}>
               <div className="order-grid">
-                <span className="order-n">#{i + 1}</span>
-                <button type="button" className="order-name" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id}>
-                  <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>{name} <span className="unit" aria-hidden="true">{open === id ? "▴" : "▾"}</span></span>
-                  <span className="unit" style={{ display: "block" }}>{it?.meta ?? ""}{it?.late ? " · late" : ""}</span>
-                </button>
-                <span className={`tag ${TONE[p.grp]} order-tag`}><i aria-hidden="true" />{sp === i + 1 ? "✓ AS SUGGESTED" : `SUGGESTED #${sp}`} · {GROUP_WORD[p.grp].toUpperCase()}</span>
-                <span className="order-arrows">
-                  <button type="button" className="btn b-ghost" ref={(el) => { if (el) buttons.current.set(`${id}:up`, el); }} aria-disabled={pending || i === 0} aria-label={`Move ${name} up`} onClick={() => move(i, -1, "up")}>↑</button>
-                  <button type="button" className="btn b-ghost" ref={(el) => { if (el) buttons.current.set(`${id}:down`, el); }} aria-disabled={pending || i === order.length - 1} aria-label={`Move ${name} down`} onClick={() => move(i, 1, "down")}>↓</button>
-                </span>
+                <button
+                  type="button"
+                  className="order-grip"
+                  ref={(el) => { if (el) grips.current.set(id, el); else grips.current.delete(id); }}
+                  aria-label={`Move ${name} (#${i + 1}). Drag, or use the up and down arrow keys.`}
+                  aria-disabled={pending}
+                  onPointerDown={(e) => onDown(e, id)}
+                  onPointerMove={onMove}
+                  onPointerUp={onUp}
+                  onPointerCancel={() => setDrag(null)}
+                  onKeyDown={(e) => onKey(e, i)}
+                >⋮⋮</button>
+                <span className="order-n">{i + 1}</span>
+                {compact ? (
+                  <span className="order-name" style={{ cursor: "default" }}>
+                    <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>{name}</span>
+                    <span className="unit" style={{ display: "block" }}>{it?.meta ?? ""}</span>
+                  </span>
+                ) : (
+                  <button type="button" className="order-name" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id}>
+                    <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>{name} <span className="unit" aria-hidden="true">{open === id ? "▴" : "▾"}</span></span>
+                    <span className="unit" style={{ display: "block" }}>{it?.meta ?? ""}</span>
+                  </button>
+                )}
+                {compact
+                  ? (it?.late ? <span className="tag t-red order-tag"><i aria-hidden="true" />LATE</span> : <span className="order-tag" />)
+                  : <span className={`tag ${TONE[p.grp]} order-tag`}><i aria-hidden="true" />{sp === i + 1 ? "✓ AS SUGGESTED" : `SUGGESTED #${sp}`} · {GROUP_WORD[p.grp].toUpperCase()}</span>}
               </div>
               {why && (
                 <div className="order-why">

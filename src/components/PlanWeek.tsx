@@ -36,12 +36,23 @@ export type PlanView = {
   tests: { taskId: string; name: string; cell: string; launched: string; word: string; tone: string; line: string }[];
   winners: { taskId: string; name: string; cell: string; line: string }[];
   launches: { taskId: string; name: string; title: string; sub: string; days: number }[];
+  /** Step 4: per avatar × awareness, what was tried (concepts since the map start date). */
+  coverage: { id: string; code: string; label: string; cells: { awareness: string; total: number; working: number; lost: number; moving: number; planned: number }[] }[];
   log: { when: string; who: string; what: string }[];
   hasMeta: boolean;
   ok: boolean;
 };
 
 const STEPS = ["Last week's plan", "Last week's tests", "Double down", "New tests", "Production order", "Launches"];
+const HELP = [
+  "What was planned last week and what happened to each item. Not finished ones carry into this week.",
+  "Every concept launched since last Monday, with its Meta state.",
+  "Concepts converting under their own line: how many new concepts each (same core message and avatar).",
+  "Pick a cell to test: what was tried there, what works, what never was.",
+  "What the agency and the editors do first. Drag a row by ⋮⋮ to move it.",
+  "Approved videos not launched yet: tick the ones to launch this week.",
+];
+const SHORT_AW: Record<string, string> = { "Problem-Aware": "Problem", "Solution-Aware": "Solution", "Product-Aware": "Product", "Most-Aware": "Most" };
 
 /** Monday plan: one step at a time on the left, the week's plan on the right (always visible, updates from statuses). */
 export function PlanWeek({ view, ctx, pickers, order }: {
@@ -124,7 +135,6 @@ export function PlanWeek({ view, ctx, pickers, order }: {
 
     // 2 · Last week's tests
     <div key="s2" className="plan-list">
-      <div className="lbl">Launched since {view.prevLabel} · their Meta state</div>
       {!view.hasMeta && <div className="info">No Meta numbers yet (Meta not connected). Launched concepts show here with their state once the daily Meta pull runs.</div>}
       {view.tests.length === 0 && view.hasMeta && <div className="info">Nothing launched since {view.prevLabel}.</div>}
       {view.tests.map((t) => (
@@ -138,7 +148,6 @@ export function PlanWeek({ view, ctx, pickers, order }: {
 
     // 3 · Double down
     <div key="s3" className="plan-list">
-      <div className="lbl">Converting under its own line now · how many new concepts each</div>
       {view.winners.length === 0 && <div className="info">{view.hasMeta ? "No concept is converting under its own line right now." : "Winners show here once Meta is connected (state Won or Recovering, still live)."} Plan new tests instead.</div>}
       {view.winners.map((w) => {
         const mine = ddOf(w.taskId);
@@ -160,45 +169,62 @@ export function PlanWeek({ view, ctx, pickers, order }: {
 
     // 4 · New tests
     <div key="s4" className="plan-list">
-      <div className="lbl">New avatars or awareness levels to test</div>
-      <form
-        className="plan-form"
-        onSubmit={(e) => { e.preventDefault(); setAll(false); run(async () => { const r = await addPlanItem("new_test", null, nt.avatar, nt.awareness, nt.note); if (r.ok) setNt({ avatar: "", awareness: "", note: "" }); return r; }); }}
-      >
-        <label className="field"><span className="lbl">Avatar</span>
-          <select className="inp" required value={nt.avatar} onChange={(e) => setNt({ ...nt, avatar: e.target.value })}>
-            <option value="" disabled>Choose…</option>
-            {pickers.avatars.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-          </select>
-        </label>
-        <label className="field"><span className="lbl">Awareness</span>
-          <select className="inp" required value={nt.awareness} onChange={(e) => setNt({ ...nt, awareness: e.target.value })}>
-            <option value="" disabled>Choose…</option>
-            {AWARENESS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </label>
-        <label className="field" style={{ gridColumn: "1 / -1" }}><span className="lbl">Idea · optional</span>
-          <input className="inp" maxLength={300} value={nt.note} onChange={(e) => setNt({ ...nt, note: e.target.value })} placeholder="e.g. daughter worried about her mother's stairs" />
-        </label>
-        <button type="submit" className="btn b-primary" disabled={pending}>Add new test</button>
-      </form>
-      {live.filter((i) => i.kind === "new_test" && !i.carry).map((i) => (
-        <div key={i.id} className="plan-row">
-          <div style={{ minWidth: 0 }}><div className="plan-name">{i.name}</div><div className="unit">{i.meta}</div></div>
-          <span /><span />
-        </div>
-      ))}
+      <div className="cov-wrap">
+        <table className="cov">
+          <caption className="sr-only">Concepts tried per avatar and awareness level. Pick a cell to plan a new test there.</caption>
+          <thead><tr><th scope="col" className="lbl">Avatar</th>{AWARENESS.map((a) => <th key={a} scope="col" className="lbl">{SHORT_AW[a]}</th>)}</tr></thead>
+          <tbody>
+            {view.coverage.map((r) => (
+              <tr key={r.id}>
+                <th scope="row" title={r.label}>{r.code}</th>
+                {r.cells.map((c) => {
+                  const on = nt.avatar === r.id && nt.awareness === c.awareness;
+                  return (
+                    <td key={c.awareness}>
+                      <button type="button" className={`cov-cell ${c.total === 0 ? "never" : c.working ? "works" : c.lost === c.total ? "dead" : ""} ${on ? "on" : ""}`} aria-pressed={on}
+                        aria-label={`${r.code} × ${SHORT_AW[c.awareness]}: ${c.total === 0 ? "never tried" : `${c.total} tried, ${c.working} working, ${c.lost} over the line, ${c.moving} in progress`}${c.planned ? `, ${c.planned} planned this week` : ""}`}
+                        onClick={() => setNt({ ...nt, avatar: r.id, awareness: c.awareness })}>
+                        {c.total === 0 ? <span className="cov-never">Never tried</span> : (
+                          <>
+                            <span><b>{c.total}</b> tried</span>
+                            <span className="cov-bits">
+                              {c.working > 0 && <span className="cov-g">{c.working} working</span>}
+                              {c.lost > 0 && <span className="cov-r">{c.lost} over line</span>}
+                              {c.moving > 0 && <span>{c.moving} in progress</span>}
+                            </span>
+                          </>
+                        )}
+                        {c.planned > 0 && <span className="cov-plan">+{c.planned} this week</span>}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {nt.avatar && nt.awareness ? (
+        <form
+          className="plan-form"
+          onSubmit={(e) => { e.preventDefault(); setAll(false); run(async () => { const r = await addPlanItem("new_test", null, nt.avatar, nt.awareness, nt.note); if (r.ok) setNt({ avatar: "", awareness: "", note: "" }); return r; }); }}
+        >
+          <label className="field" style={{ gridColumn: "1 / 3" }}>
+            <span className="lbl">{view.coverage.find((r) => r.id === nt.avatar)?.code} × {SHORT_AW[nt.awareness]} · idea, optional</span>
+            <input className="inp" maxLength={300} value={nt.note} onChange={(e) => setNt({ ...nt, note: e.target.value })} placeholder="e.g. daughter worried about her mother's stairs" />
+          </label>
+          <button type="submit" className="btn b-primary" disabled={pending}>Add new test</button>
+        </form>
+      ) : <div className="unit">Counts are concepts since the map start date (Settings), both tracks. Working = under its own line now; over line = lost or fading.</div>}
     </div>,
 
     // 5 · Production order
     <div key="s5" className="plan-list">
-      <div className="unit">Scripts in production, in the order the agency, the editors and the copywriters follow. Drag a row (or use ↑ ↓) to change it.</div>
-      <ProductionOrder items={order.items} prio={order.prio} version={order.version} now={order.now} />
+      <ProductionOrder compact items={order.items} prio={order.prio} version={order.version} now={order.now} />
     </div>,
 
     // 6 · Launches
     <div key="s6" className="plan-list">
-      <div className="lbl">Approved videos not launched yet · tick the ones to launch this week</div>
       {view.launches.length === 0 && <div className="info">No approved video waiting to launch.</div>}
       {view.launches.map((l) => {
         const it = launchOf(l.taskId);
@@ -229,14 +255,18 @@ export function PlanWeek({ view, ctx, pickers, order }: {
   return (
     <div className="plan-grid">
       <section className="card sec" aria-labelledby="h-step">
-        <nav className="plan-steps" aria-label="Steps">
+        <nav className="recess plan-steps" aria-label="Steps">
           {STEPS.map((s, i) => (
-            <button key={s} type="button" className={`plan-step ${i === step ? "on" : ""} ${i < step ? "past" : ""}`} aria-current={i === step ? "step" : undefined} onClick={() => setStep(i)}>
-              <span className="plan-num">{i + 1}</span>{s}
+            <button key={s} type="button" className={`plan-step ${i === step ? "on" : i < step ? "past" : ""}`} aria-current={i === step ? "step" : undefined} onClick={() => setStep(i)}>
+              {i + 1} · {s}
             </button>
           ))}
         </nav>
-        <h2 id="h-step" style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>{step + 1} · {STEPS[step]}</h2>
+        <div>
+          <div className="lbl">Step {step + 1} of {STEPS.length}</div>
+          <h2 id="h-step" style={{ margin: "6px 0 4px", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" }}>{STEPS[step]}</h2>
+          <div className="sub" style={{ lineHeight: 1.5 }}>{HELP[step]}</div>
+        </div>
         {stepBody[step]}
         {msg.error && <span className="formmsg err" role="alert">{msg.error}</span>}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>

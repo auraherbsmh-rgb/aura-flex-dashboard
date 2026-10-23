@@ -7,7 +7,8 @@ import { getRule } from "@/lib/needs";
 import { getPlanData } from "@/lib/plan";
 import { buildVideoPipeline } from "@/lib/editing-shared";
 import { waitingToLaunch } from "@/lib/home-shared";
-import { LEVEL_SHORT } from "@/lib/map-shared";
+import { conceptState, LEVEL_SHORT, mapConcepts } from "@/lib/map-shared";
+import { AWARENESS } from "@/lib/proposals-shared";
 import { carried, dayLabel, isWorking, itemStage, RESULT_WORD, resultLine, whenLabel, type PlanItemRow } from "@/lib/plan-shared";
 
 export const metadata = { title: "Plan the week · Aura Flex" };
@@ -119,19 +120,37 @@ export default async function Page() {
   const faces = new Map(details.map((d) => [d.taskId, d.face ?? ""]).filter(([, f]) => f) as [string, string][]);
   const launches = waitingToLaunch(tasks, productions, rounds, faces, hooks, now).map((w) => ({ ...w, name: faces.get(w.taskId) ?? w.title }));
 
+  // Step 4: what was tried in each avatar × awareness cell (concepts since the map start date, both tracks).
+  const onMap = [...new Map([...mapConcepts(map.concepts, "knee", map.start), ...mapConcepts(map.concepts, "hips", map.start)].map((c) => [c.taskId, c])).values()];
+  const plannedHere = (av: string, aw: string) => current.filter((i) => !i.droppedAt && i.kind !== "launch" && i.avatarId === av && i.awareness === aw).length;
+  const coverage = pickers.avatars.map((a) => ({
+    id: a.id, code: a.code ?? a.label, label: a.label,
+    cells: AWARENESS.map((aw) => {
+      const here = onMap.filter((c) => c.avatarId === a.id && c.awareness === aw).map(conceptState);
+      return {
+        awareness: aw,
+        total: here.length,
+        working: here.filter((s) => s === "won" || s === "recovering" || s === "deteriorating").length,
+        lost: here.filter((s) => s === "lost" || s === "fading").length,
+        moving: here.filter((s) => s === "writing" || s === "production" || s === "test").length,
+        planned: plannedHere(a.id, aw),
+      };
+    }),
+  }));
+
   const view: PlanView = {
     weekLabel: dayLabel(week), prevLabel: dayLabel(plan.prevWeek),
     cap: plan.plan?.cap ?? 8,
     locked: plan.plan?.lockedAt ? `${whenLabel(plan.plan.lockedAt)}${plan.plan.lockedBy ? ` by ${plan.plan.lockedBy}` : ""}` : null,
     items: [...carry.map((i) => toItem(i, true)), ...current.map((i) => toItem(i, false))],
-    lastWeek, tests, winners, launches,
+    lastWeek, tests, winners, launches, coverage,
     log: plan.log.map((l) => ({ when: whenLabel(l.at), who: l.by, what: l.what })),
     hasMeta: Object.keys(map.results).length > 0,
     ok: plan.ok,
   };
 
   return (
-    <TabPage tab="home" title="Plan the week">
+    <TabPage tab="home" title={`Plan the week · ${view.weekLabel}`}>
       <PlanWeek view={view} ctx={ctx} pickers={pickers} order={{ items: order, prio: map.prio, version, now }} />
     </TabPage>
   );

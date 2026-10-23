@@ -18,7 +18,8 @@ async function founder(): Promise<string | null> {
 }
 /** Always this week (server clock), never a week sent by the browser. */
 const thisWeek = () => planWeek(Date.now());
-const done = (ok: string): PlanResult => { revalidatePath("/", "layout"); return { ok }; };
+// Only the plan page re-renders (Home and the pipelines are read fresh when opened).
+const done = (ok: string): PlanResult => { revalidatePath("/plan"); return { ok }; };
 
 export async function addPlanItem(kind: PlanKind, source: string | null, avatarId: string | null, awareness: string | null, note: string): Promise<PlanResult> {
   const no = await founder();

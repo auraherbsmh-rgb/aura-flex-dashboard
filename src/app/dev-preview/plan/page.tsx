@@ -39,6 +39,10 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
     winners: [{ taskId: "w1", name: "Mounir", cell: "FSB × Most · Benefits · UGC", line: "CPA $4.10 · line $5.85 · 14 purchases (7 days)" }],
     launches: [{ taskId: "v1", name: "Benefits V3", title: "FSB × Most · UGC Benefits V3", sub: "Approved Thu · 5 hooks", days: 3 }, { taskId: "v2", name: "Ingredients", title: "BRD × Product · AI / 3D", sub: "Approved Fri · 1 hook", days: 2 }],
     log: locked ? [{ when: "Wed 14:12", who: "Ghazi", what: "Added a new test · son worried about his mother" }, { when: "Mon 10:40", who: "Ghazi", what: "Locked the plan · 5 items" }] : [],
+    coverage: [
+      { id: "a1", code: "FSB", label: "FSB", cells: [{ awareness: "Problem-Aware", total: 4, working: 1, lost: 2, moving: 1, planned: 0 }, { awareness: "Solution-Aware", total: 2, working: 0, lost: 2, moving: 0, planned: 0 }, { awareness: "Product-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }, { awareness: "Most-Aware", total: 3, working: 1, lost: 1, moving: 1, planned: 2 }] },
+      { id: "a2", code: "CGS", label: "CGS", cells: [{ awareness: "Problem-Aware", total: 1, working: 0, lost: 0, moving: 1, planned: 0 }, { awareness: "Solution-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 1 }, { awareness: "Product-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }, { awareness: "Most-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }] },
+    ],
     hasMeta: true, ok: true,
   };
   return (
