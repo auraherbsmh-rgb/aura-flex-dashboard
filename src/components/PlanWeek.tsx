@@ -303,7 +303,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
           </div>
           {tr.length === 0 && <div className="info">Nothing planned for this week yet. Open Plan to add double downs, new tests and launches.</div>}
           {tr.map((r) => {
-            const steps = TRACK.map((_, k) => ((r.kind === "launch" && k < 6) || (k === 4 && r.skipShoot && r.at > 4) ? "skip" : k < r.at ? "done" : k === r.at && r.at < 7 ? (r.late ? "late" : "now") : r.at === 7 ? "done" : "todo"));
+            const steps = TRACK.map((_, k) => ((r.kind === "launch" && k < 6) || (k === 4 && r.skipShoot) ? "skip" : k < r.at ? "done" : k === r.at && r.at < 7 ? (r.late ? "late" : "now") : r.at === 7 ? "done" : "todo"));
             const body = (
               <div className="pipe-grid">
                 <div style={{ minWidth: 0 }}>

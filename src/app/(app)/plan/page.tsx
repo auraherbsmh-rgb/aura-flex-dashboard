@@ -133,8 +133,12 @@ export default async function Page() {
     const s = id ? scriptRows.get(id) : undefined;
     const v = id ? vRows.get(id) : undefined;
     let at = AT[st.key] ?? 0;
-    if (st.key === "on_hold" && v) at = v.steps.findIndex((x) => x === "now" || x === "late") <= 1 ? 4 : 5;
-    const skipShoot = !!v && v.steps[0] === "skip";
+    // In production: the step comes from where the video row is (Shoot · Footage → Shoot, Editing · Review → Editing, Launch → Delivered).
+    const vi = v ? v.steps.findIndex((x) => x === "now" || x === "late") : -1;
+    if (at >= 4 && at < 7 && vi >= 0) at = vi <= 1 ? 4 : vi <= 3 ? 5 : 6;
+    if (i.kind === "launch" && at < 7) at = 6; // a launch-only item is always at Delivered until it is live
+    // AI / 3D has no shoot at all; a VO's recording stands in the Shoot place until it is in.
+    const skipShoot = !!v && v.steps[0] === "skip" && (v.steps[1] === "skip" || at > 4);
     const fromVideo = at >= 4 && at < 7;
     const late = at === 0 ? false : fromVideo ? !!v?.late && !v?.hold : !!s?.late;
     const it = toItem(i, isCarry);
@@ -143,9 +147,9 @@ export default async function Page() {
       hold: st.key === "on_hold",
       time: at === 7 ? "" : at === 0 ? "" : fromVideo ? (v?.nowLabel ?? "") : (s?.nowLabel ?? ""),
       who: at === 0 ? "You" : at === 7 ? "Live" : fromVideo ? (v?.waitingName ?? "") : (s?.waitingOn ?? ""),
-      what: at === 0 ? "create the task" : at === 7 ? "launched" : st.key === "on_hold" ? "on hold" : fromVideo ? (v?.waitingWhat ?? st.word) : (s?.waitingWhat ?? st.word),
+      what: at === 0 ? "create the task" : at === 7 ? "launched" : st.key === "on_hold" ? "on hold" : (fromVideo ? v?.waitingWhat : s?.waitingWhat) ?? st.word.toLowerCase(),
       due: at === 0 || at === 7 ? "" : fromVideo ? (v?.due ?? "") : (s?.due ?? ""),
-      href: at === 0 || !id ? null : fromVideo ? (v?.href ?? null) : `/copywriting?task=${id}#task-view`,
+      href: at === 0 || !id ? null : fromVideo && v ? v.href : `/copywriting?task=${id}#task-view`,
       prefill: it.prefill,
     };
   };
