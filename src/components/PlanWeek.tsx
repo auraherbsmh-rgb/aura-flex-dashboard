@@ -215,7 +215,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
           </label>
           <button type="submit" className="btn b-primary" disabled={pending}>Add new test</button>
         </form>
-      ) : <div className="unit">Counts are concepts since the map start date (Settings), both tracks. Working = under its own line now; over line = lost or fading.</div>}
+      ) : <div className="unit">Counts are concepts since the map start date (Settings), both tracks. Working = live and under its own line now; over line = lost or fading; the others are in progress or paused.</div>}
     </div>,
 
     // 5 · Production order

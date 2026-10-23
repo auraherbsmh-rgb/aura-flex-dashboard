@@ -1,4 +1,5 @@
 import { TabPage } from "@/components/TabPage";
+import { perf } from "@/lib/perf";
 import { PlanWeek, type PlanView } from "@/components/PlanWeek";
 import { requireTab } from "@/lib/viewer";
 import { getPickers } from "@/lib/proposals";
@@ -19,12 +20,15 @@ export const metadata = { title: "Plan the week · Aura Flex" };
  * are tagged and logged.
  */
 export default async function Page() {
+  const mark = perf("plan");
   const viewer = await requireTab("home");
+  mark("auth");
   const now = requestTime();
   const [tasks, productions, rounds, details, hooks, pickers, ctx, map, version, plan, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert] = await Promise.all([
     getTasks(), getProductions(), getEditRounds(), getDetailsLite(), getHookCounts(), getPickers(), getCreateTaskContext(), getMapData(), getOrderVersion(), getPlanData(now),
     getRule("footage_late_days", 2), getRule("edit_not_started_days", 2), getRule("review_waiting_hours", 48), getRule("launch_waiting_days", 2), getRule("revision_round_alert", 3),
   ]);
+  mark("data");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
   const byTask = new Map(tasks.map((t) => [t.id, t]));
   const concept = new Map(map.concepts.map((c) => [c.taskId, c]));
@@ -122,15 +126,17 @@ export default async function Page() {
 
   // Step 4: what was tried in each avatar × awareness cell (concepts since the map start date, both tracks).
   const onMap = [...new Map([...mapConcepts(map.concepts, "knee", map.start), ...mapConcepts(map.concepts, "hips", map.start)].map((c) => [c.taskId, c])).values()];
-  const plannedHere = (av: string, aw: string) => current.filter((i) => !i.droppedAt && i.kind !== "launch" && i.avatarId === av && i.awareness === aw).length;
+  const plannedHere = (av: string, aw: string) => current.filter((i) => !i.droppedAt && !i.taskId && i.kind !== "launch" && i.avatarId === av && i.awareness === aw).length; // once its task exists it counts as in progress
   const coverage = pickers.avatars.map((a) => ({
     id: a.id, code: a.code ?? a.label, label: a.label,
     cells: AWARENESS.map((aw) => {
-      const here = onMap.filter((c) => c.avatarId === a.id && c.awareness === aw).map(conceptState);
+      const cs = onMap.filter((c) => c.avatarId === a.id && c.awareness === aw);
+      const here = cs.map(conceptState);
       return {
         awareness: aw,
         total: here.length,
-        working: here.filter((s) => s === "won" || s === "recovering" || s === "deteriorating").length,
+        // Same test as step 3: live and under its own line now.
+        working: cs.filter((c) => isWorking(map.results[c.taskId])).length,
         lost: here.filter((s) => s === "lost" || s === "fading").length,
         moving: here.filter((s) => s === "writing" || s === "production" || s === "test").length,
         planned: plannedHere(a.id, aw),

@@ -47,6 +47,45 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
     grips.current.get(refocus.current)?.focus();
     refocus.current = null;
   }, [order]);
+  // The drag follows the pointer on the whole window (a moved row can lose the pointer), saved once on release.
+  const dragRef = useRef(drag);
+  const saveRef = useRef<(next: string[], moved: string) => void>(() => {});
+  useEffect(() => { dragRef.current = drag; }, [drag]);
+  const dragging = drag?.id ?? null;
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (e: PointerEvent) => {
+      // Near the top or bottom of the screen the page scrolls, so a long list can be dragged on a phone.
+      if (e.clientY < 60) window.scrollBy(0, -14);
+      else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 14);
+      setDrag((d) => {
+        if (!d) return d;
+        const others = d.list.filter((x) => x !== d.id);
+        // New place = number of other rows whose middle is above the pointer.
+        let at = 0;
+        for (const x of others) {
+          const r = rows.current.get(x)?.getBoundingClientRect();
+          if (r && e.clientY > r.top + r.height / 2) at++;
+        }
+        const next = [...others.slice(0, at), d.id, ...others.slice(at)];
+        return next.every((x, i) => x === d.list[i]) ? d : { ...d, list: next };
+      });
+    };
+    const up = () => {
+      const d = dragRef.current;
+      setDrag(null);
+      if (d && !d.start.every((x, i) => x === d.list[i])) saveRef.current(d.list, d.id);
+    };
+    const cancel = () => setDrag(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+    };
+  }, [dragging]);
   const byId = new Map(items.map((i) => [i.taskId, i]));
   const shown = drag?.list ?? order;
 
@@ -58,15 +97,7 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
       </div>
     </div>
   );
-  if (!order.length) {
-    return (
-      <section className={compact ? "plan-list" : "card sec"} aria-labelledby="h-order">
-        {!compact && head}
-        <div className="info">Nothing in production right now. A script appears here once its details are confirmed.</div>
-      </section>
-    );
-  }
-  const save = (next: string[], announce: string) => {
+  const save = (next: string[], announce: string, moved?: string) => {
     const before = order;
     setOrder(next);
     setSaid(announce);
@@ -76,8 +107,9 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
       try {
         const res = await setProductionOrder(next, ver);
         if (res.ok) { if (typeof res.version === "number") setVer(res.version); setMsg({ ok: res.ok }); }
-        else { setOrder(before); setSaid("Not moved."); setMsg({ error: res.error ?? "Not saved." }); }
+        else { if (moved) refocus.current = moved; setOrder(before); setSaid("Not moved."); setMsg({ error: res.error ?? "Not saved." }); }
       } catch {
+        if (moved) refocus.current = moved;
         setOrder(before);
         setSaid("Not moved.");
         setMsg({ error: "Not saved: the connection dropped or your session expired. Reload the page and try again." });
@@ -86,32 +118,21 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
       }
     });
   };
+  useEffect(() => { saveRef.current = (next, moved) => save(next, `${byId.get(moved)?.name ?? "Script"} moved to #${next.indexOf(moved) + 1}.`, moved); });
+  if (!order.length) {
+    return (
+      <section className={compact ? "plan-list" : "card sec"} aria-labelledby="h-order">
+        {!compact && head}
+        <div className="info">Nothing in production right now. A script appears here once its details are confirmed.</div>
+      </section>
+    );
+  }
   const nameOf = (id: string) => byId.get(id)?.name ?? "Script";
-  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
   const onDown = (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (pending || e.button !== 0) return;
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ id, start: order, list: order });
-  };
-  const onMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!drag) return;
-    const others = drag.list.filter((x) => x !== drag.id);
-    // New place = number of other rows whose middle is above the pointer.
-    let at = 0;
-    for (const x of others) {
-      const r = rows.current.get(x)?.getBoundingClientRect();
-      if (r && e.clientY > r.top + r.height / 2) at++;
-    }
-    const next = [...others.slice(0, at), drag.id, ...others.slice(at)];
-    if (!same(next, drag.list)) setDrag({ ...drag, list: next });
-  };
-  const onUp = () => {
-    if (!drag) return;
-    const { id, start, list } = drag;
-    setDrag(null);
-    if (!same(start, list)) save(list, `${nameOf(id)} moved to #${list.indexOf(id) + 1}.`);
   };
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const d = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
@@ -121,7 +142,7 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
     const next = [...order];
     [next[i], next[j]] = [next[j], next[i]];
     refocus.current = next[j];
-    save(next, `${nameOf(next[j])} moved to #${j + 1}.`);
+    save(next, `${nameOf(next[j])} moved to #${j + 1}.`, next[j]);
   };
   const suggested = [...order].sort((a, b) => prio[a].sug - prio[b].sug);
   const sugPos = new Map(suggested.map((id, i) => [id, i + 1]));
@@ -155,9 +176,6 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
                   aria-label={`Move ${name} (#${i + 1}). Drag, or use the up and down arrow keys.`}
                   aria-disabled={pending}
                   onPointerDown={(e) => onDown(e, id)}
-                  onPointerMove={onMove}
-                  onPointerUp={onUp}
-                  onPointerCancel={() => setDrag(null)}
                   onKeyDown={(e) => onKey(e, i)}
                 >⋮⋮</button>
                 <span className="order-n">{i + 1}</span>

@@ -109,7 +109,7 @@ export default async function Page() {
   const planCarry = carried(plan.items, plan.week, (i) => itemStage(i, byTask, productions, editRounds)).length;
   const planNow = plan.items.filter((i) => i.weekStart === plan.week && !i.droppedAt).length;
   const planBlock = !plan.ok ? null : plan.plan?.lockedAt ? (
-    <Link href="/plan" className="card plan-banner" style={{ textDecoration: "none", color: "inherit" }}>
+    <Link href="/plan" prefetch className="card plan-banner" style={{ textDecoration: "none", color: "inherit" }}>
       <span><b>This week&apos;s plan</b> <span className="sub">· locked {whenLabel(plan.plan.lockedAt)} · {planNow} item{planNow === 1 ? "" : "s"}{planCarry ? ` · ${planCarry} from last week` : ""}</span></span>
       <span className="sub">Open →</span>
     </Link>
@@ -120,7 +120,7 @@ export default async function Page() {
         <div style={{ fontSize: 20, fontWeight: 600, marginTop: 6 }}>This week isn&apos;t planned yet</div>
         <div className="sub" style={{ marginTop: 4 }}>{planCarry ? `${planCarry} item${planCarry === 1 ? "" : "s"} not finished last week. ` : ""}Review last week, then plan this one.</div>
       </div>
-      <Link href="/plan" className="btn b-primary">Plan the week →</Link>
+      <Link href="/plan" prefetch className="btn b-primary">Plan the week →</Link>
     </div>
   );
 
