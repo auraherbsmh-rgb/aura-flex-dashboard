@@ -54,36 +54,54 @@ function OrderPanel({ items, prio, version, now, compact }: { items: OrderItem[]
   const dragging = drag?.id ?? null;
   useEffect(() => {
     if (!dragging) return;
-    const move = (e: PointerEvent) => {
-      // Near the top or bottom of the screen the page scrolls, so a long list can be dragged on a phone.
-      if (e.clientY < 60) window.scrollBy(0, -14);
-      else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 14);
-      setDrag((d) => {
-        if (!d) return d;
-        const others = d.list.filter((x) => x !== d.id);
-        // New place = number of other rows whose middle is above the pointer.
-        let at = 0;
-        for (const x of others) {
-          const r = rows.current.get(x)?.getBoundingClientRect();
-          if (r && e.clientY > r.top + r.height / 2) at++;
-        }
-        const next = [...others.slice(0, at), d.id, ...others.slice(at)];
-        return next.every((x, i) => x === d.list[i]) ? d : { ...d, list: next };
-      });
+    // Place of the dragged row = number of other rows whose middle is above the pointer.
+    const place = (d: NonNullable<typeof drag>, y: number) => {
+      const others = d.list.filter((x) => x !== d.id);
+      let at = 0;
+      for (const x of others) {
+        const r = rows.current.get(x)?.getBoundingClientRect();
+        if (r && y > r.top + r.height / 2) at++;
+      }
+      const next = [...others.slice(0, at), d.id, ...others.slice(at)];
+      return next.every((x, i) => x === d.list[i]) ? d : { ...d, list: next };
     };
-    const up = () => {
-      const d = dragRef.current;
+    let y = -1;
+    let frame = 0;
+    const follow = () => setDrag((d) => (d ? place(d, y) : d));
+    // Near the top or bottom of the screen the page keeps scrolling while the finger rests there (long lists on a phone).
+    const edge = () => {
+      const step = y < 0 ? 0 : y < 60 ? -12 : y > window.innerHeight - 60 ? 12 : 0;
+      if (step) { window.scrollBy(0, step); follow(); }
+      frame = requestAnimationFrame(edge);
+    };
+    frame = requestAnimationFrame(edge);
+    const cancel = () => { y = -1; setDrag(null); };
+    const move = (e: PointerEvent) => {
+      // Button released where the page could not see it (outside the window): stop, save nothing.
+      if (e.pointerType === "mouse" && e.buttons === 0) { cancel(); return; }
+      y = e.clientY;
+      follow();
+    };
+    const up = (e: PointerEvent) => {
+      // Final place from the release point itself (a fast flick can end before the last move rendered).
+      const d = dragRef.current ? place(dragRef.current, e.clientY) : null;
+      y = -1;
       setDrag(null);
       if (d && !d.start.every((x, i) => x === d.list[i])) saveRef.current(d.list, d.id);
     };
-    const cancel = () => setDrag(null);
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") cancel(); };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", key);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", key);
     };
   }, [dragging]);
   const byId = new Map(items.map((i) => [i.taskId, i]));
