@@ -8,3 +8,7 @@
 --   plan_drop_item(item, drop, reason, log_week), plan_set_cap, plan_lock, plan_link_task, plan_note.
 -- Carry-over is computed, not copied: an item of an earlier week that is not launched, dropped or cancelled shows
 --   as "From last week" until it is launched or dropped.
+-- v2 (checker round 1, migration "week_plan_v2_checker"): one live launch item per video (partial unique index; Undo
+--   refuses a second); the change log is written by the database itself, only once the week is locked, with the item's
+--   own name (private.plan_item_label) — plan_note is no longer callable; cap changes after the lock are logged;
+--   a double down needs a concept that is live and Won / Recovering.

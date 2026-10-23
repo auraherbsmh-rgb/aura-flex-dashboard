@@ -18,6 +18,8 @@ export type PlanItemView = {
   tone: string;
   closed: boolean;
   carry: boolean;
+  /** Step 1: still open from a week before last week. */
+  older?: boolean;
   added: string | null;
   dropped: { reason: string; by: string } | null;
   hasTask: boolean;
@@ -61,7 +63,8 @@ export function PlanWeek({ view, ctx, pickers, order }: {
 
   const locked = !!view.locked;
   const live = view.items.filter((i) => !i.dropped);
-  const scripts = live.filter((i) => i.kind !== "launch" && !i.carry).length;
+  // Scripts this week = new ones planned + carried ones not finished (both load the copywriters).
+  const scripts = live.filter((i) => i.kind !== "launch" && !i.closed).length;
   const remaining = view.items.filter((i) => i.prefill);
   const active = all ? remaining[0] : remaining.find((i) => i.id === createFor);
 
@@ -74,41 +77,48 @@ export function PlanWeek({ view, ctx, pickers, order }: {
     });
   };
   const removable = (i: PlanItemView) => !i.hasTask && !i.dropped && !i.carry && (!locked || !!i.added);
-  const takeOut = (i: PlanItemView) => (removable(i) ? run(() => removePlanItem(i.id)) : (setDrop(i), setReason(DROP_REASONS[0]), setOther("")));
+  const askDrop = (i: PlanItemView) => { setMsg({}); setDrop(i); setReason(DROP_REASONS[0]); setOther(""); };
+  const takeOut = (i: PlanItemView) => (removable(i) ? run(() => removePlanItem(i.id)) : askDrop(i));
 
   if (!view.ok) return <div className="notice notice-red" role="alert">The week plan could not be read. Reload the page.</div>;
 
   const ddOf = (taskId: string) => live.filter((i) => i.kind === "double_down" && i.sourceTask === taskId && !i.carry);
   const launchOf = (taskId: string) => live.find((i) => i.kind === "launch" && i.sourceTask === taskId);
 
+  const prev = view.lastWeek.filter((i) => !i.older);
+  const older = view.lastWeek.filter((i) => i.older);
+  const outcome = (i: PlanItemView) => (
+    <div key={i.id} className="plan-row">
+      <div style={{ minWidth: 0 }}><div className="plan-name">{i.name}</div><div className="unit">{i.meta}</div></div>
+      <div className="plan-state">
+        {i.dropped
+          ? <><span className="tag t-grey"><i aria-hidden="true" />DROPPED</span> <span className="unit">{i.dropped.reason}{i.dropped.by ? ` · ${i.dropped.by}` : ""}</span></>
+          : i.closed
+            ? <span className={`tag ${i.tone}`}><i aria-hidden="true" />{i.stage.toUpperCase()}</span>
+            : <><span className="tag t-orange"><i aria-hidden="true" />CARRIED OVER</span> <span className="unit">now: {i.stage}</span></>}
+      </div>
+      <div style={{ textAlign: "right" }}>
+        {!i.closed && <button type="button" className="btn b-ghost plan-xs" disabled={pending} onClick={() => (i.dropped ? run(() => dropPlanItem(i.id, false, "")) : askDrop(i))}>{i.dropped ? "Undo" : "Drop"}</button>}
+      </div>
+    </div>
+  );
+
   const stepBody = [
     // 1 · Last week's plan vs what happened
     <div key="s1" className="plan-list">
       <div className="lbl">Week of {view.prevLabel} · plan vs what happened</div>
-      {view.lastWeek.length === 0 && <div className="info">No plan for last week. From next Monday, this step shows what was planned and what happened to each item.</div>}
-      {view.lastWeek.length > 0 && (
+      {prev.length === 0 && <div className="info">No plan for last week. From next Monday, this step shows what was planned and what happened to each item.</div>}
+      {prev.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <span className="pill raise"><b>{view.lastWeek.length}</b>planned</span>
-          <span className="pill raise"><b>{view.lastWeek.filter((i) => i.stage === "Launched").length}</b>launched</span>
-          <span className="pill raise"><b>{view.lastWeek.filter((i) => i.dropped).length}</b>dropped</span>
-          <span className={`pill ${view.lastWeek.some((i) => !i.closed && !i.dropped) ? "pill-r" : "raise"}`}><b>{view.lastWeek.filter((i) => !i.closed && !i.dropped).length}</b>not finished</span>
+          <span className="pill raise"><b>{prev.length}</b>planned</span>
+          <span className="pill raise"><b>{prev.filter((i) => i.stage === "Launched").length}</b>launched</span>
+          <span className="pill raise"><b>{prev.filter((i) => i.dropped).length}</b>dropped</span>
+          <span className={`pill ${prev.some((i) => !i.closed && !i.dropped) ? "pill-r" : "raise"}`}><b>{prev.filter((i) => !i.closed && !i.dropped).length}</b>not finished</span>
         </div>
       )}
-      {view.lastWeek.map((i) => (
-        <div key={i.id} className="plan-row">
-          <div style={{ minWidth: 0 }}><div className="plan-name">{i.name}</div><div className="unit">{i.meta}</div></div>
-          <div className="plan-state">
-            {i.dropped
-              ? <><span className="tag t-grey"><i aria-hidden="true" />DROPPED</span> <span className="unit">{i.dropped.reason}{i.dropped.by ? ` · ${i.dropped.by}` : ""}</span></>
-              : i.closed
-                ? <span className={`tag ${i.tone}`}><i aria-hidden="true" />{i.stage.toUpperCase()}</span>
-                : <><span className="tag t-orange"><i aria-hidden="true" />CARRIED OVER</span> <span className="unit">now: {i.stage}</span></>}
-          </div>
-          <div style={{ textAlign: "right" }}>
-            {!i.closed && <button type="button" className="btn b-ghost plan-xs" disabled={pending} onClick={() => (i.dropped ? run(() => dropPlanItem(i.id, false, "", i.name)) : (setDrop(i), setReason(DROP_REASONS[0]), setOther("")))}>{i.dropped ? "Undo" : "Drop"}</button>}
-          </div>
-        </div>
-      ))}
+      {prev.map(outcome)}
+      {older.length > 0 && <div className="lbl" style={{ marginTop: 6 }}>Still open from earlier weeks · {older.length}</div>}
+      {older.map(outcome)}
       <div className="unit">Not finished = carried into this week automatically (tagged “From last week” in the pipelines) until it is launched or dropped.</div>
     </div>,
 
@@ -267,7 +277,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
                 <div className="plan-acts">
                   {i.prefill && <button type="button" className="btn b-primary plan-xs" disabled={pending} onClick={() => { setAll(false); setCreateFor(i.id); }}>Create task</button>}
                   {i.dropped
-                    ? <button type="button" className="btn b-ghost plan-xs" disabled={pending} onClick={() => run(() => dropPlanItem(i.id, false, "", i.name))}>Undo</button>
+                    ? <button type="button" className="btn b-ghost plan-xs" disabled={pending} onClick={() => run(() => dropPlanItem(i.id, false, ""))}>Undo</button>
                     : !i.closed && (removable(i)
                       ? <button type="button" className="btn b-ghost plan-xs" aria-label={`Take out ${i.name}`} disabled={pending} onClick={() => takeOut(i)}>×</button>
                       : (locked || i.carry || i.hasTask) && <button type="button" className="btn b-ghost plan-xs" disabled={pending} onClick={() => takeOut(i)}>Drop</button>)}
@@ -278,7 +288,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
         ))}
         {remaining.length > 1 && <button type="button" className="btn b-ghost" disabled={pending} onClick={() => { setCreateFor(null); setAll(true); }}>Create all remaining tasks ({remaining.length})</button>}
         {!locked && (
-          <button type="button" className="btn b-primary" disabled={pending || view.items.filter((i) => !i.carry && !i.dropped).length === 0} onClick={() => run(lockPlan)}>Lock the week plan</button>
+          <button type="button" className="btn b-primary" disabled={pending} onClick={() => run(lockPlan)}>Lock the week plan</button>
         )}
         {msg.ok && <span className="formmsg ok" role="status">{msg.ok}</span>}
         {locked && (
@@ -301,7 +311,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
             if (!drop) return;
             const r = reason === "other" ? other : reason;
             const it = drop;
-            run(async () => { const res = await dropPlanItem(it.id, true, r, it.name); if (res.ok) setDrop(null); return res; });
+            run(async () => { const res = await dropPlanItem(it.id, true, r); if (res.ok) setDrop(null); return res; });
           }}
         >
           <div className="sub">It leaves the week plan. Its task and its video stay where they are.</div>

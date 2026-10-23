@@ -55,6 +55,14 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
 
   const supabase = await createClient();
 
+  // From the Monday plan: the item must still be waiting for its task (another founder may have created it meanwhile).
+  const planItem = String(form.get("plan_item") ?? "");
+  if (planItem) {
+    if (!/^[0-9a-f-]{36}$/i.test(planItem)) return fail("Reload the page and try again.");
+    const { data: it } = await supabase.from("week_plan_items").select("task_id, dropped_at, removed_at, kind").eq("id", planItem).maybeSingle();
+    if (!it || it.task_id || it.dropped_at || it.removed_at || it.kind === "launch") return fail("This plan item already has a task or was dropped. Reload the page.");
+  }
+
   // CHANGE box facts, recomputed here from the database (not trusted from the browser).
   // A new angle has no tasks yet: every video format is untried.
   const [tasks, formats] = await Promise.all([
@@ -91,10 +99,9 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
     if (mark.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be marked as a successor."); }
   }
   // Created from the Monday plan: the plan item follows this task from now on.
-  const planItem = String(form.get("plan_item") ?? "");
-  if (planItem && newId && /^[0-9a-f-]{36}$/i.test(planItem)) {
+  if (planItem && newId) {
     const link = await supabase.rpc("plan_link_task", { p_item: planItem, p_task: newId as string });
-    if (link.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be linked to the week plan."); }
+    if (link.error) { revalidatePath("/", "layout"); return fail("Task created, but it could not be linked to the week plan (another founder changed the item). Check Copywriting before creating it again."); }
   }
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");

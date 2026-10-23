@@ -44,15 +44,16 @@ export default async function Page() {
   // Names: a double down reads "<winner> · new concept 2"; a new test "<avatar> × <awareness>"; a launch the video's face.
   const ddIndex = new Map<string, number>();
   const seen = new Map<string, number>();
+  // Numbered across every week for the same winner, so a carried "concept 1" and this week's never share a name.
   for (const i of plan.items) if (i.kind === "double_down" && i.sourceTask) {
-    const k = `${i.weekStart}|${i.sourceTask}`;
+    const k = i.sourceTask;
     seen.set(k, (seen.get(k) ?? 0) + 1);
     ddIndex.set(i.id, seen.get(k)!);
   }
   const nameOf = (i: PlanItemRow) => {
-    if (i.kind === "double_down") return `${faceOf(i.sourceTask) ?? "Winner"} · new concept ${ddIndex.get(i.id) ?? 1}`;
+    const own = i.taskId ? concept.get(i.taskId)?.face : null;
+    if (i.kind === "double_down") return own ? `${own} (from ${faceOf(i.sourceTask) ?? "winner"})` : `${faceOf(i.sourceTask) ?? "Winner"} · new concept ${ddIndex.get(i.id) ?? 1}`;
     if (i.kind === "launch") return faceOf(i.sourceTask) ?? "Video";
-    const own = i.taskId ? faceOf(i.taskId) : null;
     return own ?? `${avatarCode.get(i.avatarId ?? "") ?? "?"} × ${short(i.awareness)}`;
   };
   const metaOf = (i: PlanItemRow) => {
@@ -90,9 +91,9 @@ export default async function Page() {
 
   // Step 1: last week's items (and older ones still open), with what happened.
   const lastWeek = [
-    ...plan.items.filter((i) => i.weekStart === plan.prevWeek),
-    ...plan.items.filter((i) => i.weekStart < plan.prevWeek && !i.droppedAt && !stageOf(i).closed),
-  ].map((i) => toItem(i, false));
+    ...plan.items.filter((i) => i.weekStart === plan.prevWeek).map((i) => toItem(i, false)),
+    ...plan.items.filter((i) => i.weekStart < plan.prevWeek && !i.droppedAt && !stageOf(i).closed).map((i) => ({ ...toItem(i, false), older: true })),
+  ];
 
   // Step 2: concepts launched since last Monday (Tunisia), with their Meta state.
   const since = Date.parse(`${plan.prevWeek}T00:00:00Z`) - 36e5;

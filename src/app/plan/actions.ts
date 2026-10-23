@@ -46,8 +46,8 @@ export async function removePlanItem(id: string): Promise<PlanResult> {
   return error ? { error: plain(error) } : done("Taken out.");
 }
 
-/** Drop (with a reason) or put back an item. `label` is only used for the change line. */
-export async function dropPlanItem(id: string, drop: boolean, reason: string, label: string): Promise<PlanResult> {
+/** Drop (with a reason) or put back an item. After the lock, the database logs it with the item's own name. */
+export async function dropPlanItem(id: string, drop: boolean, reason: string): Promise<PlanResult> {
   const no = await founder();
   if (no) return { error: no };
   if (!UUID.test(id)) return { error: "Reload the page and try again." };
@@ -57,8 +57,6 @@ export async function dropPlanItem(id: string, drop: boolean, reason: string, la
   const week = thisWeek();
   const { error } = await supabase.rpc("plan_drop_item", { p_item: id, p_drop: drop, p_reason: drop ? r : null, p_log_week: week });
   if (error) return { error: plain(error) };
-  const name = label.trim().slice(0, 120) || "an item";
-  await supabase.rpc("plan_note", { p_week: week, p_what: drop ? `Dropped ${name} · ${r}` : `Put back ${name}` });
   return done(drop ? "Dropped." : "Put back.");
 }
 

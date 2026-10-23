@@ -54,7 +54,8 @@ export function itemStage(
   const id = it.kind === "launch" ? it.sourceTask : it.taskId;
   if (!id) return { key: "no_task", word: "Task not created", tone: "t-orange", closed: false };
   const t = tasks.get(id);
-  if (!t) return { key: "cancelled", word: "Task not found", tone: "t-grey", closed: true };
+  // Cancelled tasks are not loaded (getTasks skips them): a missing task is a cancelled one.
+  if (!t) return { key: "cancelled", word: "Task cancelled", tone: "t-grey", closed: true };
   const p = productions.get(id);
   if (p?.launchedAt) return { key: "launched", word: "Launched", tone: "t-green", closed: true };
   if (t.status === "cancelled") return { key: "cancelled", word: "Task cancelled", tone: "t-grey", closed: true };

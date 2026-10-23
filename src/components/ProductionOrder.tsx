@@ -125,7 +125,7 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
           return (
             <li
               key={id}
-              className={`order-row ${dragId === id ? "is-drag" : ""} ${overId === id && dragId !== id ? "is-over" : ""}`}
+              className={`order-row ${dragId === id ? "is-drag" : ""} ${overId === id && dragId && dragId !== id ? (order.indexOf(dragId) < i ? "is-over-below" : "is-over") : ""}`}
               draggable={!pending}
               onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); setDragId(id); }}
               onDragOver={(e) => { if (dragId) { e.preventDefault(); if (overId !== id) setOverId(id); } }}

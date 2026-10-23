@@ -869,3 +869,4 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .order-row[draggable="true"] { cursor: grab; }
 .order-row.is-drag { opacity: 0.45; }
 .order-row.is-over { box-shadow: 0 -3px 0 #111; }
+.order-row.is-over-below { box-shadow: 0 3px 0 #111; }
