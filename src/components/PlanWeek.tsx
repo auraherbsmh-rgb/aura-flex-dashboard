@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
+import { F } from "./FounderNames";
 import { CreateTaskButton, type TaskPrefill } from "./Tasks";
 import { ProductionOrder, type OrderItem } from "./ProductionOrder";
 import { addPlanItem, dropPlanItem, lockPlan, removePlanItem, setPlanCap, type PlanResult } from "@/app/plan/actions";
@@ -36,6 +38,8 @@ export type PlanView = {
   tests: { taskId: string; name: string; cell: string; launched: string; word: string; tone: string; line: string }[];
   winners: { taskId: string; name: string; cell: string; line: string }[];
   launches: { taskId: string; name: string; title: string; sub: string; days: number }[];
+  /** "This week" view: one row per item from task to launch (times, lateness and who from the pipelines). */
+  track: { id: string; name: string; meta: string; carry: boolean; added: string | null; kind: PlanKind; at: number; skipShoot: boolean; late: boolean; hold: boolean; time: string; who: string; what: string; due: string; href: string | null; prefill: (TaskPrefill & { planItem: string }) | null }[];
   /** Step 4: per avatar × awareness, what was tried (concepts since the map start date). */
   coverage: { id: string; code: string; label: string; cells: { awareness: string; total: number; working: number; lost: number; moving: number; planned: number }[] }[];
   log: { when: string; who: string; what: string }[];
@@ -52,6 +56,7 @@ const HELP = [
   "What the agency and the editors do first. Drag a row by ⋮⋮ to move it.",
   "Approved videos not launched yet: tick the ones to launch this week.",
 ];
+const TRACK = ["Task", "Writing", "Review", "Approved", "Shoot", "Editing", "Delivered", "Launched"];
 const SHORT_AW: Record<string, string> = { "Problem-Aware": "Problem", "Solution-Aware": "Solution", "Product-Aware": "Product", "Most-Aware": "Most" };
 
 /** Monday plan: one step at a time on the left, the week's plan on the right (always visible, updates from statuses). */
@@ -61,6 +66,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
   pickers: Pickers;
   order: { items: OrderItem[]; prio: Record<string, Prio>; version: number; now: number };
 }) {
+  const [mode, setMode] = useState<"track" | "plan">(view.locked ? "track" : "plan");
   const [step, setStep] = useState(0);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<PlanResult>({});
@@ -252,7 +258,102 @@ export function PlanWeek({ view, ctx, pickers, order }: {
     { key: "ln", title: "Launches", list: view.items.filter((i) => !i.carry && i.kind === "launch") },
   ];
 
+  const switcher = (
+    <div className="recess wseg" role="group" aria-label="Week plan view" style={{ alignSelf: "flex-start" }}>
+      <button type="button" className={mode === "track" ? "seg-on" : ""} aria-pressed={mode === "track"} onClick={() => setMode("track")}>This week</button>
+      <button type="button" className={mode === "plan" ? "seg-on" : ""} aria-pressed={mode === "plan"} onClick={() => setMode("plan")}>{locked ? "Edit plan" : "Plan"}</button>
+    </div>
+  );
+
+  if (mode === "track") {
+    const tr = view.track;
+    const late = tr.filter((r) => r.late);
+    const live = tr.filter((r) => r.at === 7).length;
+    const createFirst = tr.find((r) => r.prefill);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {switcher}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <span className="pill raise"><b>{tr.length}</b>planned</span>
+          <span className="pill raise"><b>{live}</b>launched</span>
+          <span className="pill raise"><b>{tr.length - live - late.length}</b>moving</span>
+          <span className={`pill ${late.length ? "pill-r" : "raise"}`}><b>{late.length}</b>late</span>
+          {tr.some((r) => r.carry) && <span className="pill raise"><b>{tr.filter((r) => r.carry).length}</b>from last week</span>}
+        </div>
+        {!locked && <div className="notice" style={{ background: "#e4ebfa", color: "#22468f" }}>Not locked yet: this is the plan so far. Lock it in Plan when both of you agree.</div>}
+        {late.length > 0 && (
+          <section className="trk-block" aria-labelledby="h-block">
+            <h2 id="h-block" className="lbl" style={{ margin: 0, color: "var(--red-ink)" }}>Blocking the week · finish these first</h2>
+            {late.map((r) => (
+              <div key={r.id} className="trk-brow">
+                <div style={{ minWidth: 0 }}><div className="plan-name">{r.name}</div><div className="unit">{r.meta}</div></div>
+                <div style={{ fontSize: 13 }}><span className="lbl">Stuck at</span><br /><b>{TRACK[r.at]}</b> · {r.time}</div>
+                <div style={{ fontSize: 13 }}><span className="lbl">Waiting on</span><br /><b><F>{r.who}</F></b> · {r.what}</div>
+                {r.href ? <Link href={r.href} prefetch={false} className="btn b-primary plan-xs">Open</Link> : <span />}
+              </div>
+            ))}
+          </section>
+        )}
+        <div className="tray pipe trk">
+          <div className="pipe-grid pipe-head" aria-hidden="true">
+            <span className="lbl">Planned item</span>
+            <div className="rail">{TRACK.map((s) => <span key={s} className="st">{s}</span>)}</div>
+            <span className="lbl">Waiting on</span>
+            <span className="lbl" style={{ textAlign: "right" }}>Due / late</span>
+          </div>
+          {tr.length === 0 && <div className="info">Nothing planned for this week yet. Open Plan to add double downs, new tests and launches.</div>}
+          {tr.map((r) => {
+            const steps = TRACK.map((_, k) => ((r.kind === "launch" && k < 6) || (k === 4 && r.skipShoot && r.at > 4) ? "skip" : k < r.at ? "done" : k === r.at && r.at < 7 ? (r.late ? "late" : "now") : r.at === 7 ? "done" : "todo"));
+            const body = (
+              <div className="pipe-grid">
+                <div style={{ minWidth: 0 }}>
+                  <div className="pipe-name">
+                    {r.name}
+                    {r.carry && <span className="tag t-orange wk-tag"><i aria-hidden="true" />FROM LAST WEEK</span>}
+                    {r.added && <span className="tag t-violet wk-tag"><i aria-hidden="true" />{r.added}</span>}
+                    {r.hold && <span className="tag t-hold wk-tag"><i aria-hidden="true" />ON HOLD</span>}
+                  </div>
+                  <div className="pipe-meta">{r.meta}</div>
+                  <span className="sr-only">Now: {r.at === 7 ? "launched" : `${TRACK[r.at]}${r.time ? `, ${r.time}` : ""}${r.late ? ", late" : ""}`}.</span>
+                </div>
+                <div className="rail" aria-hidden="true">
+                  {steps.map((s, k) => (s === "now" || s === "late" ? <span key={k} className={s === "late" ? "s-b" : "s-n"}>{r.time || "now"}</span> : <span key={k} className={`s ${s === "done" ? "s-d" : s === "skip" ? "s-k" : ""}`} />))}
+                </div>
+                <div className="rail rail-lbl" aria-hidden="true">{TRACK.map((s) => <span key={s} className="st">{s}</span>)}</div>
+                <div style={{ fontSize: 13 }}>
+                  {r.prefill
+                    ? <button type="button" className="btn b-primary plan-xs" onClick={(e) => { e.preventDefault(); setAll(false); setCreateFor(r.id); }}>Create task</button>
+                    : <><b><F>{r.who}</F></b> · {r.what}</>}
+                </div>
+                <div className={`due ${r.late ? "red" : ""}`}>{r.due}</div>
+              </div>
+            );
+            return r.href
+              ? <Link key={r.id} href={r.href} prefetch={false} className={`row pipe-row ${r.late ? "row-late" : ""}`}>{body}</Link>
+              : <div key={r.id} className={`row pipe-row ${r.late ? "row-late" : ""}`}>{body}</div>;
+          })}
+        </div>
+        <div className="pipe-legend">
+          <span>Black = done</span><span>Outlined = where it is now, time there</span><span>Red = late (same rules as the pipelines)</span><span>Hatched = step not needed (no shoot for AI / 3D and VO; a launch-only video starts at Delivered)</span><span>Click a row → its task or video</span>
+        </div>
+        {createFirst && tr.filter((r) => r.prefill).length > 1 && <button type="button" className="btn b-ghost" style={{ alignSelf: "flex-start" }} onClick={() => { setCreateFor(null); setAll(true); }}>Create all remaining tasks ({tr.filter((r) => r.prefill).length})</button>}
+        {locked && (
+          <section className="card sec" aria-labelledby="h-log">
+            <h2 id="h-log" className="lbl" style={{ margin: 0 }}>Changes since the plan was locked ({view.locked}) · {view.log.length}</h2>
+            {view.log.length === 0 && <div className="unit">No change since the lock.</div>}
+            {view.log.map((l, k) => <div key={k} className="plan-log"><span className="unit">{l.when}</span><b><F>{l.who}</F></b><span>{l.what}</span></div>)}
+          </section>
+        )}
+        {active?.prefill && (
+          <CreateTaskButton key={active.id} autoOpen ctx={ctx} pickers={pickers} prefill={active.prefill} onClose={() => { setCreateFor(null); setAll(false); }} />
+        )}
+      </div>
+    );
+  }
+
   return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    {switcher}
     <div className="plan-grid">
       <section className="card sec" aria-labelledby="h-step">
         <nav className="recess plan-steps" aria-label="Steps">
@@ -361,6 +462,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
           </div>
         </form>
       </Modal>
+    </div>
     </div>
   );
 }

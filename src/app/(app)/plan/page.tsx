@@ -7,6 +7,8 @@ import { getCreateTaskContext, getDetailsLite, getEditRounds, getHookCounts, get
 import { getRule } from "@/lib/needs";
 import { getPlanData } from "@/lib/plan";
 import { buildVideoPipeline } from "@/lib/editing-shared";
+import { buildPipeline } from "@/lib/pipeline-shared";
+import { weekStartIso } from "@/lib/tasks-shared";
 import { waitingToLaunch } from "@/lib/home-shared";
 import { conceptState, LEVEL_SHORT, mapConcepts } from "@/lib/map-shared";
 import { AWARENESS } from "@/lib/proposals-shared";
@@ -24,9 +26,9 @@ export default async function Page() {
   const viewer = await requireTab("home");
   mark("auth");
   const now = requestTime();
-  const [tasks, productions, rounds, details, hooks, pickers, ctx, map, version, plan, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert] = await Promise.all([
+  const [tasks, productions, rounds, details, hooks, pickers, ctx, map, version, plan, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert, detailsDays] = await Promise.all([
     getTasks(), getProductions(), getEditRounds(), getDetailsLite(), getHookCounts(), getPickers(), getCreateTaskContext(), getMapData(), getOrderVersion(), getPlanData(now),
-    getRule("footage_late_days", 2), getRule("edit_not_started_days", 2), getRule("review_waiting_hours", 48), getRule("launch_waiting_days", 2), getRule("revision_round_alert", 3),
+    getRule("footage_late_days", 2), getRule("edit_not_started_days", 2), getRule("review_waiting_hours", 48), getRule("launch_waiting_days", 2), getRule("revision_round_alert", 3), getRule("details_not_filled_days", 1),
   ]);
   mark("data");
   const founder = viewer.role === "founder_1" || viewer.role === "founder_2";
@@ -118,6 +120,39 @@ export default async function Page() {
   // Step 5: production order (same list as Editing → Pipeline).
   const detailMap = new Map(details.map((d) => [d.taskId, d]));
   const videoRows = buildVideoPipeline(tasks, productions, rounds, detailMap, { now, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert, prio: map.prio });
+  // This week's tracking: one rail per item from task to launch. Time on the step, lateness and who it waits on come
+  // from the Scripts and Videos pipelines themselves (same rules, same numbers).
+  const scriptRows = new Map(buildPipeline(tasks.filter((t) => t.origin !== "testimonial"), details, { forFounder: true, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions).rows.map((r) => [r.id, r]));
+  const vRows = new Map(videoRows.map((r) => [r.taskId, r]));
+  const AT: Record<string, number> = { no_task: 0, writing: 1, review: 2, changes: 2, approved: 3, shoot: 4, editing: 5, edit_review: 5, on_hold: 5, to_launch: 6, launched: 7 };
+  const trackOf = (i: PlanItemRow, isCarry: boolean): PlanView["track"][number] | null => {
+    if (i.droppedAt) return null;
+    const st = stageOf(i);
+    if (st.key === "cancelled") return null;
+    const id = i.kind === "launch" ? i.sourceTask : i.taskId;
+    const s = id ? scriptRows.get(id) : undefined;
+    const v = id ? vRows.get(id) : undefined;
+    let at = AT[st.key] ?? 0;
+    if (st.key === "on_hold" && v) at = v.steps.findIndex((x) => x === "now" || x === "late") <= 1 ? 4 : 5;
+    const skipShoot = !!v && v.steps[0] === "skip";
+    const fromVideo = at >= 4 && at < 7;
+    const late = at === 0 ? false : fromVideo ? !!v?.late && !v?.hold : !!s?.late;
+    const it = toItem(i, isCarry);
+    return {
+      id: i.id, name: it.name, meta: it.meta, carry: isCarry, added: it.added, kind: i.kind, at, skipShoot, late,
+      hold: st.key === "on_hold",
+      time: at === 7 ? "" : at === 0 ? "" : fromVideo ? (v?.nowLabel ?? "") : (s?.nowLabel ?? ""),
+      who: at === 0 ? "You" : at === 7 ? "Live" : fromVideo ? (v?.waitingName ?? "") : (s?.waitingOn ?? ""),
+      what: at === 0 ? "create the task" : at === 7 ? "launched" : st.key === "on_hold" ? "on hold" : fromVideo ? (v?.waitingWhat ?? st.word) : (s?.waitingWhat ?? st.word),
+      due: at === 0 || at === 7 ? "" : fromVideo ? (v?.due ?? "") : (s?.due ?? ""),
+      href: at === 0 || !id ? null : fromVideo ? (v?.href ?? null) : `/copywriting?task=${id}#task-view`,
+      prefill: it.prefill,
+    };
+  };
+  const track = [...carry.map((i) => trackOf(i, true)), ...current.map((i) => trackOf(i, false))]
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => Number(b.late) - Number(a.late) || Number(b.carry) - Number(a.carry) || Number(a.at === 7) - Number(b.at === 7));
+
   const order = videoRows.filter((r) => map.prio[r.taskId]).map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }));
 
   // Step 6: approved videos not launched yet.
@@ -149,7 +184,7 @@ export default async function Page() {
     cap: plan.plan?.cap ?? 8,
     locked: plan.plan?.lockedAt ? `${whenLabel(plan.plan.lockedAt)}${plan.plan.lockedBy ? ` by ${plan.plan.lockedBy}` : ""}` : null,
     items: [...carry.map((i) => toItem(i, true)), ...current.map((i) => toItem(i, false))],
-    lastWeek, tests, winners, launches, coverage,
+    lastWeek, tests, winners, launches, coverage, track,
     log: plan.log.map((l) => ({ when: whenLabel(l.at), who: l.by, what: l.what })),
     hasMeta: Object.keys(map.results).length > 0,
     ok: plan.ok,

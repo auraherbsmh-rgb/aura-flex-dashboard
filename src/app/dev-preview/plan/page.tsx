@@ -43,6 +43,12 @@ export default async function Preview({ searchParams }: { searchParams: Promise<
       { id: "a1", code: "FSB", label: "FSB", cells: [{ awareness: "Problem-Aware", total: 4, working: 1, lost: 2, moving: 1, planned: 0 }, { awareness: "Solution-Aware", total: 2, working: 0, lost: 2, moving: 0, planned: 0 }, { awareness: "Product-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }, { awareness: "Most-Aware", total: 3, working: 1, lost: 1, moving: 1, planned: 2 }] },
       { id: "a2", code: "CGS", label: "CGS", cells: [{ awareness: "Problem-Aware", total: 1, working: 0, lost: 0, moving: 1, planned: 0 }, { awareness: "Solution-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 1 }, { awareness: "Product-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }, { awareness: "Most-Aware", total: 0, working: 0, lost: 0, moving: 0, planned: 0 }] },
     ],
+    track: [
+      { id: "t1", name: "Morning stairs", meta: "Double down · FSB × Problem · Copywriter 2", carry: true, added: null, kind: "double_down", at: 2, skipShoot: false, late: true, hold: false, time: "3 d", who: "You", what: "script review", due: "over 48 h", href: "/copywriting", prefill: null },
+      { id: "t2", name: "Mounir · new concept 1", meta: "Double down · FSB × Most · Benefits · UGC", carry: false, added: null, kind: "double_down", at: 0, skipShoot: false, late: false, hold: false, time: "", who: "You", what: "create the task", due: "", href: null, prefill: { planItem: "d1", proposalId: null, avatarId: "a1", awareness: "Most-Aware", angleId: "g1", formatId: "f1", label: "Double down" } },
+      { id: "t3", name: "Ingredients", meta: "New test · BRD × Product · AI / 3D", carry: false, added: "ADDED WED", kind: "new_test", at: 5, skipShoot: true, late: false, hold: false, time: "2 d", who: "Editor A", what: "generating", due: "due Fri", href: "/editing", prefill: null },
+      { id: "t4", name: "Benefits V3", meta: "Launch · FSB × Most · UGC", carry: false, added: null, kind: "launch", at: 7, skipShoot: false, late: false, hold: false, time: "", who: "Live", what: "launched", due: "", href: "/editing", prefill: null },
+    ],
     hasMeta: true, ok: true,
   };
   return (

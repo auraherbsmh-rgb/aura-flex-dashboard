@@ -888,3 +888,11 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .cov-g { color: var(--green-ink); font-weight: 600; }
 .cov-r { color: var(--red-ink); }
 .cov-plan { font: 600 10px var(--mono); color: #22468f; background: #e4ebfa; border-radius: 999px; padding: 3px 7px; }
+/* Week plan · "This week" tracking */
+.trk .pipe-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) 190px 110px; }
+.trk .rail { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.trk .st { font-size: 9px; letter-spacing: 0; }
+@media (max-width: 900px) { .trk .pipe-grid { grid-template-columns: 1fr; } }
+.trk-block { background: linear-gradient(180deg, #fdf1ee, #fbe7e2); border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.trk-brow { display: grid; grid-template-columns: minmax(0, 1fr) 200px 220px auto; gap: 14px; align-items: center; background: #fff; border-radius: 16px; padding: 12px 16px; box-shadow: 0 0 0 1.5px #e3a49a inset; }
+@media (max-width: 760px) { .trk-brow { grid-template-columns: minmax(0, 1fr); } }
