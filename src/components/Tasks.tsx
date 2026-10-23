@@ -18,6 +18,8 @@ export type TaskPrefill = {
   successor?: boolean;
   /** The fading winner this successor replaces (its numbers show in the production order). */
   successorOf?: string;
+  /** From the Monday plan: the plan item this task is created for. */
+  planItem?: string;
   avatarId: string;
   awareness: string;
   angleId: string | null;
@@ -98,6 +100,7 @@ export function CreateTaskButton({
           {prefill?.proposalId && <input type="hidden" name="proposal_id" value={prefill.proposalId} />}
           {prefill?.successor && <input type="hidden" name="successor" value="1" />}
           {prefill?.successorOf && <input type="hidden" name="successor_of" value={prefill.successorOf} />}
+          {prefill?.planItem && <input type="hidden" name="plan_item" value={prefill.planItem} />}
           <div className="row2">
             <label className="field">
               <span className="lbl">Avatar</span>

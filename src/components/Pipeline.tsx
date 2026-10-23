@@ -4,6 +4,8 @@ import { F } from "./FounderNames";
 import Link from "next/link";
 import { useState } from "react";
 import { RAIL, type Pipeline } from "@/lib/pipeline-shared";
+import { PlanFilter, PlanTagChip } from "./PlanTags";
+import type { PlanTag } from "@/lib/plan-shared";
 
 /** Scripts pipeline (artboard "Scripts pipeline"): one row per script in progress, late first. Click a row → its task. */
 /** Opens a script on the Board without a page load: the Board follows ?task in the address. */
@@ -27,9 +29,11 @@ function openOnBoard(e: React.MouseEvent, id: string, copywriterId: string) {
   requestAnimationFrame(scroll);
 }
 
-export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }: { data: Pipeline; writers: [string, string][]; forFounder: boolean; initialCw?: string | null }) {
+export function ScriptsPipeline({ data, writers, forFounder, initialCw = null, plan = {} }: { data: Pipeline; writers: [string, string][]; forFounder: boolean; initialCw?: string | null; plan?: Record<string, PlanTag> }) {
   const [cw, setCw] = useState<string | null>(initialCw);
-  const rows = cw ? data.rows.filter((r) => r.copywriterId === cw) : data.rows;
+  const [planOnly, setPlanOnly] = useState(false);
+  const byWriter = cw ? data.rows.filter((r) => r.copywriterId === cw) : data.rows;
+  const rows = planOnly ? byWriter.filter((r) => plan[r.id]) : byWriter;
   const handed = cw ? data.handed.filter((h) => h.copywriterId === cw) : data.handed;
   const late = rows.filter((r) => r.late).length;
   const onYou = rows.filter((r) => r.onFounder).length;
@@ -47,7 +51,8 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        {forFounder && <PlanFilter on={planOnly} set={setPlanOnly} count={byWriter.filter((r) => plan[r.id]).length} />}
         <span className="pill raise"><b>{rows.length}</b>script{rows.length === 1 ? "" : "s"}</span>
         <span className={`pill ${late ? "pill-r" : "raise"}`}><b>{late}</b>late</span>
         {forFounder && <span className="pill raise"><b>{onYou}</b>waiting on you</span>}
@@ -65,7 +70,7 @@ export function ScriptsPipeline({ data, writers, forFounder, initialCw = null }:
           <Link key={r.id} href={`/copywriting?task=${r.id}#task-view`} prefetch={false} onClick={(e) => openOnBoard(e, r.id, r.copywriterId)} className={`row pipe-row ${r.late ? "row-late" : ""}`}>
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
-                <div className="pipe-name">{r.name}</div>
+                <div className="pipe-name">{r.name}<PlanTagChip tag={plan[r.id]} /></div>
                 <div className="pipe-meta">{r.meta}</div>
               </div>
               <span className="sr-only">

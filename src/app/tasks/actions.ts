@@ -90,6 +90,12 @@ export async function createTask(_prev: TaskState, form: FormData): Promise<Task
     const mark = await supabase.rpc("mark_successor2", { p_task: newId as string, p_of: /^[0-9a-f-]{36}$/i.test(of) ? of : null });
     if (mark.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be marked as a successor."); }
   }
+  // Created from the Monday plan: the plan item follows this task from now on.
+  const planItem = String(form.get("plan_item") ?? "");
+  if (planItem && newId && /^[0-9a-f-]{36}$/i.test(planItem)) {
+    const link = await supabase.rpc("plan_link_task", { p_item: planItem, p_task: newId as string });
+    if (link.error) { revalidatePath("/", "layout"); return done("Task created, but it could not be linked to the week plan."); }
+  }
   revalidatePath("/", "layout");
   return done("Task created. It is in the copywriter’s list now.");
 }

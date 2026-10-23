@@ -38,6 +38,9 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [said, setSaid] = useState("");
   const [pending, setPending] = useState(false);
+  // Drag a row to its new place (desktop); ↑ / ↓ stay for phones and the keyboard.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   // Keyboard: after a move, focus returns to the same arrow on the moved row.
   const refocus = useRef<string | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -85,6 +88,15 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
     refocus.current = `${next[j]}:${which}`;
     save(next, `${nameOf(next[j])} moved to #${j + 1}.`);
   };
+  const dropOn = (target: string) => {
+    const from = dragId;
+    setDragId(null);
+    setOverId(null);
+    if (pending || !from || from === target) return;
+    const next = order.filter((x) => x !== from);
+    next.splice(order.indexOf(target), 0, from);
+    save(next, `${nameOf(from)} moved to #${next.indexOf(from) + 1}.`);
+  };
   const suggested = [...order].sort((a, b) => prio[a].sug - prio[b].sug);
   const sugPos = new Map(suggested.map((id, i) => [id, i + 1]));
   const moved = movedCount(order, prio);
@@ -94,7 +106,7 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h2 id="h-order" style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Production order</h2>
-          <div className="unit">The order the agency, the editors and the copywriters see. Click a script to see why it is suggested there.</div>
+          <div className="unit">The order the agency, the editors and the copywriters see. Drag a script to move it (or ↑ ↓). Click it to see why it is suggested there.</div>
         </div>
         <button type="button" className="btn b-ghost" aria-disabled={pending || moved === 0} onClick={() => { if (!pending && moved > 0) save(suggested, "Suggested order applied."); }}>✓ Use suggested order</button>
       </div>
@@ -111,7 +123,15 @@ function OrderPanel({ items, prio, version, now }: { items: OrderItem[]; prio: R
           const why = open === id ? orderWhy(p, now) : null;
           const name = it?.name ?? "Script";
           return (
-            <li key={id} className="order-row">
+            <li
+              key={id}
+              className={`order-row ${dragId === id ? "is-drag" : ""} ${overId === id && dragId !== id ? "is-over" : ""}`}
+              draggable={!pending}
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); setDragId(id); }}
+              onDragOver={(e) => { if (dragId) { e.preventDefault(); if (overId !== id) setOverId(id); } }}
+              onDrop={(e) => { e.preventDefault(); dropOn(id); }}
+              onDragEnd={() => { setDragId(null); setOverId(null); }}
+            >
               <div className="order-grid">
                 <span className="order-n">#{i + 1}</span>
                 <button type="button" className="order-name" onClick={() => setOpen(open === id ? null : id)} aria-expanded={open === id}>

@@ -13,6 +13,9 @@ import { buildNeeds, getRule, mergeNeeds } from "@/lib/needs";
 import { getLiveData } from "@/lib/meta/live-data";
 import { getMapData } from "@/lib/tasks";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { getPlanData } from "@/lib/plan";
+import { carried, dayLabel, itemStage, whenLabel } from "@/lib/plan-shared";
 import { buildVideoPipeline } from "@/lib/editing-shared";
 import { buildBlocked, pace, scriptsApprovedThisWeek, speedSplit, successorNeeds, videosApprovedThisWeek, waitingToLaunch, winnersToNote, winRate } from "@/lib/home-shared";
 
@@ -59,11 +62,13 @@ export default async function Page() {
   mark("data 3");
   // Live ads (daily Meta pull): KILL and UNMAPPED items. Empty until Meta is connected.
   const mapP = getMapData();
-  const [editors, live, formats, map] = await Promise.all([
+  const planP = getPlanData(now);
+  const [editors, live, formats, map, plan] = await Promise.all([
     getEditors(productions, tasks),
     getLiveData(now, mapP),
     supabase.from("list_items").select("id, code, label").eq("list", "format").eq("status", "approved").order("sort"),
     mapP,
+    planP,
   ]);
   mark("data 4");
   // Meta results (concept_results): WINNER and ALERT items and Founder 1's two Meta numbers.
@@ -99,6 +104,25 @@ export default async function Page() {
   const faces = new Map(details.map((d) => [d.taskId, d.face ?? ""]).filter(([, f]) => f) as [string, string][]);
   const videoRows = buildVideoPipeline(tasks, productions, editRounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays, reviewHours, launchLateDays, roundAlert, prio: map.prio });
   const clock = tunisClock(now);
+  // Monday plan: a banner until this week's plan is locked, then one line (founders; RLS hides it from anyone else).
+  const byTask = new Map(tasks.map((t) => [t.id, t]));
+  const planCarry = carried(plan.items, plan.week, (i) => itemStage(i, byTask, productions, editRounds)).length;
+  const planNow = plan.items.filter((i) => i.weekStart === plan.week && !i.droppedAt).length;
+  const planBlock = !plan.ok ? null : plan.plan?.lockedAt ? (
+    <Link href="/plan" className="card plan-banner" style={{ textDecoration: "none", color: "inherit" }}>
+      <span><b>This week&apos;s plan</b> <span className="sub">· locked {whenLabel(plan.plan.lockedAt)} · {planNow} item{planNow === 1 ? "" : "s"}{planCarry ? ` · ${planCarry} from last week` : ""}</span></span>
+      <span className="sub">Open →</span>
+    </Link>
+  ) : (
+    <div className="card plan-banner" style={{ borderColor: "rgba(53,97,196,.25)" }}>
+      <div>
+        <div className="lbl">Week of {dayLabel(plan.week)} · both founders</div>
+        <div style={{ fontSize: 20, fontWeight: 600, marginTop: 6 }}>This week isn&apos;t planned yet</div>
+        <div className="sub" style={{ marginTop: 4 }}>{planCarry ? `${planCarry} item${planCarry === 1 ? "" : "s"} not finished last week. ` : ""}Review last week, then plan this one.</div>
+      </div>
+      <Link href="/plan" className="btn b-primary">Plan the week →</Link>
+    </div>
+  );
 
   mark("computed");
   return (
@@ -107,6 +131,7 @@ export default async function Page() {
       title="Home"
       hero={<HomeHero {...clock} name={viewer.name} total={total} late={late} oldest={late ? oldest : null} />}
     >
+      {planBlock}
       <FounderNumbers
         initial={viewer.role === "founder_2" ? "f2" : "f1"}
         f1={{

@@ -11,6 +11,7 @@ import {
 } from "@/lib/tasks";
 import type { ProdCard, Production } from "@/lib/tasks-shared";
 import type { TestimonialVideo } from "@/components/TestimonialsList";
+import { getPlanTags } from "@/lib/plan";
 import { buildQueue, buildVideoPipeline, editState, editorStats, type EditCard, type EditorStats } from "@/lib/editing-shared";
 
 export const metadata = { title: "Editing · Aura Flex" };
@@ -117,6 +118,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   }
 
   // Rows not with an editor yet open Footage received / Assign right in the pipeline.
+  const planTags = founder ? await getPlanTags(now, tasks, productions, rounds) : {};
   const pipelineRows = founder ? buildVideoPipeline(tasks, productions, rounds, new Map(details.map((d) => [d.taskId, d])), { now, footageLateDays, assignLateDays: notStartedDays, reviewHours, launchLateDays, roundAlert, prio: prio ?? {} }) : undefined;
   const pipeCards: Record<string, ProdCard> = {};
   const pipeCurrent: Record<string, Production> = {};
@@ -175,6 +177,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         prio={prio}
         orderVersion={orderVersion}
         now={now}
+        plan={planTags}
       />
     </TabPage>
   );

@@ -1,0 +1,10 @@
+-- 034 · Monday plan (founder decision Oct 23). RECORD of live migrations "week_plan" and "week_plan_functions".
+-- public.week_plans: one row per week (week_start = Monday, Tunisia), cap (scripts this week), locked_at/by.
+-- public.week_plan_items: kind double_down (source_task = the winner) | new_test (avatar + awareness) | launch
+--   (source_task = an approved video not launched); task_id = the copywriting task created from it; added_after_lock;
+--   removed_at (× before the lock — soft, DELETE is avoided); dropped_at/by + drop_reason (Drop, with Undo).
+-- public.week_plan_log: who did what after the lock (locking, adds, drops, put-backs).
+-- RLS: founders read; no direct writes. RPCs (security definer, founders only): plan_add_item, plan_remove_item,
+--   plan_drop_item(item, drop, reason, log_week), plan_set_cap, plan_lock, plan_link_task, plan_note.
+-- Carry-over is computed, not copied: an item of an earlier week that is not launched, dropped or cancelled shows
+--   as "From last week" until it is launched or dropped.

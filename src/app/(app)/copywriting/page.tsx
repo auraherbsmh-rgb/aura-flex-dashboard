@@ -14,6 +14,7 @@ import { CopyViews } from "@/components/CopyViews";
 import { Library } from "@/components/Library";
 import { buildLibrary } from "@/lib/library-shared";
 import { ScriptsPipeline } from "@/components/Pipeline";
+import { getPlanTags } from "@/lib/plan";
 import { Scorecard } from "@/components/Scorecard";
 import { buildScorecard } from "@/lib/scorecard-shared";
 
@@ -65,6 +66,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const urgent = [...tasks].sort((a, b) => line(a) - line(b) || prioPos(mapData.prio[a.id]) - prioPos(mapData.prio[b.id]) || a.dueOn.localeCompare(b.dueOn))[0];
   const selected = tasks.find((t) => t.id === sp.task) ?? urgent ?? null;
   const library = buildLibrary(everyTask, Object.fromEntries(extras.details), Object.fromEntries(productions), editRounds, now, mapData.results);
+  const planTags = founder ? await getPlanTags(now, everyTask, productions, editRounds) : {};
   const pipeline = buildPipeline(allTasks, detailsLite, { forFounder: founder, reviewHours, detailsDays, weekStart: weekStartIso(new Date(now)), now }, productions);
 
   // Scorecards: the copywriter's own; founders get one per copywriter (shown when that copywriter is picked).
@@ -85,7 +87,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         scorecards={scorecards}
         selfId={founder ? null : viewer.personId}
         writerNames={Object.fromEntries(writers)}
-        pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} />}
+        pipeline={<ScriptsPipeline data={pipeline} writers={writers} forFounder={founder} initialCw={cw} plan={planTags} />}
         library={
           <Library
             rows={library}

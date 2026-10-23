@@ -10,6 +10,7 @@ import { ProductionOrder } from "./ProductionOrder";
 import { reviewEdit, startEdit, submitEdit } from "@/app/tasks/actions";
 import { EDIT_STEPS, EDIT_TAG, editStepNow, type EditRound, type EditState, type EditorStats, type QueueItem, type VideoRow } from "@/lib/editing-shared";
 import { VideosPipeline } from "./VideosPipeline";
+import type { PlanTag } from "@/lib/plan-shared";
 import { TestimonialsList, type TestimonialVideo } from "./TestimonialsList";
 import type { Pickers } from "@/lib/proposals-shared";
 import { fmtDay, fmtWhen, isLink, type EditorLoad, type LaunchNames, type Prio, type ProdCard, type Production, type TestimonialRow } from "@/lib/tasks-shared";
@@ -68,7 +69,10 @@ export function EditBoard({
   prio,
   orderVersion = 0,
   now = 0,
+  plan = {},
 }: {
+  /** Monday plan tags for the Videos pipeline. */
+  plan?: Record<string, PlanTag>;
   orderVersion?: number;
   /** Production order (founders' panel above the Videos pipeline). */
   prio?: Record<string, Prio> | null;
@@ -137,7 +141,7 @@ export function EditBoard({
         <ProductionOrder items={pipelineRows.map((r) => ({ taskId: r.taskId, name: r.name, meta: r.meta, late: r.late }))} prio={prio} version={orderVersion} now={now} />
       )}
       {view === "pipeline" && pipelineRows && (
-        <VideosPipeline rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onTestimonials={testimonials ? () => setView("testimonials") : undefined} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
+        <VideosPipeline plan={plan} rows={pipelineRows} editors={editors} ed={ed} pick={pick} cards={pipeCards} current={pipeCurrent} editorLoads={editorLoads} onTestimonials={testimonials ? () => setView("testimonials") : undefined} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />
       )}
       {view === "testimonials" && testimonials && (
         <TestimonialsList rows={testimonials.rows} videos={testimonials.videos} pickers={testimonials.pickers} editors={editorLoads} onOpen={(id) => { setView("queue"); if (ed && !items.some((i) => i.taskId === id && i.editorId === ed)) pick(null); open(id); }} />

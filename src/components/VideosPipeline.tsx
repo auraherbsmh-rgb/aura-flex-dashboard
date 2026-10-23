@@ -6,6 +6,8 @@ import { useState } from "react";
 import { VRAIL, type VideoRow } from "@/lib/editing-shared";
 import type { EditorLoad, ProdCard, Production } from "@/lib/tasks-shared";
 import { AssignButton, FootageButton } from "./Production";
+import { PlanFilter, PlanTagChip } from "./PlanTags";
+import type { PlanTag } from "@/lib/plan-shared";
 
 /** Videos pipeline (Founder 2): one row per video in production, late first. Click a row → its task. */
 export function VideosPipeline({
@@ -18,7 +20,10 @@ export function VideosPipeline({
   current = {},
   editorLoads = [],
   onTestimonials,
+  plan = {},
 }: {
+  /** Monday plan tags (taskId → this week / from last week). */
+  plan?: Record<string, PlanTag>;
   rows: VideoRow[];
   /** For rows not with an editor yet: what the Footage received / Assign pop-ups show. */
   cards?: Record<string, ProdCard>;
@@ -36,7 +41,9 @@ export function VideosPipeline({
   const setEd = pick;
   const [act, setAct] = useState<{ id: string; kind: "footage" | "assign" } | null>(null);
   const [msg, setMsg] = useState("");
-  const shown = ed ? rows.filter((r) => r.editorId === ed) : rows;
+  const [planOnly, setPlanOnly] = useState(false);
+  const byEditor = ed ? rows.filter((r) => r.editorId === ed) : rows;
+  const shown = planOnly ? byEditor.filter((r) => plan[r.taskId]) : byEditor;
   const moving = shown.filter((r) => !r.hold);
   const late = moving.filter((r) => r.late).length;
   const onYou = moving.filter((r) => r.waitingOn === "You").length;
@@ -54,7 +61,8 @@ export function VideosPipeline({
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <PlanFilter on={planOnly} set={setPlanOnly} count={byEditor.filter((r) => plan[r.taskId]).length} />
         <span className="pill raise"><b>{shown.length}</b>video{shown.length === 1 ? "" : "s"}</span>
         <span className={`pill ${late ? "pill-r" : "raise"}`}><b>{late}</b>late</span>
         <span className="pill raise"><b>{onYou}</b>waiting on you</span>
@@ -93,7 +101,7 @@ export function VideosPipeline({
           >
             <div className="pipe-grid">
               <div style={{ minWidth: 0 }}>
-                <div className="pipe-name">{r.name}{r.hold && <> <span className="tag t-hold" style={{ verticalAlign: "middle", marginLeft: 6 }}><i aria-hidden="true" />ON HOLD</span></>}</div>
+                <div className="pipe-name">{r.name}<PlanTagChip tag={plan[r.taskId]} />{r.hold && <> <span className="tag t-hold" style={{ verticalAlign: "middle", marginLeft: 6 }}><i aria-hidden="true" />ON HOLD</span></>}</div>
                 <div className="pipe-meta">{r.meta}</div>
                 {r.hold?.reason && <div className="pipe-meta">On hold: {r.hold.reason}</div>}
                 <div className="pipe-meta">{r.origin}</div>
