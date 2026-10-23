@@ -7,3 +7,9 @@ export function LinkPending({ idle, busy = "Opening…" }: { idle: React.ReactNo
   const { pending } = useLinkStatus();
   return <span aria-live="polite">{pending ? busy : idle}</span>;
 }
+
+/** Inside a row <Link>: an "Opening…" chip over the row the instant it is clicked. */
+export function RowPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span className="row-opening" role="status">Opening…</span> : null;
+}

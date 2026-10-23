@@ -4,6 +4,7 @@ import Link from "next/link";
 import { startTransition, useState } from "react";
 import { Modal } from "./Modal";
 import { F } from "./FounderNames";
+import { LinkPending, RowPending } from "./LinkPending";
 import { CreateTaskButton, type TaskPrefill } from "./Tasks";
 import { ProductionOrder, type OrderItem } from "./ProductionOrder";
 import { addPlanItem, dropPlanItem, lockPlan, removePlanItem, setPlanCap, type PlanResult } from "@/app/plan/actions";
@@ -289,7 +290,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
                 <div style={{ minWidth: 0 }}><div className="plan-name">{r.name}</div><div className="unit">{r.meta}</div></div>
                 <div style={{ fontSize: 13 }}><span className="lbl">Stuck at</span><br /><b>{TRACK[r.at]}</b> · {r.time}</div>
                 <div style={{ fontSize: 13 }}><span className="lbl">Waiting on</span><br /><b><F>{r.who}</F></b> · {r.what}</div>
-                {r.href ? <Link href={r.href} prefetch={false} className="btn b-primary plan-xs">Open</Link> : <span />}
+                {r.href ? <Link href={r.href} className="btn b-primary plan-xs"><LinkPending idle="Open" busy="Opening…" /></Link> : <span />}
               </div>
             ))}
           </section>
@@ -329,7 +330,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
               </div>
             );
             return r.href
-              ? <Link key={r.id} href={r.href} prefetch={false} className={`row pipe-row ${r.late ? "row-late" : ""}`}>{body}</Link>
+              ? <Link key={r.id} href={r.href} className={`row pipe-row ${r.late ? "row-late" : ""}`}>{body}<RowPending /></Link>
               : <div key={r.id} className={`row pipe-row ${r.late ? "row-late" : ""}`}>{body}</div>;
           })}
         </div>
