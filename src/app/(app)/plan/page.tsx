@@ -138,7 +138,7 @@ export default async function Page() {
     if (at >= 4 && at < 7 && vi >= 0) at = vi <= 1 ? 4 : vi <= 3 ? 5 : 6;
     if (i.kind === "launch" && at < 7) at = 6; // a launch-only item is always at Delivered until it is live
     // AI / 3D has no shoot at all; a VO's recording stands in the Shoot place until it is in.
-    const skipShoot = !!v && v.steps[0] === "skip" && (v.steps[1] === "skip" || at > 4);
+    const skipShoot = v ? v.steps[0] === "skip" && (v.steps[1] === "skip" || at > 4) : !!(id && (detailMap.get(id)?.generate || detailMap.get(id)?.vo)); // launched: no video row
     const fromVideo = at >= 4 && at < 7;
     const late = at === 0 ? false : fromVideo ? !!v?.late && !v?.hold : !!s?.late;
     const it = toItem(i, isCarry);
