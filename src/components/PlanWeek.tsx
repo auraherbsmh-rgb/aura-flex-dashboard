@@ -64,7 +64,7 @@ export function PlanWeek({ view, ctx, pickers, order }: {
   const locked = !!view.locked;
   const live = view.items.filter((i) => !i.dropped);
   // Scripts this week = new ones planned + carried ones not finished (both load the copywriters).
-  const scripts = live.filter((i) => i.kind !== "launch" && !i.closed).length;
+  const scripts = live.filter((i) => i.kind !== "launch" && (!i.carry || !i.closed)).length;
   const remaining = view.items.filter((i) => i.prefill);
   const active = all ? remaining[0] : remaining.find((i) => i.id === createFor);
 
